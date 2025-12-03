@@ -3,30 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stratos Register</title>
-<link rel="stylesheet" href="auth.css">
+<title>Register - Stratos</title>
+<style>
+  body { margin:0; font-family:Arial,sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#FAFAFA;}
+  .register-container { background:#fff; padding:24px; border-radius:12px; display:flex; flex-direction:column; gap:12px; width:320px;}
+  .register-container input { padding:8px; border-radius:8px; border:1px solid #E0E0E0; width:100%; box-sizing:border-box;}
+  .register-container button { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; font-size:16px; color:#fff; background:#1DA1F2;}
+  .register-container button:hover{ background:#1A91DA; }
+  .switch-link { color:#1DA1F2; cursor:pointer; text-decoration:underline; font-size:14px; text-align:center; }
+</style>
 </head>
 <body>
+  <div class="register-container">
+    <h2>Register</h2>
+    <input type="email" id="reg-email" placeholder="Email">
+    <input type="password" id="reg-password" placeholder="Password">
+    <button id="register-btn">Register</button>
+    <span class="switch-link" id="to-login">Go to Login</span>
+  </div>
 
-<div class="modal">
-  <h2>Register</h2>
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password">
-  <button id="register-btn">Register</button>
-  <span class="switch-mode" id="go-login">Go to Login</span>
-</div>
+  <script>
+    document.getElementById('to-login').addEventListener('click', () => {
+      window.location.href = 'login.html';
+    });
 
-<script>
-document.getElementById('go-login').addEventListener('click', () => {
-  window.location.href = 'login.html';
-});
-
-document.getElementById('register-btn').addEventListener('click', () => {
-  // 模拟注册成功
-  alert("Registration successful!");
-  window.location.href = 'login.html';
-});
-</script>
-
+    document.getElementById('register-btn').addEventListener('click', () => {
+      const email = document.getElementById('reg-email').value;
+      if(!email){ alert('Please enter email'); return; }
+      // 模拟注册成功
+      localStorage.setItem('loggedInUser', email);
+      window.location.href = 'index.html';
+    });
+  </script>
 </body>
 </html>
