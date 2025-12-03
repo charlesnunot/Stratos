@@ -33,8 +33,9 @@
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
+    // Supabase 配置
     const supabaseUrl = "https://zquslphbmowkgrdlygza.supabase.co";
-    const supabaseAnonKey = "sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu"; 
+    const supabaseAnonKey = "sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu";
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const togglePassword = document.getElementById('toggle-password');
@@ -69,16 +70,26 @@
         return;
       }
 
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      try {
+        // 使用 Supabase Auth 注册用户
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password
+        });
 
-      if (error) {
-        messageDiv.textContent = error.message;
-        return;
+        if (error) {
+          messageDiv.textContent = error.message;
+          return;
+        }
+
+        messageDiv.style.color = "green";
+        messageDiv.textContent = "Registration successful! Please check your email to verify.";
+        setTimeout(() => window.location.href = "login.html", 2000);
+
+      } catch (err) {
+        console.error(err);
+        messageDiv.textContent = "Unknown error occurred.";
       }
-
-      messageDiv.style.color = "green";
-      messageDiv.textContent = "Registration successful! Please check your email to verify.";
-      setTimeout(() => window.location.href = "login.html", 2000);
     });
   </script>
 </body>
