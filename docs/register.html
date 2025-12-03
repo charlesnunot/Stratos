@@ -8,31 +8,94 @@
   body { margin:0; font-family:Arial,sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#FAFAFA;}
   .register-container { background:#fff; padding:24px; border-radius:12px; display:flex; flex-direction:column; gap:12px; width:320px;}
   .register-container input { padding:8px; border-radius:8px; border:1px solid #E0E0E0; width:100%; box-sizing:border-box;}
+  .password-wrapper { position: relative; display: flex; align-items: center; }
+  .password-wrapper input { flex: 1; }
+  .toggle-password { position: absolute; right: 10px; cursor: pointer; color:#888; user-select:none; }
   .register-container button { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; font-size:16px; color:#fff; background:#1DA1F2;}
   .register-container button:hover{ background:#1A91DA; }
   .switch-link { color:#1DA1F2; cursor:pointer; text-decoration:underline; font-size:14px; text-align:center; }
+  .message { text-align:center; color:red; font-size:14px; margin-bottom:8px; }
 </style>
 </head>
 <body>
   <div class="register-container">
     <h2>Register</h2>
     <input type="email" id="reg-email" placeholder="Email">
-    <input type="password" id="reg-password" placeholder="Password">
+    <div class="password-wrapper">
+      <input type="password" id="reg-password" placeholder="Password">
+      <span class="toggle-password" id="toggle-password">Show</span>
+    </div>
+    <div class="message" id="message"></div>
     <button id="register-btn">Register</button>
     <span class="switch-link" id="to-login">Go to Login</span>
   </div>
 
   <script>
+    const togglePassword = document.getElementById('toggle-password');
+    const passwordInput = document.getElementById('reg-password');
+    const messageDiv = document.getElementById('message');
+
+    togglePassword.addEventListener('click', () => {
+      if(passwordInput.type === 'password'){
+        passwordInput.type = 'text';
+        togglePassword.textContent = 'Hide';
+      } else {
+        passwordInput.type = 'password';
+        togglePassword.textContent = 'Show';
+      }
+    });
+
     document.getElementById('to-login').addEventListener('click', () => {
       window.location.href = 'login.html';
     });
 
-    document.getElementById('register-btn').addEventListener('click', () => {
-      const email = document.getElementById('reg-email').value;
-      if(!email){ alert('Please enter email'); return; }
-      // 模拟注册成功
-      localStorage.setItem('loggedInUser', email);
-      window.location.href = 'index.html';
+    // 前端验证函数
+    function validateRegister(email, password) {
+      if (!email) return { valid: false, message: 'Please enter email' };
+      if (!/^\S+@\S+\.\S+$/.test(email)) return { valid: false, message: 'Invalid email format' };
+      if (!password) return { valid: false, message: 'Please enter password' };
+      if (password.length < 6) return { valid: false, message: 'Password must be at least 6 characters' };
+      return { valid: true };
+    }
+
+    async function register(email, password){
+      try {
+        const res = await fetch("https://zquslphbmowkgrdlygza.functions.supabase.co/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const json = await res.json();
+
+        if (!res.ok) {
+          messageDiv.textContent = json.error || 'Registration failed';
+          return null;
+        }
+
+        messageDiv.style.color = 'green';
+        messageDiv.textContent = 'Registration successful! Please check your email to verify.';
+        setTimeout(() => window.location.href = 'login.html', 2000);
+        return json.user;
+      } catch (err) {
+        console.error(err);
+        messageDiv.textContent = 'Unknown error, please try again';
+        return null;
+      }
+    }
+
+    document.getElementById('register-btn').addEventListener('click', async () => {
+      const email = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value.trim();
+      messageDiv.style.color = 'red';
+
+      const validation = validateRegister(email, password);
+      if (!validation.valid) {
+        messageDiv.textContent = validation.message;
+        return;
+      }
+
+      await register(email, password);
     });
   </script>
 </body>
