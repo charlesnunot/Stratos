@@ -62,12 +62,13 @@
       try {
         const res = await fetch("https://zquslphbmowkgrdlygza.functions.supabase.co/users", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": "sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu", // 前端公开 key
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
+        const json = await res.json();
+        if (!res.ok) {
+          console.error(json.error);
+        }
 
 
         const json = await res.json();
