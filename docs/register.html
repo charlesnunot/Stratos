@@ -58,7 +58,7 @@
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            "apikey": "sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu" 
+            "Authorization": `Bearer ${access_token}`
           },
           
           body: JSON.stringify({ email, password }),
