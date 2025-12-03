@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stratos Register</title>
+<link rel="stylesheet" href="auth.css">
+</head>
+<body>
+
+<div class="modal">
+  <h2>Register</h2>
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <button id="register-btn">Register</button>
+  <span class="switch-mode" id="go-login">Go to Login</span>
+</div>
+
+<script>
+document.getElementById('go-login').addEventListener('click', () => {
+  window.location.href = 'login.html';
+});
+
+document.getElementById('register-btn').addEventListener('click', () => {
+  // 模拟注册成功
+  alert("Registration successful!");
+  window.location.href = 'login.html';
+});
+</script>
+
+</body>
+</html>
