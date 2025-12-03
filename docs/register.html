@@ -31,11 +31,12 @@
   </div>
 
   <script type="module">
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    // Supabase 配置
+    // 替换为你的 Supabase 项目 URL 和匿名 key
     const supabaseUrl = "https://zquslphbmowkgrdlygza.supabase.co";
     const supabaseAnonKey = "sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu";
+
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const togglePassword = document.getElementById('toggle-password');
@@ -70,26 +71,20 @@
         return;
       }
 
-      try {
-        // 使用 Supabase Auth 注册用户
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password
-        });
+      // 调用 Supabase Auth 注册用户
+      const { data, error } = await supabase.auth.signUp({
+        email: email,
+        password: password
+      });
 
-        if (error) {
-          messageDiv.textContent = error.message;
-          return;
-        }
-
-        messageDiv.style.color = "green";
-        messageDiv.textContent = "Registration successful! Please check your email to verify.";
-        setTimeout(() => window.location.href = "login.html", 2000);
-
-      } catch (err) {
-        console.error(err);
-        messageDiv.textContent = "Unknown error occurred.";
+      if (error) {
+        messageDiv.textContent = error.message;
+        return;
       }
+
+      messageDiv.style.color = "green";
+      messageDiv.textContent = "Registration successful! Please check your email to verify.";
+      setTimeout(() => window.location.href = "login.html", 2000);
     });
   </script>
 </body>
