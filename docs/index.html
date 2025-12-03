@@ -4,220 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stratos Web Homepage</title>
-
 <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
-
-<style>
-  :root {
-    --primary-color: #1DA1F2;
-    --background-color: #FAFAFA;
-    --text-color: #111111;
-    --card-bg: #FFFFFF;
-    --border-color: #E0E0E0;
-  }
-
-  body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    display: flex;
-    height: 100vh;
-    background-color: var(--background-color);
-    color: var(--text-color);
-    overflow: hidden;
-  }
-
-  /* Sidebar */
-  .sidebar {
-    flex: 1;
-    max-width: 16.66%;
-    background-color: var(--background-color);
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 20px;
-    border-right: 1px solid var(--border-color);
-  }
-
-  .sidebar .brand {
-    font-size: 24px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    color: var(--primary-color);
-  }
-
-  .sidebar button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    background: none;
-    border: none;
-    color: var(--text-color);
-    margin: 8px 0;
-    cursor: pointer;
-    font-size: 16px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    transition: background 0.2s, color 0.2s;
-  }
-
-  .sidebar button:hover {
-    background-color: var(--primary-color);
-    color: #fff;
-  }
-
-  /* Center content */
-  .center-container {
-    flex: 4;
-    max-width: 66.66%;
-    display: flex;
-    justify-content: center;
-    background-color: var(--background-color);
-    padding: 20px;
-    overflow-y: auto;
-  }
-
-  .main-content {
-    width: 50%; /* only half width */
-  }
-
-  .post {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  }
-
-  /* Right panel */
-  .right-panel {
-    flex: 1;
-    max-width: 16.66%;
-    background-color: var(--background-color);
-    color: var(--text-color);
-    border-left: 1px solid var(--border-color);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    overflow-y: auto;
-  }
-
-  /* App download section */
-  .app-download {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .app-download button {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    font-size: 14px;
-    color: #fff;
-    background-color: var(--primary-color);
-    transition: background 0.2s;
-  }
-
-  .app-download button:hover {
-    background-color: #1A91DA;
-  }
-
-  /* User info & notifications */
-  .right-panel .user-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .right-panel .user-info img {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-  }
-
-  .right-panel .notifications {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  /* Modal for login/register */
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right:0;
-    bottom:0;
-    background-color: rgba(0,0,0,0.5);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-
-  .modal {
-    background-color: var(--card-bg);
-    padding: 24px;
-    border-radius: 12px;
-    width: 320px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    text-align: center;
-  }
-
-  .modal input {
-    padding: 8px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .modal button {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    color: #fff;
-    background-color: var(--primary-color);
-    transition: background 0.2s;
-  }
-
-  .modal button:hover {
-    background-color: #1A91DA;
-  }
-
-  .switch-mode {
-    color: var(--primary-color);
-    cursor: pointer;
-    text-decoration: underline;
-    font-size: 14px;
-  }
-
-  @media (max-width: 768px) {
-    .sidebar { max-width: 60px; }
-    .sidebar .brand, .sidebar button span { display: none; }
-    .right-panel { display: none; }
-    .main-content { width: 100%; }
-  }
-</style>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -242,78 +31,24 @@
   </div>
 
   <!-- Right panel -->
-  <div class="right-panel" id="right-panel">
-
-    <!-- App Download always visible -->
+  <div class="right-panel">
     <div class="app-download">
       <h3>Download Stratos App</h3>
       <button>iOS</button>
       <button>Android</button>
     </div>
 
-    <!-- User info / notifications -->
-    <div id="user-info" style="display:none;">
-      <div class="user-info">
-        <img src="https://via.placeholder.com/60" alt="User Avatar">
-        <span id="username">Username</span>
-      </div>
-      <div class="notifications">
-        <p>New message: User C commented on your post</p>
-        <p>Friend online: User D</p>
-        <p>System notification: Event starting soon</p>
-      </div>
+    <div class="user-info">
+      <img src="https://via.placeholder.com/60" alt="User Avatar">
+      <span id="username">Username</span>
     </div>
 
-  </div>
-
-  <!-- Modal login/register -->
-  <div class="modal-overlay" id="auth-modal">
-    <div class="modal">
-      <h2 id="modal-title">Login</h2>
-      <input type="email" placeholder="Email">
-      <input type="password" placeholder="Password">
-      <button id="auth-btn">Login</button>
-      <span class="switch-mode" id="switch-mode">Switch to Register</span>
+    <div class="notifications">
+      <p>New message: User C commented on your post</p>
+      <p>Friend online: User D</p>
+      <p>System notification: Event starting soon</p>
     </div>
   </div>
-
-  <script>
-    // Simulate login status
-    let isLoggedIn = false;
-
-    const authModal = document.getElementById('auth-modal');
-    const userInfo = document.getElementById('user-info');
-    const modalTitle = document.getElementById('modal-title');
-    const authBtn = document.getElementById('auth-btn');
-    const switchMode = document.getElementById('switch-mode');
-
-    if(!isLoggedIn){
-      authModal.style.display = 'flex';
-    } else {
-      userInfo.style.display = 'flex';
-    }
-
-    let loginMode = true;
-    switchMode.addEventListener('click', () => {
-      loginMode = !loginMode;
-      if(loginMode){
-        modalTitle.textContent = 'Login';
-        authBtn.textContent = 'Login';
-        switchMode.textContent = 'Switch to Register';
-      } else {
-        modalTitle.textContent = 'Register';
-        authBtn.textContent = 'Register';
-        switchMode.textContent = 'Switch to Login';
-      }
-    });
-
-    authBtn.addEventListener('click', () => {
-      // simulate login success
-      isLoggedIn = true;
-      authModal.style.display = 'none';
-      userInfo.style.display = 'flex';
-    });
-  </script>
 
 </body>
 </html>
