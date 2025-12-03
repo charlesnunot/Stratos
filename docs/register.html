@@ -54,7 +54,7 @@
 
     async function register(email, password){
       try {
-        const res = await fetch("https://zquslphbmowkgrdlygza.functions.supabase.co/users", {
+        await fetch("https://zquslphbmowkgrdlygza.functions.supabase.co/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
