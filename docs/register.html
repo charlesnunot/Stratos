@@ -5,67 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Register - Stratos</title>
 <style>
-  body { 
-    margin:0; 
-    font-family:Arial,sans-serif; 
-    display:flex; 
-    justify-content:center; 
-    align-items:center; 
-    height:100vh; 
-    background:#FAFAFA;
-  }
-  .register-container { 
-    background:#fff; 
-    padding:24px; 
-    border-radius:12px; 
-    display:flex; 
-    flex-direction:column; 
-    gap:12px; 
-    width:320px;
-  }
-  .register-container input { 
-    padding:8px; 
-    border-radius:8px; 
-    border:1px solid #E0E0E0; 
-    width:100%; 
-    box-sizing:border-box;
-  }
-  .password-wrapper { 
-    position: relative; 
-    display: flex; 
-    align-items: center; 
-  }
+  body { margin:0; font-family:Arial,sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#FAFAFA;}
+  .register-container { background:#fff; padding:24px; border-radius:12px; display:flex; flex-direction:column; gap:12px; width:320px;}
+  .register-container input { padding:8px; border-radius:8px; border:1px solid #E0E0E0; width:100%; box-sizing:border-box;}
+  .password-wrapper { position: relative; display: flex; align-items: center; }
   .password-wrapper input { flex: 1; }
-  .toggle-password { 
-    position: absolute; 
-    right: 10px; 
-    cursor: pointer; 
-    color:#888; 
-    user-select:none; 
-  }
-  .register-container button { 
-    padding:8px 12px; 
-    border-radius:8px; 
-    border:none; 
-    cursor:pointer; 
-    font-size:16px; 
-    color:#fff; 
-    background:#1DA1F2;
-  }
+  .toggle-password { position: absolute; right: 10px; cursor: pointer; color:#888; user-select:none; }
+  .register-container button { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; font-size:16px; color:#fff; background:#1DA1F2;}
   .register-container button:hover{ background:#1A91DA; }
-  .switch-link { 
-    color:#1DA1F2; 
-    cursor:pointer; 
-    text-decoration:underline; 
-    font-size:14px; 
-    text-align:center; 
-  }
-  .message { 
-    text-align:center; 
-    color:red; 
-    font-size:14px; 
-    margin-bottom:8px; 
-  }
+  .switch-link { color:#1DA1F2; cursor:pointer; text-decoration:underline; font-size:14px; text-align:center; }
+  .message { text-align:center; color:red; font-size:14px; margin-bottom:8px; }
 </style>
 </head>
 <body>
@@ -87,13 +36,8 @@
     const messageDiv = document.getElementById('message');
 
     togglePassword.addEventListener('click', () => {
-      if(passwordInput.type === 'password'){
-        passwordInput.type = 'text';
-        togglePassword.textContent = 'Hide';
-      } else {
-        passwordInput.type = 'password';
-        togglePassword.textContent = 'Show';
-      }
+      passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+      togglePassword.textContent = passwordInput.type === 'password' ? 'Show' : 'Hide';
     });
 
     document.getElementById('to-login').addEventListener('click', () => {
@@ -116,21 +60,22 @@
           body: JSON.stringify({ email, password }),
         });
 
-        const data = await res.json(); // ✅ 只声明一次
+        const result = await res.json();
 
         if (!res.ok) {
-          messageDiv.textContent = data.error || 'Registration failed';
+          messageDiv.textContent = result.error || "Registration failed";
           return null;
         }
 
-        messageDiv.style.color = 'green';
-        messageDiv.textContent = 'Registration successful! Please check your email to verify.';
-        setTimeout(() => window.location.href = 'login.html', 2000);
-        return data.user;
+        messageDiv.style.color = "green";
+        messageDiv.textContent = "Registration successful! Please check your email to verify.";
+        setTimeout(() => window.location.href = "login.html", 2000);
+
+        return result.user;
 
       } catch (err) {
         console.error(err);
-        messageDiv.textContent = 'Unknown error, please try again';
+        messageDiv.textContent = "Unknown error, please try again";
         return null;
       }
     }
@@ -138,7 +83,7 @@
     document.getElementById('register-btn').addEventListener('click', async () => {
       const email = document.getElementById('reg-email').value.trim();
       const password = document.getElementById('reg-password').value.trim();
-      messageDiv.style.color = 'red';
+      messageDiv.style.color = "red";
 
       const validation = validateRegister(email, password);
       if (!validation.valid) {
