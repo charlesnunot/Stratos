@@ -34,7 +34,7 @@
     const togglePassword = document.getElementById('toggle-password');
     const passwordInput = document.getElementById('reg-password');
     const messageDiv = document.getElementById('message');
-
+    
     togglePassword.addEventListener('click', () => {
       if(passwordInput.type === 'password'){
         passwordInput.type = 'text';
@@ -44,11 +44,11 @@
         togglePassword.textContent = 'Show';
       }
     });
-
+    
     document.getElementById('to-login').addEventListener('click', () => {
       window.location.href = 'login.html';
     });
-
+    
     function validateRegister(email, password) {
       if (!email) return { valid: false, message: 'Please enter email' };
       if (!/^\S+@\S+\.\S+$/.test(email)) return { valid: false, message: 'Invalid email format' };
@@ -56,7 +56,7 @@
       if (password.length < 6) return { valid: false, message: 'Password must be at least 6 characters' };
       return { valid: true };
     }
-
+    
     async function register(email, password){
       try {
         const res = await fetch("https://zquslphbmowkgrdlygza.functions.supabase.co/users", {
@@ -64,39 +64,40 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
-
+    
         const data = await res.json(); // ✅ 只声明一次
-
+    
         if (!res.ok) {
           messageDiv.textContent = data.error || 'Registration failed';
           return null;
         }
-
+    
         messageDiv.style.color = 'green';
         messageDiv.textContent = 'Registration successful! Please check your email to verify.';
         setTimeout(() => window.location.href = 'login.html', 2000);
         return data.user;
-
+    
       } catch (err) {
         console.error(err);
         messageDiv.textContent = 'Unknown error, please try again';
         return null;
       }
     }
-
+    
     document.getElementById('register-btn').addEventListener('click', async () => {
       const email = document.getElementById('reg-email').value.trim();
       const password = document.getElementById('reg-password').value.trim();
       messageDiv.style.color = 'red';
-
+    
       const validation = validateRegister(email, password);
       if (!validation.valid) {
         messageDiv.textContent = validation.message;
         return;
       }
-
+    
       await register(email, password);
     });
   </script>
+
 </body>
 </html>
