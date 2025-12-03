@@ -30,20 +30,26 @@
     <span class="switch-link" id="to-login">Go to Login</span>
   </div>
 
-  <script>
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+  
+    const supabaseUrl = "https://zquslphbmowkgrdlygza.supabase.co";
+    const supabaseAnonKey = "<your_anon_key_here>";
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  
     const togglePassword = document.getElementById('toggle-password');
     const passwordInput = document.getElementById('reg-password');
     const messageDiv = document.getElementById('message');
-
+  
     togglePassword.addEventListener('click', () => {
       passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
       togglePassword.textContent = passwordInput.type === 'password' ? 'Show' : 'Hide';
     });
-
+  
     document.getElementById('to-login').addEventListener('click', () => {
       window.location.href = 'login.html';
     });
-
+  
     function validateRegister(email, password) {
       if (!email) return { valid: false, message: 'Please enter email' };
       if (!/^\S+@\S+\.\S+$/.test(email)) return { valid: false, message: 'Invalid email format' };
@@ -51,48 +57,33 @@
       if (password.length < 6) return { valid: false, message: 'Password must be at least 6 characters' };
       return { valid: true };
     }
-
-    async function register(email, password){
-      try {
-        await fetch("https://zquslphbmowkgrdlygza.functions.supabase.co/users", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-
-        const result = await res.json();
-
-        if (!res.ok) {
-          messageDiv.textContent = result.error || "Registration failed";
-          return null;
-        }
-
-        messageDiv.style.color = "green";
-        messageDiv.textContent = "Registration successful! Please check your email to verify.";
-        setTimeout(() => window.location.href = "login.html", 2000);
-
-        return result.user;
-
-      } catch (err) {
-        console.error(err);
-        messageDiv.textContent = "Unknown error, please try again";
-        return null;
-      }
-    }
-
+  
     document.getElementById('register-btn').addEventListener('click', async () => {
       const email = document.getElementById('reg-email').value.trim();
       const password = document.getElementById('reg-password').value.trim();
       messageDiv.style.color = "red";
-
+  
       const validation = validateRegister(email, password);
       if (!validation.valid) {
         messageDiv.textContent = validation.message;
         return;
       }
-
-      await register(email, password);
+  
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+      });
+  
+      if (error) {
+        messageDiv.textContent = error.message;
+        return;
+      }
+  
+      messageDiv.style.color = "green";
+      messageDiv.textContent = "Registration successful! Please check your email to verify.";
+      setTimeout(() => window.location.href = "login.html", 2000);
     });
   </script>
+
 </body>
 </html>
