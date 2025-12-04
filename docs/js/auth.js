@@ -48,14 +48,30 @@ document.getElementById('login-btn')?.addEventListener('click', () => {
 });
 
 // 注册按钮
-document.getElementById('register-btn')?.addEventListener('click', () => {
+document.getElementById('register-btn')?.addEventListener('click', async () => {
   const email = document.getElementById('register-email').value;
-  if(!email){ alert('Please enter email'); return; }
-  localStorage.setItem('loggedInUser', email);
+  const password = document.getElementById('register-password').value;
+
+  if (!email || !password) {
+    alert('Please enter email and password');
+    return;
+  }
+
+  // 显示 loading（可选）
+  const result = await registerApi(email, password);
+
+  if (!result.success) {
+    alert(result.message);
+    return;
+  }
+
+  // 成功注册
+  alert('Registration successful! You are now logged in.');
   modalMask.style.display = 'none';
   usernameEl.textContent = email;
   userInfo.style.display = 'flex';
 });
+
 
 // 切换到注册弹窗
 document.getElementById('to-register')?.addEventListener('click', () => {
@@ -68,3 +84,40 @@ document.getElementById('to-login')?.addEventListener('click', () => {
   registerModal.style.display = 'none';
   loginModal.style.display = 'flex';
 });
+
+
+async function registerApi(email, password) {
+  try {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    if (error) {
+      let msg = '';
+      const errMsg = error.message.toLowerCase();
+      if (errMsg.includes('invalid email')) {
+        msg = 'Invalid email format';
+      } else if (errMsg.includes('already registered')) {
+        msg = 'This email is already registered';
+      } else if (errMsg.includes('password')) {
+        msg = 'Password must be at least 6 characters';
+      } else {
+        msg = error.message || 'Registration failed, please try again';
+      }
+      return { success: false, message: msg };
+    }
+
+    if (!data.user) {
+      return { success: false, message: 'Failed to get user info, please try again' };
+    }
+
+    // 保存 token
+    saveToken(data.session?.access_token || '');
+    localStorage.setItem('username', email);
+
+    return { success: true, user: data.user };
+  } catch (err) {
+    return { success: false, message: err.message || 'Unknown error' };
+  }
+}
+
+
+
