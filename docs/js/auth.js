@@ -17,34 +17,85 @@ function getToken() {
 // 清除 token（登出用）
 function clearToken() {
   localStorage.removeItem('authToken');
+  localStorage.removeItem('username');
 }
 
-
-// 检查登录状态
-const token = getToken();
-
-if (!token) {
-  // 没有 token，显示登录 modal
+// 显示登录弹窗
+function showLoginModal() {
   modalMask.style.display = 'flex';
   loginModal.style.display = 'flex';
   registerModal.style.display = 'none';
   userInfo.style.display = 'none';
-} else {
-  // 有 token，显示用户信息
-  const username = localStorage.getItem('username') || 'User';
-  usernameEl.textContent = username;
-  userInfo.style.display = 'flex';
 }
+
+// 显示用户信息
+function showUser(email) {
+  usernameEl.textContent = email || 'User';
+  userInfo.style.display = 'flex';
+  modalMask.style.display = 'none';
+}
+
+// 页面加载时检查登录状态
+async function checkLogin() {
+  const token = getToken();
+  const username = localStorage.getItem('username');
+
+  if (!token || !username) {
+    // 没有 token 或用户名，显示登录
+    showLoginModal();
+    return;
+  }
+
+  // 可选：用 Supabase 校验 token 是否有效
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) {
+    clearToken();
+    showLoginModal();
+    return;
+  }
+
+  // 如果用户存在，但邮箱未验证
+  if (!data.user.confirmed_at) {
+    alert('Please verify your email before logging in.');
+    clearToken();
+    showLoginModal();
+    return;
+  }
+
+  // 登录有效
+  showUser(username);
+}
+
+// 调用检查登录
+checkLogin();
 
 
 // 登录按钮
-document.getElementById('login-btn')?.addEventListener('click', () => {
+document.getElementById('login-btn')?.addEventListener('click', async () => {
   const email = document.getElementById('login-email').value;
-  if(!email){ alert('Please enter email'); return; }
-  localStorage.setItem('loggedInUser', email);
-  modalMask.style.display = 'none';
-  usernameEl.textContent = email;
-  userInfo.style.display = 'flex';
+  const password = document.getElementById('login-password').value;
+
+  if (!email || !password) {
+    alert('Please enter email and password');
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    alert(error.message || 'Login failed');
+    return;
+  }
+
+  // 登录成功但邮箱未验证
+  if (!data.user.confirmed_at) {
+    alert('Please verify your email before logging in.');
+    return;
+  }
+
+  saveToken(data.session?.access_token);
+  localStorage.setItem('username', email);
+  showUser(email);
 });
 
 // 注册按钮
@@ -65,16 +116,12 @@ document.getElementById('register-btn')?.addEventListener('click', async () => {
   }
 
   // 注册成功，但邮箱未验证
-  alert(
-    'Registration successful! We have sent a verification link to your email. ' +
-    'Please verify your email before logging in.'
-  );
+  alert('Registration successful! We have sent a verification link to your email. Please verify before logging in.');
 
-  // 切换到登录弹窗，让用户登录
+  // 切换到登录弹窗
   registerModal.style.display = 'none';
   loginModal.style.display = 'flex';
 });
-
 
 // 切换到注册弹窗
 document.getElementById('to-register')?.addEventListener('click', () => {
@@ -117,7 +164,3 @@ async function registerApi(email, password) {
     return { success: false, message: err.message || 'Unknown error' };
   }
 }
-
-
-
-
