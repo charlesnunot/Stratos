@@ -22,6 +22,39 @@ body {
 .sidebar button { display:flex; align-items:center; gap:8px; width:100%; background:none; border:none; margin:8px 0; cursor:pointer; font-size:16px; padding:8px 12px; border-radius:8px; transition:0.2s; }
 .sidebar button:hover { background:var(--primary-color); color:#fff; }
 
+/* More Button */
+.more-button {
+  margin-top: auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.more-button i {
+  font-size: 24px;
+  margin-right: 10px;
+}
+
+/* More Menu */
+more-menu {
+  display: none;
+  flex-direction: column;
+  margin-top: 20px;
+  padding-left: 10px;
+}
+.more-menu a {
+  text-decoration: none;
+  color: #333;
+  margin: 10px 0;
+  font-size: 16px;
+}
+.more-menu a:hover {
+  color: #007bff;
+}
+
+.sidebar.show-more .more-menu {
+  display: flex;
+}
+
 .center-container { flex:4; max-width:66.66%; display:flex; justify-content:center; background:var(--background-color); padding:20px; overflow-y:auto; }
 .main-content { width:50%; }
 .post { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
