@@ -6,12 +6,6 @@ const usernameEl = document.getElementById('username');
 const userInfo = document.getElementById('user-info');
 const logoutBtn = document.getElementById('logout-btn');
 
-// ===== Supabase 初始化 =====
-const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-console.log('Supabase 初始化完成', supabaseClient);
-
 // ===== token 操作 =====
 function saveToken(token) { localStorage.setItem('authToken', token); }
 function getToken() { return localStorage.getItem('authToken'); }
@@ -28,6 +22,12 @@ function showUser(email) {
   loginModal.style.display = 'none';
   registerModal.style.display = 'none';
 }
+
+// ===== Supabase 初始化 =====
+const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+console.log('Supabase 初始化完成', supabaseClient);
 
 // ===== 检查登录状态 =====
 window.addEventListener('DOMContentLoaded', async () => {
