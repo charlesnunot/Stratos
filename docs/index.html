@@ -81,6 +81,13 @@ body { font-family: Arial, sans-serif; margin:0; display:flex; }
       <div id="register-message" style="color:green; margin-top:8px; display:none;"></div>
       <span class="switch-mode" id="to-login">Already have an account? Login</span>
     </div>
+
+    <!-- 新增邮箱验证提示模态 -->
+    <div class="modal" id="email-verification-modal" style="display:none;">
+      <h2>Email Verification Required</h2>
+      <p>Please check your email for the verification link before logging in.</p>
+      <button id="go-to-login">Go to Login</button>
+    </div>
   </div>
 
   <!-- 引入 Supabase UMD -->
