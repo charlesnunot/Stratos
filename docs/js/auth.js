@@ -23,7 +23,7 @@ console.log('Supabase 初始化完成', supabaseClient);
 
 // 获取用户资料
 async function getUserProfile(uid) {
-  tr    username: displayName,
+  try { username: displayName,
     email: email
   });y {
     const { data, error } = await supabaseClient
