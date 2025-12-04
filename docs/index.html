@@ -3,45 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stratos Web Homepage</title>
-<link rel="stylesheet" href="styles.css">
+<title>Stratos Homepage</title>
 <link rel="stylesheet" href="auth.css">
-<script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
-<script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
 </head>
 <body>
-  <!-- Sidebar -->
+  <!-- 首页内容 -->
   <div class="sidebar">
     <div class="brand">Stratos</div>
-    <button><ion-icon name="home-outline"></ion-icon><span>Home</span></button>
-    <button><ion-icon name="search-outline"></ion-icon><span>Search</span></button>
-    <button><ion-icon name="compass-outline"></ion-icon><span>Explore</span></button>
+    <button>Home</button>
+    <button>Search</button>
+    <button>Explore</button>
   </div>
-
-  <!-- Center content -->
   <div class="center-container">
     <div class="main-content">
       <h1>Home Feed</h1>
-      <div class="post"><h3>User A</h3><p>Sample content...</p></div>
-      <div class="post"><h3>User B</h3><p>Sample content...</p></div>
+      <div class="post"><h3>User A's Post</h3><p>Sample content...</p></div>
+      <div class="post"><h3>User B's Post</h3><p>Sample content...</p></div>
     </div>
   </div>
 
-  <!-- Right panel -->
-  <div class="right-panel" id="right-panel">
-    <div class="app-download">
-      <h3>Download Stratos App</h3>
-      <button>iOS</button>
-      <button>Android</button>
+  <!-- 模态登录/注册 -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="login-modal">
+      <h2>Login</h2>
+      <input type="email" id="login-email" placeholder="Email">
+      <input type="password" id="login-password" placeholder="Password">
+      <button id="login-btn">Login</button>
+      <p class="switch-mode" id="to-register">Don't have an account? Register</p>
     </div>
-    <div id="user-info" style="display:none;">
-      <div class="user-info">
-        <img src="https://via.placeholder.com/60" alt="User Avatar">
-        <span id="username"></span>
-      </div>
+
+    <div class="modal" id="register-modal" style="display:none;">
+      <h2>Register</h2>
+      <input type="email" id="register-email" placeholder="Email">
+      <input type="password" id="register-password" placeholder="Password">
+      <button id="register-btn">Register</button>
+      <p class="switch-mode" id="to-login">Already have an account? Login</p>
     </div>
   </div>
 
-  <script src="auth.js"></script>
+<script src="auth.js"></script>
 </body>
 </html>
