@@ -74,6 +74,27 @@ async function upsertUserProfile(profile) {
   }
 }
 
+// 获取用户头像
+async function getUserAvatar(uid) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('user_avatars')  // 查询 user_avatars 表
+      .select('avatar_url')  // 只选择 avatar_url 列
+      .eq('uid', uid)  // 按用户 ID 查询
+      .single();  // 获取单个结果
+
+    if (error || !data) {
+      // 如果出错或没有找到数据，返回默认头像
+      return 'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg';  // 默认头像 URL
+    }
+
+    return data.avatar_url;  // 返回用户的头像 URL
+  } catch (err) {
+    console.error('获取用户头像失败:', err);
+    return 'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg';  // 默认头像 URL
+  }
+}
+
 // ===== 显示用户信息 =====
 function showUser(email) {
   usernameEl.textContent = email;
@@ -136,7 +157,8 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
       nickname: nickname,
     });
   }
-  showUser(nickname);
+  let avatarUrl = await getUserAvatar(user.id);
+  showUser(nickname,avatarUrl);
 });
 
 
