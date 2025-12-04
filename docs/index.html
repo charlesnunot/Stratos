@@ -63,8 +63,8 @@ body { font-family: Arial, sans-serif; margin:0; display:flex; }
     <div class="modal" id="login-modal">
       <h2>Login</h2>
       <form id="login-form">
-        <input type="email" id="login-email" placeholder="Email" required autocomplete="email">
-        <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
+        <input type="email" id="login-email" placeholder="Email" required>
+        <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
         <button type="submit" id="login-btn">Login</button>
       </form>
       <span class="switch-mode" id="to-register">Don't have an account? Register</span>
@@ -74,18 +74,16 @@ body { font-family: Arial, sans-serif; margin:0; display:flex; }
     <div class="modal" id="register-modal" style="display:none;">
       <h2>Register</h2>
       <form id="register-form">
-        <input type="email" id="register-email" placeholder="Email" required autocomplete="email">
-        <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
+        <input type="email" id="register-email" placeholder="Email" required>
+        <input type="password" id="register-password" placeholder="Password" autocomplete="new-password" required>
         <button type="submit" id="register-btn">Register</button>
       </form>
       <span class="switch-mode" id="to-login">Already have an account? Login</span>
     </div>
   </div>
 
-  <!-- Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-
-  <!-- 自定义脚本 -->
+  <!-- 使用 UMD 版本 Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.34.0/dist/umd/supabase.min.js"></script>
   <script src="js/auth.js"></script>
 </body>
 </html>
