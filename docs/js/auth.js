@@ -19,7 +19,7 @@ function clearToken() {
 const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-console.log('Supabase 初始化完成', supabaseClient);
+console.log('Supabase 初始化function showUser(email) {完成', supabaseClient);
 
 // 获取用户资料
 async function getUserProfile(uid) {
@@ -96,11 +96,14 @@ async function getUserAvatar(uid) {
 }
 
 // ===== 显示用户信息 =====
-function showUser(email) {
-  usernameEl.textContent = email;
+function showUser(nickname, avatarUrl) {
+  usernameEl.textContent = nickname;
+  const avatarElement = document.getElementById('user-avatar');
+  if (avatarElement) {
+    avatarElement.src = avatarUrl;
+  }
   userInfo.style.display = 'flex';
   modalMask.style.display = 'none';
-  loginModal.style.display = 'none';
   registerModal.style.display = 'none';
 }
 
