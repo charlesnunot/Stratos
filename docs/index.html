@@ -83,7 +83,13 @@ body { font-family: Arial, sans-serif; margin:0; display:flex; }
     </div>
   </div>
 
-  <!-- ====== Auth JS 模块化加载 ====== -->
-  <script type="module" src="js/auth.js"></script>
+  <script>
+    const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  
+    console.log('Supabase 初始化完成', supabase);
+  </script>
+  
 </body>
 </html>
