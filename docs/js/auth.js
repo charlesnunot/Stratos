@@ -60,6 +60,12 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
 // ===== 注册 =====
 document.getElementById('register-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
+
+  const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  
+  console.log('Supabase 初始化完成', supabase);
   const email = document.getElementById('register-email').value;
   const password = document.getElementById('register-password').value;
 
