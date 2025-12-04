@@ -4,17 +4,38 @@ const registerModal = document.getElementById('register-modal');
 const usernameEl = document.getElementById('username');
 const userInfo = document.getElementById('user-info');
 
+// 保存 token
+function saveToken(token) {
+  localStorage.setItem('authToken', token);
+}
+
+// 获取 token
+function getToken() {
+  return localStorage.getItem('authToken');
+}
+
+// 清除 token（登出用）
+function clearToken() {
+  localStorage.removeItem('authToken');
+}
+
+
 // 检查登录状态
-const loggedInUser = localStorage.getItem('loggedInUser');
-if (!loggedInUser) {
+const token = getToken();
+
+if (!token) {
+  // 没有 token，显示登录 modal
   modalMask.style.display = 'flex';
   loginModal.style.display = 'flex';
   registerModal.style.display = 'none';
   userInfo.style.display = 'none';
 } else {
-  usernameEl.textContent = loggedInUser;
+  // 有 token，显示用户信息
+  const username = localStorage.getItem('username') || 'User';
+  usernameEl.textContent = username;
   userInfo.style.display = 'flex';
 }
+
 
 // 登录按钮
 document.getElementById('login-btn')?.addEventListener('click', () => {
