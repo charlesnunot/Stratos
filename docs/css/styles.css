@@ -81,7 +81,6 @@ body {
   background:var(--primary-color);
   color:#fff;
 }
-
 .modal button:hover { background:#1A91DA; }
 
 .switch-mode {
@@ -90,4 +89,3 @@ body {
   text-decoration:underline;
   font-size:14px;
 }
-
