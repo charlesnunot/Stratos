@@ -1,8 +1,4 @@
-// ====== Supabase 初始化 ======
-const supabaseUrl = 'https://zquslphbmowkgrdlygza.supabase.co';
-const supabaseKey = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-
+import { supabase } from './supabase.js'; 
 // ====== DOM 元素 ======
 const modalMask = document.getElementById('modal-mask');
 const loginModal = document.getElementById('login-modal');
