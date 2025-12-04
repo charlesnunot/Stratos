@@ -15,9 +15,17 @@ function clearToken() {
   localStorage.removeItem('username'); 
 }
 
+// ===== Supabase 初始化 =====
+const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+console.log('Supabase 初始化完成', supabaseClient);
+
 // 获取用户资料
 async function getUserProfile(uid) {
-  try {
+  tr    username: displayName,
+    email: email
+  });y {
     const { data, error } = await supabaseClient
       .from('user_profiles')
       .select('*')
@@ -50,7 +58,7 @@ const generateDefaultNickname = (email) => {
 // 更新或插入用户资料
 async function upsertUserProfile(profile) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('user_profiles')
       .upsert(profile, { onConflict: 'uid' }) // 如果 uid 冲突，则更新
       .select('*') // 获取完整的资料
@@ -78,12 +86,6 @@ function showUser(email) {
   loginModal.style.display = 'none';
   registerModal.style.display = 'none';
 }
-
-// ===== Supabase 初始化 =====
-const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-console.log('Supabase 初始化完成', supabaseClient);
 
 // ===== 检查登录状态 =====
 window.addEventListener('DOMContentLoaded', () => {
@@ -116,17 +118,15 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   let displayName = email; 
   
   if (userProfile) {
-    displayName = userProfile.username || email;
+    displayName = userProfile. nickname || email;
   } else {
     displayName = generateDefaultNickname(email);
+    const updatedProfile = await upsertUserProfile({
+      uid,
+      username: displayName,
+      email: email
+    });
   }
-
-  // 更新/插入用户资料
-  const updatedProfile = await upsertUserProfile({
-    uid,
-    username: displayName,
-    email: email
-  });
   // 显示用户名
   showUser(displayName);
   
