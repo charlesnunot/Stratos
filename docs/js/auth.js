@@ -57,7 +57,6 @@ document.getElementById('register-btn')?.addEventListener('click', async () => {
     return;
   }
 
-  // 显示 loading（可选）
   const result = await registerApi(email, password);
 
   if (!result.success) {
@@ -65,11 +64,10 @@ document.getElementById('register-btn')?.addEventListener('click', async () => {
     return;
   }
 
-  // 成功注册
-  alert('Registration successful! You are now logged in.');
-  modalMask.style.display = 'none';
-  usernameEl.textContent = email;
-  userInfo.style.display = 'flex';
+  // 注册成功，但邮箱未验证
+  alert('Registration successful! Please verify your email before logging in.');
+  registerModal.style.display = 'none';
+  loginModal.style.display = 'flex';
 });
 
 
@@ -109,15 +107,12 @@ async function registerApi(email, password) {
       return { success: false, message: 'Failed to get user info, please try again' };
     }
 
-    // 保存 token
-    saveToken(data.session?.access_token || '');
-    localStorage.setItem('username', email);
-
     return { success: true, user: data.user };
   } catch (err) {
     return { success: false, message: err.message || 'Unknown error' };
   }
 }
+
 
 
 
