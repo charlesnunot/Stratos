@@ -104,7 +104,10 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   const password = document.getElementById('login-password').value;
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) { alert(error.message); return; }
+  if (error) { 
+    alert(error.message); 
+    return; 
+  }
 
   saveToken(data.session?.access_token || '');
   localStorage.setItem('username', email);
@@ -137,6 +140,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
       email: email
     });
   }
+
   // 显示用户名
   showUser(displayName);
 });
