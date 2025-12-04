@@ -1,19 +1,12 @@
-// 控制更多菜单的显示和隐藏
-document.getElementById('more-button').addEventListener('click', () => {
-  const moreMenu = document.getElementById('more-menu');
-  moreMenu.style.display = moreMenu.style.display === 'block' ? 'none' : 'block';
+// main.js
+
+// 获取按钮和菜单元素
+const moreButton = document.getElementById('more-button');
+const sidebar = document.getElementById('sidebar');
+
+// 监听 More 按钮的点击事件
+moreButton.addEventListener('click', function() {
+  // 切换 "show-more" 类
+  sidebar.classList.toggle('show-more');
 });
 
-// 点击菜单项时执行的动作（可以根据需要进行扩展）
-document.getElementById('settings').addEventListener('click', () => {
-  alert('Settings clicked');
-});
-document.getElementById('report-issue').addEventListener('click', () => {
-  alert('Report Issue clicked');
-});
-document.getElementById('switch-account').addEventListener('click', () => {
-  alert('Switch Account clicked');
-});
-document.getElementById('logout-btn').addEventListener('click', () => {
-  alert('Logout clicked');
-});
