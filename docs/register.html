@@ -64,28 +64,40 @@
       const email = document.getElementById('reg-email').value.trim();
       const password = document.getElementById('reg-password').value.trim();
       messageDiv.style.color = "red";
-
+    
       const validation = validateRegister(email, password);
       if (!validation.valid) {
         messageDiv.textContent = validation.message;
         return;
       }
-
+    
       // 调用 Supabase Auth 注册用户
       const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password
       });
-
+    
       if (error) {
         messageDiv.textContent = error.message;
         return;
       }
-
+    
+      // 如果用户没有 last_sign_in_at，说明需要邮箱验证
+      if (!data.user?.last_sign_in_at) {
+        // 和手机端一致的弹窗提示
+        alert("We have sent a verification link to your email.\nPlease verify before logging in.");
+    
+        // 返回登录页
+        window.location.href = "login.html";
+        return;
+      }
+    
+      // 如果有 last_sign_in_at（通常不会），视为自动登录
       messageDiv.style.color = "green";
-      messageDiv.textContent = "Registration successful! Please check your email to verify.";
-      setTimeout(() => window.location.href = "login.html", 2000);
+      messageDiv.textContent = "Registration successful!";
+      setTimeout(() => window.location.href = "main.html", 1500);
     });
+
   </script>
 </body>
 </html>
