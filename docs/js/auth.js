@@ -23,9 +23,7 @@ console.log('Supabase 初始化完成', supabaseClient);
 
 // 获取用户资料
 async function getUserProfile(uid) {
-  try { username: displayName,
-    email: email
-  });y {
+  try {
     const { data, error } = await supabaseClient
       .from('user_profiles')
       .select('*')
@@ -43,6 +41,7 @@ async function getUserProfile(uid) {
     return null;
   }
 }
+
 
 // 生成默认昵称
 const generateDefaultNickname = (email) => {
