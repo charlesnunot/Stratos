@@ -119,6 +119,8 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   saveToken(sessionData?.access_token || '');
   localStorage.setItem('username', email);
 
+  consolo.log('sessionData',sessionData),
+
 
   // 获取用户资料并显示
   const userProfile = await getUserProfile(uid);
