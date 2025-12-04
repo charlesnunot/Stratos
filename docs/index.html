@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stratos Web Homepage</title>
-<script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
-<script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="auth.css">
+<script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
 </head>
 <body>
   <!-- Sidebar -->
@@ -16,17 +16,14 @@
     <button><ion-icon name="home-outline"></ion-icon><span>Home</span></button>
     <button><ion-icon name="search-outline"></ion-icon><span>Search</span></button>
     <button><ion-icon name="compass-outline"></ion-icon><span>Explore</span></button>
-    <button><ion-icon name="storefront-outline"></ion-icon><span>Marketplace</span></button>
-    <button><ion-icon name="add-circle-outline"></ion-icon><span>Create</span></button>
-    <button><ion-icon name="chatbubble-outline"></ion-icon><span>Messages</span></button>
   </div>
 
   <!-- Center content -->
   <div class="center-container">
     <div class="main-content">
       <h1>Home Feed</h1>
-      <div class="post"><h3>User A's Post</h3><p>Sample content...</p></div>
-      <div class="post"><h3>User B's Post</h3><p>Sample content...</p></div>
+      <div class="post"><h3>User A</h3><p>Sample content...</p></div>
+      <div class="post"><h3>User B</h3><p>Sample content...</p></div>
     </div>
   </div>
 
@@ -37,50 +34,14 @@
       <button>iOS</button>
       <button>Android</button>
     </div>
-    <div id="user-info">
+    <div id="user-info" style="display:none;">
       <div class="user-info">
         <img src="https://via.placeholder.com/60" alt="User Avatar">
         <span id="username"></span>
       </div>
-      <div class="notifications">
-        <p>New message: User C commented on your post</p>
-        <p>Friend online: User D</p>
-        <p>System notification: Event starting soon</p>
-      </div>
     </div>
   </div>
 
-  <!-- 强制登录模态 -->
-  <div class="modal" id="login-required-modal" style="display:none;">
-    <h2>Login Required</h2>
-    <p>You must login or register to access Stratos.</p>
-    <button id="go-login">Login</button>
-    <button id="go-register">Register</button>
-  </div>
-
-  <script>
-    const loggedInUser = localStorage.getItem('loggedInUser');
-    const usernameEl = document.getElementById('username');
-    const userInfo = document.getElementById('user-info');
-    const modal = document.getElementById('login-required-modal');
-    const goLoginBtn = document.getElementById('go-login');
-    const goRegisterBtn = document.getElementById('go-register');
-
-    if (!loggedInUser) {
-      // 显示强制模态
-      modal.style.display = 'flex';
-    } else {
-      usernameEl.textContent = loggedInUser;
-      userInfo.style.display = 'flex';
-    }
-
-    goLoginBtn.addEventListener('click', () => {
-      window.location.href = 'login.html';
-    });
-
-    goRegisterBtn.addEventListener('click', () => {
-      window.location.href = 'register.html';
-    });
-  </script>
+  <script src="auth.js"></script>
 </body>
 </html>
