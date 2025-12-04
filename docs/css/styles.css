@@ -67,21 +67,26 @@ body {
 
 /* 隐藏 More Menu 默认 */
 .more-menu {
-  display: none;  /* 默认隐藏 */
-  flex-direction: column;
+  display: none; /* 默认隐藏 */
+  flex-direction: column; /* 垂直排列 */
   margin-top: 20px;
   padding-left: 10px;
+  padding-right: 10px; /* 可以加入右侧的间距 */
+  gap: 10px; /* 添加间隔，确保菜单项之间有距离 */
 }
 
 .more-menu a {
   text-decoration: none;
   color: #333;
-  margin: 10px 0;
+  margin: 10px 0;  /* 这会加大垂直间距，避免太拥挤 */
   font-size: 16px;
+  padding: 5px; /* 可以为链接添加内边距 */
+  border-radius: 5px; /* 圆角效果 */
 }
 
 .more-menu a:hover {
   color: #007bff;
+  background-color: #f0f0f0; /* 鼠标悬停时的背景色 */
 }
 
 /* 显示 More Menu */
