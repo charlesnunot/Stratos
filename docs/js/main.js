@@ -9,4 +9,3 @@ moreButton.addEventListener('click', function() {
   // 切换 "show-more" 类
   sidebar.classList.toggle('show-more');
 });
-
