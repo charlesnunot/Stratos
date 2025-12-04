@@ -116,6 +116,11 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   const user = supabaseClient.auth.user();
   const uid = user?.uid;
 
+  if (!uid) {
+    console.error('用户 UID 获取失败');
+    return;
+  }
+
   // 获取用户资料并显示
   const userProfile = await getUserProfile(uid);
   let displayName = email; 
