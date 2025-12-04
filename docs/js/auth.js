@@ -57,13 +57,13 @@ document.getElementById('register-btn')?.addEventListener('click', () => {
   userInfo.style.display = 'flex';
 });
 
-// 切换到注册
+// 切换到注册弹窗
 document.getElementById('to-register')?.addEventListener('click', () => {
   loginModal.style.display = 'none';
   registerModal.style.display = 'flex';
 });
 
-// 切换到登录
+// 切换到登录弹窗
 document.getElementById('to-login')?.addEventListener('click', () => {
   registerModal.style.display = 'none';
   loginModal.style.display = 'flex';
