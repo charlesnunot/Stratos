@@ -1,1 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Stratos</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="brand">Stratos</div>
+    <button>Home</button>
+    <button>Search</button>
+    <button>Explore</button>
+    <button>Marketplace</button>
+    <button>Create</button>
+    <button>Messages</button>
+
+    <!-- More Button -->
+    <div class="more-button" id="more-button">
+      <i class="fas fa-bars"></i> More
+    </div>
+
+    <!-- More Menu -->
+    <div class="more-menu" id="more-menu">
+      <a href="settings.html" id="settings"><i class="fas fa-cogs"></i> Settings</a>
+      <a href="#" id="report-issue"><i class="fas fa-exclamation-circle"></i> Report Issue</a>
+      <a href="#" id="switch-account"><i class="fas fa-sync-alt"></i> Switch Account</a>
+      <a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </div>
+
+  <!-- Center content -->
+  <div class="center-container">
+    <div class="main-content">
+      <h1>Settings Page</h1>
+      <form id="settings-form">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" placeholder="Enter your username" required>
+        
+        <label for="avatar">Avatar:</label>
+        <input type="file" id="avatar" name="avatar">
+
+        <button type="submit">Save Changes</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right panel (optional) -->
+  <div class="right-panel" id="right-panel">
+    <div class="app-download">
+      <h3>Download Stratos App</h3>
+      <button>iOS</button>
+      <button>Android</button>
+    </div>
+  </div>
+
+  <!-- 引入 Supabase UMD -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/settings.js"></script>
+
+</body>
+</html>
 
