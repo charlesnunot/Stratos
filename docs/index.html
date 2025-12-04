@@ -1,19 +1,10 @@
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-<script>
-  // 初始化 Supabase 客户端
-  const supabaseUrl = 'https://zquslphbmowkgrdlygza.supabase.co';
-  const supabaseKey = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-</script>
-<script src="js/auth.js"></script>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stratos Web Homepage</title>
-<link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stratos Web Homepage</title>
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <!-- Sidebar -->
@@ -55,7 +46,7 @@
   </div>
 
   <!-- 模态遮罩 -->
-  <div class="modal-mask" id="modal-mask">
+  <div class="modal-mask" id="modal-mask" style="display:none;">
     <!-- 登录模态 -->
     <div class="modal" id="login-modal">
       <h2>Login</h2>
@@ -75,6 +66,15 @@
     </div>
   </div>
 
-  <script src="js/auth.js"></script>
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+  <script>
+    const supabaseUrl = 'https://zquslphbmowkgrdlygza.supabase.co';
+    const supabaseKey = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+  </script>
+
+  <!-- 自定义 Auth JS -->
+  <script src="js/auth.js" defer></script>
 </body>
 </html>
