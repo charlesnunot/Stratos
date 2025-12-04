@@ -122,8 +122,8 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   console.log('登录成功, 返回的 sessionData:', sessionData);
   console.log('登录成功, 返回的 access_token:', sessionData?.access_token);
 
-  const uid = sessionData.user.id;
-  const userProfile = await getUserProfile(uid);
+  const user = data.user;
+  const userProfile = await getUserProfile(user.id);
   console.log('userProfile:', userProfile);
 
 });
