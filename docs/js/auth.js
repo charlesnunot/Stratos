@@ -112,6 +112,14 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   saveToken(data.session?.access_token || '');
   localStorage.setItem('username', email);
 
+   if (!data.session) {
+    console.error('登录后没有获取到有效的 session');
+    return;
+  } if (!data.session) {
+    console.error('登录后没有获取到有效的 session');
+    return;
+  }
+
   // 使用 getUser() 获取当前用户信息
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
   if (userError) {
