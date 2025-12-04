@@ -27,6 +27,7 @@ function showUser(email) {
 const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+console.log('Supabase 初始化完成', supabaseClient);
 
 // ===== 检查登录状态 =====
 window.addEventListener('DOMContentLoaded', () => {
@@ -51,11 +52,6 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
   if (error) { alert(error.message); return; }
 
-  if (!data.user.email_confirmed_at) {
-    alert('Please verify your email before logging in.');
-    return;
-  }
-
   saveToken(data.session?.access_token || '');
   localStorage.setItem('username', email);
   showUser(email);
@@ -70,7 +66,7 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
   const { data, error } = await supabaseClient.auth.signUp({ email, password });
   if (error) { alert(error.message); return; }
 
-  alert('Registration successful! Please check your email to verify before logging in.');
+  alert('Registration successful! Please verify your email before logging in.');
   registerModal.style.display = 'none';
   loginModal.style.display = 'flex';
 });
