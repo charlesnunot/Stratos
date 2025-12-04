@@ -7,6 +7,7 @@
 <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="auth.css">
 </head>
 <body>
   <!-- Sidebar -->
@@ -49,18 +50,37 @@
     </div>
   </div>
 
+  <!-- 强制登录模态 -->
+  <div class="modal" id="login-required-modal" style="display:none;">
+    <h2>Login Required</h2>
+    <p>You must login or register to access Stratos.</p>
+    <button id="go-login">Login</button>
+    <button id="go-register">Register</button>
+  </div>
+
   <script>
+    const loggedInUser = localStorage.getItem('loggedInUser');
     const usernameEl = document.getElementById('username');
     const userInfo = document.getElementById('user-info');
-    const loggedInUser = localStorage.getItem('loggedInUser');
+    const modal = document.getElementById('login-required-modal');
+    const goLoginBtn = document.getElementById('go-login');
+    const goRegisterBtn = document.getElementById('go-register');
 
     if (!loggedInUser) {
-      alert('You are not logged in. Please login first.');
-      window.location.href = 'login.html';
+      // 显示强制模态
+      modal.style.display = 'flex';
     } else {
       usernameEl.textContent = loggedInUser;
       userInfo.style.display = 'flex';
     }
+
+    goLoginBtn.addEventListener('click', () => {
+      window.location.href = 'login.html';
+    });
+
+    goRegisterBtn.addEventListener('click', () => {
+      window.location.href = 'register.html';
+    });
   </script>
 </body>
 </html>
