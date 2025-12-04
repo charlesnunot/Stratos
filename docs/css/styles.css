@@ -65,9 +65,9 @@ body {
   color: var(--text-color);
 }
 
-/* More Menu */
+/* 隐藏 More Menu 默认 */
 .more-menu {
-  display: none;
+  display: none;  /* 默认隐藏 */
   flex-direction: column;
   margin-top: 20px;
   padding-left: 10px;
@@ -86,7 +86,7 @@ body {
 
 /* 显示 More Menu */
 .sidebar.show-more .more-menu {
-  display: flex;
+  display: flex;  /* 点击 More 显示菜单 */
 }
 
 
