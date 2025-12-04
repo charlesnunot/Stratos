@@ -15,9 +15,39 @@
   .register-container button:hover{ background:#1A91DA; }
   .switch-link { color:#1DA1F2; cursor:pointer; text-decoration:underline; font-size:14px; text-align:center; }
   .message { text-align:center; color:red; font-size:14px; margin-bottom:8px; }
+
+  /* ===== 模态弹窗样式 ===== */
+  .modal-overlay {
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-box {
+    background:#fff;
+    padding:20px;
+    border-radius:12px;
+    width:300px;
+    text-align:center;
+  }
+  .modal-title { font-size:18px; margin-bottom:8px; font-weight:bold; }
+  .modal-text { font-size:14px; margin-bottom:16px; color:#333; }
+  .modal-btn {
+    background:#1DA1F2;
+    color:white;
+    padding:8px 16px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .modal-btn:hover { background:#1A91DA; }
 </style>
 </head>
 <body>
+
   <div class="register-container">
     <h2>Register</h2>
     <input type="email" id="reg-email" placeholder="Email">
@@ -30,10 +60,21 @@
     <span class="switch-link" id="to-login">Go to Login</span>
   </div>
 
+  <!-- ===== 模态弹窗结构 ===== -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-box">
+      <div class="modal-title">Email Verification Required</div>
+      <div class="modal-text">
+        We have sent a verification link to your email.<br>
+        Please verify before logging in.
+      </div>
+      <button class="modal-btn" id="modal-ok">OK</button>
+    </div>
+  </div>
+
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    // 替换为你的 Supabase 项目 URL 和匿名 key
     const supabaseUrl = "https://zquslphbmowkgrdlygza.supabase.co";
     const supabaseAnonKey = "sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu";
 
@@ -42,6 +83,9 @@
     const togglePassword = document.getElementById('toggle-password');
     const passwordInput = document.getElementById('reg-password');
     const messageDiv = document.getElementById('message');
+
+    const modal = document.getElementById('modal');
+    const modalOk = document.getElementById('modal-ok');
 
     togglePassword.addEventListener('click', () => {
       passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
@@ -71,31 +115,27 @@
         return;
       }
     
-      // 调用 Supabase Auth 注册用户
-      const { data, error } = await supabase.auth.signUp({
-        email: email,
-        password: password
-      });
+      const { data, error } = await supabase.auth.signUp({ email, password });
     
       if (error) {
         messageDiv.textContent = error.message;
         return;
       }
     
-      // 如果用户没有 last_sign_in_at，说明需要邮箱验证
+      // 邮箱验证弹窗
       if (!data.user?.last_sign_in_at) {
-        // 和手机端一致的弹窗提示
-        alert("We have sent a verification link to your email.\nPlease verify before logging in.");
-    
-        // 返回登录页
-        window.location.href = "login.html";
+        modal.style.display = "flex"; // 显示模态弹窗
         return;
       }
-    
-      // 如果有 last_sign_in_at（通常不会），视为自动登录
+
       messageDiv.style.color = "green";
       messageDiv.textContent = "Registration successful!";
       setTimeout(() => window.location.href = "main.html", 1500);
+    });
+
+    // 模态弹窗 OK 按钮
+    modalOk.addEventListener('click', () => {
+      window.location.href = "login.html";
     });
 
   </script>
