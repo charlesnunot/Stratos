@@ -103,3 +103,9 @@ logoutBtn?.addEventListener('click', () => {
   registerModal.style.display = 'none';
   userInfo.style.display = 'none';
 });
+
+// ===== 点击 "Go to Login" =====
+document.getElementById('go-to-login')?.addEventListener('click', () => {
+  emailVerificationModal.style.display = 'none';
+  loginModal.style.display = 'flex';
+});
