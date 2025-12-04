@@ -126,6 +126,17 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   const userProfile = await getUserProfile(user.id);
   console.log('userProfile:', userProfile);
 
+  let nickname = user.email; 
+  if (userProfile) {
+    nickname = userProfile.nickname;
+  }else{
+    nickname = generateDefaultNickname(user.email);
+    const updatedProfile = await upsertUserProfile({
+      uid: user.id,
+      nickname: nickname,
+    });
+  }
+  showUser(nickname);
 });
 
 
