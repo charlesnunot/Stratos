@@ -119,6 +119,9 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   saveToken(sessionData?.access_token || '');
   localStorage.setItem('username', email);
 
+  console.log('登录成功, 返回的 sessionData:', sessionData);
+  console.log('登录成功, 返回的 access_token:', sessionData?.access_token);
+
 });
 
 
