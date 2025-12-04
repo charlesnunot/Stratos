@@ -69,10 +69,7 @@ body {
 .more-menu {
   display: none;
   flex-direction: column;
-  position: absolute; /* Fixes it to the bottom of the sidebar */
-  bottom: 10px; /* 10px above the bottom edge */
-  left: 0;
-  width: 100%;
+  margin-top: 20px;
   padding-left: 10px;
 }
 
@@ -81,22 +78,17 @@ body {
   color: #333;
   margin: 10px 0;
   font-size: 16px;
-  display: flex;
-  align-items: center;
 }
 
 .more-menu a:hover {
   color: #007bff;
 }
 
-.more-menu i {
-  margin-right: 8px; /* Add some space between icon and text */
-}
-
-/* Show menu when the button is clicked */
+/* 显示 More Menu */
 .sidebar.show-more .more-menu {
   display: flex;
 }
+
 
 /* Center content */
 .center-container {
