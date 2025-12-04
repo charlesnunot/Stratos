@@ -122,7 +122,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   console.log('登录成功，sessionData:', sessionData);
 
   // 获取当前用户信息
-  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
   if (userError) {
     console.error('获取用户信息失败:', userError.message);
     return;
