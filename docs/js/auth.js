@@ -58,7 +58,6 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
 });
 
 // ===== 注册 =====
-// ===== 注册 =====
 document.getElementById('register-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('register-email').value;
@@ -83,13 +82,6 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
 
   // 隐藏注册模态
   document.getElementById('register-modal').style.display = 'none';
-
-  // 2秒后切换到登录模态
-  setTimeout(() => {
-    document.getElementById('email-verification-modal').style.display = 'none';
-    document.getElementById('login-modal').style.display = 'flex';
-    document.getElementById('modal-mask').style.display = 'none';
-  }, 2000);
 });
 
 
