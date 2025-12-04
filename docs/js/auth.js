@@ -1,7 +1,9 @@
 // ====== Supabase 初始化 ======
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js';
+
 const supabaseUrl = 'https://zquslphbmowkgrdlygza.supabase.co';
 const supabaseKey = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ====== DOM 元素 ======
 const modalMask = document.getElementById('modal-mask');
@@ -9,6 +11,7 @@ const loginModal = document.getElementById('login-modal');
 const registerModal = document.getElementById('register-modal');
 const usernameEl = document.getElementById('username');
 const userInfo = document.getElementById('user-info');
+const logoutBtn = document.getElementById('logout-btn');
 
 // ====== token 操作 ======
 function saveToken(token) { localStorage.setItem('authToken', token); }
@@ -88,4 +91,13 @@ document.getElementById('to-register')?.addEventListener('click', () => {
 document.getElementById('to-login')?.addEventListener('click', () => {
   registerModal.style.display = 'none';
   loginModal.style.display = 'flex';
+});
+
+// ===== 退出登录 =====
+logoutBtn?.addEventListener('click', () => {
+  clearToken();
+  modalMask.style.display = 'flex';
+  loginModal.style.display = 'flex';
+  registerModal.style.display = 'none';
+  userInfo.style.display = 'none';
 });
