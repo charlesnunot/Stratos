@@ -42,7 +42,6 @@ async function getUserProfile(uid) {
   }
 }
 
-
 // 生成默认昵称
 const generateDefaultNickname = (email) => {
   if (!email || !email.includes('@')) return '新用户_' + Math.floor(Math.random() * 10000);
@@ -74,8 +73,6 @@ async function upsertUserProfile(profile) {
     return null;
   }
 }
-
-
 
 // ===== 显示用户信息 =====
 function showUser(email) {
@@ -125,7 +122,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   let displayName = email; 
   
   if (userProfile) {
-    displayName = userProfile. nickname || email;
+    displayName = userProfile.nickname || email;
   } else {
     displayName = generateDefaultNickname(email);
     const updatedProfile = await upsertUserProfile({
@@ -165,7 +162,6 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
   // 隐藏注册模态
   document.getElementById('register-modal').style.display = 'none';
 });
-
 
 // ===== 切换弹窗 =====
 document.getElementById('to-register')?.addEventListener('click', () => {
