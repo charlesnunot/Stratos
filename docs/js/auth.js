@@ -124,7 +124,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
 
   const uid = user.id;
   const userProfile = await getUserProfile(uid);
-  console.log('userProfile:', suserProfilen);
+  console.log('userProfile:', userProfile);
 
 });
 
