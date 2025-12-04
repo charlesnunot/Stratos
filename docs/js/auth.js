@@ -118,27 +118,8 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   // 登录成功，保存 token 并设置用户名
   saveToken(sessionData?.access_token || '');
   localStorage.setItem('username', email);
+  console.log('data',data);
 
-  consolo.log('sessionData',sessionData),
-
-
-  // 获取用户资料并显示
-  const userProfile = await getUserProfile(uid);
-  let displayName = email;
-
-  if (userProfile) {
-    displayName = userProfile.nickname || email;
-  } else {
-    displayName = generateDefaultNickname(email);
-    const updatedProfile = await upsertUserProfile({
-      uid,
-      username: displayName,
-      email: email,
-    });
-  }
-
-  // 显示用户名
-  showUser(displayName);
 });
 
 
