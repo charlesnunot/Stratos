@@ -1,9 +1,7 @@
 // ====== Supabase 初始化 ======
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js';
-
 const supabaseUrl = 'https://zquslphbmowkgrdlygza.supabase.co';
 const supabaseKey = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 // ====== DOM 元素 ======
 const modalMask = document.getElementById('modal-mask');
@@ -54,7 +52,6 @@ document.getElementById('login-btn')?.addEventListener('click', async () => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) { alert(error.message); return; }
 
-  // 检查邮箱验证
   if (!data.user.email_confirmed_at) {
     alert('Please verify your email before logging in.');
     return;
