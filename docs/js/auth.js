@@ -96,8 +96,14 @@ document.getElementById('to-login')?.addEventListener('click', () => {
   loginModal.style.display = 'flex';
 });
 
-// ===== 退出登录 =====
-logoutBtn?.addEventListener('click', () => {
+// 显示和隐藏侧边栏的更多菜单
+document.getElementById('more-button').addEventListener('click', () => {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('show-more');
+});
+
+// 退出登录按钮
+document.getElementById('logout-btn').addEventListener('click', () => {
   clearToken();
   modalMask.style.display = 'flex';
   loginModal.style.display = 'flex';
