@@ -23,6 +23,11 @@ function showUser(email) {
   registerModal.style.display = 'none';
 }
 
+// ===== Supabase 初始化 =====
+const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // ===== 检查登录状态 =====
 window.addEventListener('DOMContentLoaded', () => {
   const token = getToken();
@@ -37,12 +42,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ===== Supabase 初始化 =====
-const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-console.log('Supabase 初始化完成', supabaseClient);
-
 // ===== 登录 =====
 document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -51,6 +50,11 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
   if (error) { alert(error.message); return; }
+
+  if (!data.user.email_confirmed_at) {
+    alert('Please verify your email before logging in.');
+    return;
+  }
 
   saveToken(data.session?.access_token || '');
   localStorage.setItem('username', email);
