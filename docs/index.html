@@ -63,7 +63,7 @@ body { font-family: Arial, sans-serif; margin:0; display:flex; }
     <div class="modal" id="login-modal">
       <h2>Login</h2>
       <form id="login-form">
-        <input type="email" id="login-email" placeholder="Email" required>
+        <input type="email" id="login-email" placeholder="Email" autocomplete="email" required>
         <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
         <button type="submit" id="login-btn">Login</button>
       </form>
@@ -74,7 +74,7 @@ body { font-family: Arial, sans-serif; margin:0; display:flex; }
     <div class="modal" id="register-modal" style="display:none;">
       <h2>Register</h2>
       <form id="register-form">
-        <input type="email" id="register-email" placeholder="Email" required>
+        <input type="email" id="register-email" placeholder="Email" autocomplete="email" required>
         <input type="password" id="register-password" placeholder="Password" autocomplete="new-password" required>
         <button type="submit" id="register-btn">Register</button>
       </form>
@@ -82,8 +82,10 @@ body { font-family: Arial, sans-serif; margin:0; display:flex; }
     </div>
   </div>
 
-  <!-- 使用 UMD 版本 Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.34.0/dist/umd/supabase.min.js"></script>
+  <!-- 引入 Supabase UMD 版本 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <!-- 引入本地 auth.js -->
   <script src="js/auth.js"></script>
+  
 </body>
 </html>
