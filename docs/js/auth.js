@@ -15,6 +15,61 @@ function clearToken() {
   localStorage.removeItem('username'); 
 }
 
+// 获取用户资料
+async function getUserProfile(uid) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('user_profiles')
+      .select('*')
+      .eq('uid', uid)
+      .maybeSingle(); // 只返回一个结果，如果没有则返回null
+
+    if (error) {
+      console.error('获取用户资料失败:', error.message);
+      return null;
+    }
+
+    return data; // 返回用户资料
+  } catch (err) {
+    console.error('获取用户资料异常:', err);
+    return null;
+  }
+}
+
+// 生成默认昵称
+const generateDefaultNickname = (email) => {
+  if (!email || !email.includes('@')) return '新用户_' + Math.floor(Math.random() * 10000);
+
+  const prefix = email.split('@')[0];
+  const firstPart = prefix.slice(0, 5); // 前5个字母
+  const lastChar = prefix.slice(-1);    // 最后一个字符
+  const randomNum = Math.floor(1000 + Math.random() * 9000); // 4位随机数
+  return `${firstPart}${randomNum}${lastChar}`; // 拼接结果
+};
+
+// 更新或插入用户资料
+async function upsertUserProfile(profile) {
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .upsert(profile, { onConflict: 'uid' }) // 如果 uid 冲突，则更新
+      .select('*') // 获取完整的资料
+      .maybeSingle(); // 获取单个记录
+
+    if (error) {
+      console.error('Supabase 更新用户资料失败:', error.message);
+      return null;
+    }
+
+    return data || null; // 返回数据，或者 null 如果没有成功
+  } catch (err) {
+    console.error('提交用户资料异常:', err);
+    return null;
+  }
+}
+
+
+
 // ===== 显示用户信息 =====
 function showUser(email) {
   usernameEl.textContent = email;
@@ -55,7 +110,26 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
 
   saveToken(data.session?.access_token || '');
   localStorage.setItem('username', email);
-  showUser(email);
+
+  // 获取用户资料并显示
+  const userProfile = await getUserProfile(uid);
+  let displayName = email; 
+  
+  if (userProfile) {
+    displayName = userProfile.username || email;
+  } else {
+    displayName = generateDefaultNickname(email);
+  }
+
+  // 更新/插入用户资料
+  const updatedProfile = await upsertUserProfile({
+    uid,
+    username: displayName,
+    email: email
+  });
+  // 显示用户名
+  showUser(displayName);
+  
 });
 
 // ===== 注册 =====
