@@ -103,30 +103,32 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-password').value;
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) { 
-    alert(error.message); 
-    return; 
+  // 调用 Supabase 登录 API
+  const { data: sessionData, error: loginError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (loginError) {
+    console.error('登录失败:', loginError.message);
+    alert(loginError.message);
+    return;
   }
 
-  saveToken(data.session?.access_token || '');
+  // 登录成功，保存 token 并设置用户名
+  saveToken(sessionData?.access_token || '');
   localStorage.setItem('username', email);
 
-   if (!data.session) {
-    console.error('登录后没有获取到有效的 session');
-    return;
-  } if (!data.session) {
-    console.error('登录后没有获取到有效的 session');
-    return;
-  }
+  console.log('登录成功，sessionData:', sessionData);
 
-  // 使用 getUser() 获取当前用户信息
-  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+  // 获取当前用户信息
+  const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError) {
     console.error('获取用户信息失败:', userError.message);
     return;
   }
 
+  console.log('当前用户数据:', userData);
   const uid = userData?.id; // 获取用户 UID
 
   if (!uid) {
@@ -136,8 +138,8 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
 
   // 获取用户资料并显示
   const userProfile = await getUserProfile(uid);
-  let displayName = email; 
-  
+  let displayName = email;
+
   if (userProfile) {
     displayName = userProfile.nickname || email;
   } else {
@@ -145,13 +147,14 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     const updatedProfile = await upsertUserProfile({
       uid,
       username: displayName,
-      email: email
+      email: email,
     });
   }
 
   // 显示用户名
   showUser(displayName);
 });
+
 
 // ===== 注册 =====
 document.getElementById('register-form')?.addEventListener('submit', async (e) => {
