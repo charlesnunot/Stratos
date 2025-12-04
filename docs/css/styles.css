@@ -16,111 +16,242 @@ body {
   overflow: hidden;
 }
 
-/* 主体布局 */
-.sidebar { flex:1; max-width:16.66%; background:var(--background-color); display:flex; flex-direction:column; padding:20px; border-right:1px solid var(--border-color); }
-.sidebar .brand { font-size:24px; font-weight:bold; margin-bottom:20px; color:var(--primary-color); }
-.sidebar button { display:flex; align-items:center; gap:8px; width:100%; background:none; border:none; margin:8px 0; cursor:pointer; font-size:16px; padding:8px 12px; border-radius:8px; transition:0.2s; }
-.sidebar button:hover { background:var(--primary-color); color:#fff; }
+/* Sidebar */
+.sidebar {
+  flex: 1;
+  max-width: 16.66%;
+  background: var(--background-color);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border-right: 1px solid var(--border-color);
+  position: relative; /* Allow absolute positioning inside */
+}
+
+.sidebar .brand {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: var(--primary-color);
+}
+
+.sidebar button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  margin: 8px 0;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: 0.2s;
+}
+
+.sidebar button:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
 
 /* More Button */
 .more-button {
-  margin-top: auto;
+  margin-top: auto; /* Pushes it to the bottom of the sidebar */
   cursor: pointer;
   display: flex;
   align-items: center;
-}
-.more-button i {
-  font-size: 24px;
-  margin-right: 10px;
+  font-size: 18px; /* Adjust size of the button */
+  color: var(--text-color);
 }
 
 /* More Menu */
-more-menu {
+.more-menu {
   display: none;
   flex-direction: column;
-  margin-top: 20px;
+  position: absolute; /* Fixes it to the bottom of the sidebar */
+  bottom: 10px; /* 10px above the bottom edge */
+  left: 0;
+  width: 100%;
   padding-left: 10px;
 }
+
 .more-menu a {
   text-decoration: none;
   color: #333;
   margin: 10px 0;
   font-size: 16px;
+  display: flex;
+  align-items: center;
 }
+
 .more-menu a:hover {
   color: #007bff;
 }
 
+.more-menu i {
+  margin-right: 8px; /* Add some space between icon and text */
+}
+
+/* Show menu when the button is clicked */
 .sidebar.show-more .more-menu {
   display: flex;
 }
 
-.center-container { flex:4; max-width:66.66%; display:flex; justify-content:center; background:var(--background-color); padding:20px; overflow-y:auto; }
-.main-content { width:50%; }
-.post { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
-
-.right-panel { flex:1; max-width:16.66%; background:var(--background-color); color:var(--text-color); border-left:1px solid var(--border-color); padding:20px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; }
-.app-download { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px; align-items:center; }
-.app-download button { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; font-size:14px; color:#fff; background:var(--primary-color); transition:0.2s; }
-.app-download button:hover { background:#1A91DA; }
-.user-info { display:flex; flex-direction:column; align-items:center; gap:8px; }
-.user-info img { width:60px; height:60px; border-radius:50%; }
-.notifications { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px; }
-
-@media (max-width:768px){
-  .sidebar { max-width:60px; }
-  .sidebar .brand, .sidebar button span { display:none; }
-  .right-panel { display:none; }
-  .main-content { width:100%; }
+/* Center content */
+.center-container {
+  flex: 4;
+  max-width: 66.66%;
+  display: flex;
+  justify-content: center;
+  background: var(--background-color);
+  padding: 20px;
+  overflow-y: auto;
 }
 
-/* 遮罩层和模态 */
+.main-content {
+  width: 50%;
+}
+
+.post {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Right Panel */
+.right-panel {
+  flex: 1;
+  max-width: 16.66%;
+  background: var(--background-color);
+  color: var(--text-color);
+  border-left: 1px solid var(--border-color);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.app-download {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.app-download button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #fff;
+  background: var(--primary-color);
+  transition: 0.2s;
+}
+
+.app-download button:hover {
+  background: #1A91DA;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-info img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+}
+
+.notifications {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Modal */
 .modal-mask {
   position: fixed;
-  top:0; left:0;
-  width:100vw;
-  height:100vh;
-  background: rgba(0,0,0,0.4);
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
   display: none;
-  justify-content:center;
-  align-items:center;
+  justify-content: center;
+  align-items: center;
   z-index: 1000;
 }
 
 .modal {
-  background:#fff;
-  padding:24px;
-  border-radius:12px;
-  width:320px;
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-  text-align:center;
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
 }
 
 .modal input {
-  padding:8px;
-  border-radius:8px;
-  border:1px solid #E0E0E0;
-  width:100%;
-  box-sizing:border-box;
-  margin-bottom:8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #E0E0E0;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
 }
 
 .modal button {
-  padding:8px;
-  border-radius:8px;
-  width:100%;
-  border:none;
-  cursor:pointer;
-  background:var(--primary-color);
-  color:#fff;
+  padding: 8px;
+  border-radius: 8px;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  background: var(--primary-color);
+  color: #fff;
 }
-.modal button:hover { background:#1A91DA; }
+
+.modal button:hover {
+  background: #1A91DA;
+}
 
 .switch-mode {
-  color:var(--primary-color);
-  cursor:pointer;
-  text-decoration:underline;
-  font-size:14px;
+  color: var(--primary-color);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    max-width: 60px;
+  }
+  .sidebar .brand,
+  .sidebar button span {
+    display: none;
+  }
+  .right-panel {
+    display: none;
+  }
+  .main-content {
+    width: 100%;
+  }
 }
