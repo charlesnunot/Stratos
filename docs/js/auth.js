@@ -48,3 +48,21 @@ document.getElementById('to-login').addEventListener('click', () => {
   loginModal.style.display = 'flex';
 });
 
+// 切换页面链接
+const toRegister = document.getElementById('to-register');
+if(toRegister){
+  toRegister.addEventListener('click', () => {
+    window.location.href = 'register.html';
+  });
+}
+
+const toLogin = document.getElementById('to-login');
+if(toLogin){
+  toLogin.addEventListener('click', () => {
+    window.location.href = 'login.html';
+  });
+}
+
+
+
+
