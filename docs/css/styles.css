@@ -86,7 +86,7 @@ body {
 
 /* 显示 More Menu */
 .sidebar.show-more .more-menu {
-  display: flex;  /* 点击 More 显示菜单 */
+  display: block;
 }
 
 
