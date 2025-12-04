@@ -109,8 +109,14 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   saveToken(data.session?.access_token || '');
   localStorage.setItem('username', email);
 
-  const user = supabaseClient.auth.user();
-  const uid = user?.uid;
+  // 使用 getUser() 获取当前用户信息
+  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+  if (userError) {
+    console.error('获取用户信息失败:', userError.message);
+    return;
+  }
+
+  const uid = userData?.id; // 获取用户 UID
 
   if (!uid) {
     console.error('用户 UID 获取失败');
@@ -133,7 +139,6 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   }
   // 显示用户名
   showUser(displayName);
-  
 });
 
 // ===== 注册 =====
