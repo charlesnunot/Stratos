@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
 <html lang="en">
 <head>
@@ -82,14 +81,6 @@ body { font-family: Arial, sans-serif; margin:0; display:flex; }
       <span class="switch-mode" id="to-login">Already have an account? Login</span>
     </div>
   </div>
-
-  <script>
-    const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  
-    console.log('Supabase 初始化完成', supabase);
-  </script>
   <script src="js/auth.js"></script>
   
 </body>
