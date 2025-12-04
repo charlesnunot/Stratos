@@ -58,9 +58,9 @@ async function upsertUserProfile(profile) {
   try {
     const { data, error } = await supabaseClient
       .from('user_profiles')
-      .upsert(profile, { onConflict: 'uid' }) // 如果 uid 冲突，则更新
-      .select('*') // 获取完整的资料
-      .maybeSingle(); // 获取单个记录
+      .upsert(profile, { onConflict: 'uid' })
+      .select('*') // 必须传 string
+      .maybeSingle();
 
     if (error) {
       console.error('Supabase 更新用户资料失败:', error.message);
