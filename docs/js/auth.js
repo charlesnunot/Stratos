@@ -5,6 +5,7 @@ const registerModal = document.getElementById('register-modal');
 const usernameEl = document.getElementById('username');
 const userInfo = document.getElementById('user-info');
 const logoutBtn = document.getElementById('logout-btn');
+const emailVerificationModal = document.getElementById('email-verification-modal');
 
 // ===== token 操作 =====
 function saveToken(token) { localStorage.setItem('authToken', token); }
