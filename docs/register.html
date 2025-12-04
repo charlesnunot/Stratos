@@ -4,145 +4,38 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Register - Stratos</title>
-<style>
-  body { margin:0; font-family:Arial,sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#FAFAFA;}
-  .register-container { background:#fff; padding:24px; border-radius:12px; display:flex; flex-direction:column; gap:12px; width:320px;}
-  .register-container input { padding:8px; border-radius:8px; border:1px solid #E0E0E0; width:100%; box-sizing:border-box;}
-  .password-wrapper { position: relative; display: flex; align-items: center; }
-  .password-wrapper input { flex: 1; }
-  .toggle-password { position: absolute; right: 10px; cursor: pointer; color:#888; user-select:none; }
-  .register-container button { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; font-size:16px; color:#fff; background:#1DA1F2;}
-  .register-container button:hover{ background:#1A91DA; }
-  .switch-link { color:#1DA1F2; cursor:pointer; text-decoration:underline; font-size:14px; text-align:center; }
-  .message { text-align:center; color:red; font-size:14px; margin-bottom:8px; }
-
-  /* 模态弹窗样式 */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset:0;
-    background: rgba(0,0,0,0.5);
-    justify-content: center;
-    align-items: center;
-    z-index: 999;
-  }
-  .modal {
-    background:#fff;
-    border-radius:12px;
-    padding:24px;
-    width:280px;
-    text-align:center;
-  }
-  .modal h3 { margin:0 0 12px; }
-  .modal button {
-    margin-top:12px;
-    padding:8px 16px;
-    border:none;
-    border-radius:8px;
-    background:#1DA1F2;
-    color:#fff;
-    font-size:16px;
-    cursor:pointer;
-  }
-</style>
+<link rel="stylesheet" href="auth.css">
 </head>
 <body>
-  <div class="register-container">
+  <div class="modal">
     <h2>Register</h2>
     <input type="email" id="reg-email" placeholder="Email">
-    <div class="password-wrapper">
-      <input type="password" id="reg-password" placeholder="Password">
-      <span class="toggle-password" id="toggle-password">Show</span>
-    </div>
-    <div class="message" id="message"></div>
+    <input type="password" id="reg-password" placeholder="Password">
     <button id="register-btn">Register</button>
-    <span class="switch-link" id="to-login">Go to Login</span>
+    <span class="switch-mode" id="to-login">Go to Login</span>
   </div>
 
-  <!-- 模态弹窗 -->
-  <div class="modal-overlay" id="modal">
-    <div class="modal">
-      <h3>Email Verification Required</h3>
-      <p>We have sent a verification link to your email.<br>Please verify before logging in.</p>
-      <button id="modal-ok">OK</button>
-    </div>
-  </div>
+  <script>
+    const registerBtn = document.getElementById('register-btn');
+    const toLogin = document.getElementById('to-login');
 
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-    const supabaseUrl = "https://zquslphbmowkgrdlygza.supabase.co";
-    const supabaseAnonKey = "sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu";
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    const togglePassword = document.getElementById('toggle-password');
-    const passwordInput = document.getElementById('reg-password');
-    const messageDiv = document.getElementById('message');
-    const modal = document.getElementById('modal');
-    const modalOk = document.getElementById('modal-ok');
-
-    togglePassword.addEventListener('click', () => {
-      passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
-      togglePassword.textContent = passwordInput.type === 'password' ? 'Show' : 'Hide';
-    });
-
-    document.getElementById('to-login').addEventListener('click', () => {
+    toLogin.addEventListener('click', () => {
       window.location.href = 'login.html';
     });
 
-    function validateRegister(email, password) {
-      if (!email) return { valid: false, message: 'Please enter email' };
-      if (!/^\S+@\S+\.\S+$/.test(email)) return { valid: false, message: 'Invalid email format' };
-      if (!password) return { valid: false, message: 'Please enter password' };
-      if (password.length < 6) return { valid: false, message: 'Password must be at least 6 characters' };
-      return { valid: true };
-    }
+    registerBtn.addEventListener('click', () => {
+      const email = document.getElementById('reg-email').value;
+      const password = document.getElementById('reg-password').value;
 
-    document.getElementById('register-btn').addEventListener('click', async () => {
-      const email = document.getElementById('reg-email').value.trim();
-      const password = document.getElementById('reg-password').value.trim();
-      messageDiv.style.color = "red";
-      messageDiv.textContent = "";
-
-      const validation = validateRegister(email, password);
-      if (!validation.valid) {
-        messageDiv.textContent = validation.message;
+      if (!email || !password) {
+        alert('Please enter both email and password.');
         return;
       }
 
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: window.location.origin + "/login.html"
-          }
-        });
-
-        if (error) {
-          messageDiv.textContent = error.message;
-          return;
-        }
-
-        // 用户需要邮箱验证
-        if (!data.user?.last_sign_in_at) {
-          modal.style.display = "flex";
-          modalOk.onclick = () => {
-            modal.style.display = "none";
-            window.location.href = "login.html";
-          };
-          return;
-        }
-
-        // 已经有 last_sign_in_at，直接成功
-        messageDiv.style.color = "green";
-        messageDiv.textContent = "Registration successful!";
-        setTimeout(() => window.location.href = "main.html", 1500);
-
-      } catch (err) {
-        console.error(err);
-        messageDiv.textContent = "Unknown error, please try again";
-      }
+      // 模拟注册
+      localStorage.setItem('loggedInUser', email);
+      alert('Registration successful!');
+      window.location.href = 'index.html';
     });
   </script>
 </body>
