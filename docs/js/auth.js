@@ -64,10 +64,22 @@ document.getElementById('register-btn')?.addEventListener('click', async () => {
     return;
   }
 
-  // 注册成功，但邮箱未验证
-  alert('Registration successful! Please verify your email before logging in.');
+  const user = result.user;
+
+  // 判断是否已经验证邮箱
+  if (!user.last_sign_in_at) {
+    alert('Registration successful! We have sent a verification link to your email. Please verify before logging in.');
+    
+    // 切换到登录弹窗
+    registerModal.style.display = 'none';
+    loginModal.style.display = 'flex';
+    return;
+  }
+
+  // 如果邮箱已经验证，可以直接登录或其他逻辑
+  alert('Registration successful! You are now logged in.');
   registerModal.style.display = 'none';
-  loginModal.style.display = 'flex';
+  loginModal.style.display = 'none';
 });
 
 
