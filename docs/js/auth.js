@@ -62,13 +62,31 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
   e.preventDefault();
   const email = document.getElementById('register-email').value;
   const password = document.getElementById('register-password').value;
+  const messageEl = document.getElementById('register-message');
+
+  // 清空上一次消息
+  messageEl.style.display = 'none';
+  messageEl.textContent = '';
 
   const { data, error } = await supabaseClient.auth.signUp({ email, password });
-  if (error) { alert(error.message); return; }
+  if (error) { 
+    messageEl.style.color = 'red';
+    messageEl.textContent = error.message;
+    messageEl.style.display = 'block';
+    return; 
+  }
 
-  alert('Registration successful! Please verify your email before logging in.');
-  registerModal.style.display = 'none';
-  loginModal.style.display = 'flex';
+  // 显示注册成功消息
+  messageEl.style.color = 'green';
+  messageEl.textContent = 'Registration successful! Please verify your email before logging in.';
+  messageEl.style.display = 'block';
+
+  // 2秒后切换到登录模态
+  setTimeout(() => {
+    registerModal.style.display = 'none';
+    loginModal.style.display = 'flex';
+    messageEl.style.display = 'none'; // 隐藏消息
+  }, 2000);
 });
 
 // ===== 切换弹窗 =====
