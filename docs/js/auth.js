@@ -58,6 +58,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
 });
 
 // ===== 注册 =====
+// ===== 注册 =====
 document.getElementById('register-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('register-email').value;
@@ -76,18 +77,21 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
     return; 
   }
 
-  // 显示注册成功消息
-  messageEl.style.color = 'green';
-  messageEl.textContent = 'Registration successful! Please verify your email before logging in.';
-  messageEl.style.display = 'block';
+  // 显示邮箱验证提示模态
+  document.getElementById('email-verification-modal').style.display = 'flex';
+  document.getElementById('modal-mask').style.display = 'flex';
+
+  // 隐藏注册模态
+  document.getElementById('register-modal').style.display = 'none';
 
   // 2秒后切换到登录模态
   setTimeout(() => {
-    registerModal.style.display = 'none';
-    loginModal.style.display = 'flex';
-    messageEl.style.display = 'none'; // 隐藏消息
+    document.getElementById('email-verification-modal').style.display = 'none';
+    document.getElementById('login-modal').style.display = 'flex';
+    document.getElementById('modal-mask').style.display = 'none';
   }, 2000);
 });
+
 
 // ===== 切换弹窗 =====
 document.getElementById('to-register')?.addEventListener('click', () => {
