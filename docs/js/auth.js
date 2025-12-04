@@ -1,8 +1,4 @@
 // js/auth.js
-const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co'; 
-const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu'; 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 // ===== DOM 元素 =====
 const modalMask = document.getElementById('modal-mask');
 const loginModal = document.getElementById('login-modal');
