@@ -113,6 +113,9 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   saveToken(data.session?.access_token || '');
   localStorage.setItem('username', email);
 
+  const user = supabaseClient.auth.user();
+  const uid = user?.uid;
+
   // 获取用户资料并显示
   const userProfile = await getUserProfile(uid);
   let displayName = email; 
