@@ -71,17 +71,20 @@ body {
   flex-direction: column; /* 垂直排列 */
   margin-top: 20px;
   padding-left: 10px;
-  padding-right: 10px; /* 可以加入右侧的间距 */
+  padding-right: 10px;
   gap: 10px; /* 添加间隔，确保菜单项之间有距离 */
+  width: 100%; /* 确保占满父容器的宽度 */
 }
 
 .more-menu a {
+  display: block; /* 确保每个链接都在自己的一行 */
   text-decoration: none;
   color: #333;
-  margin: 10px 0;  /* 这会加大垂直间距，避免太拥挤 */
   font-size: 16px;
-  padding: 5px; /* 可以为链接添加内边距 */
+  padding: 10px; /* 增加内边距使每个链接更大 */
   border-radius: 5px; /* 圆角效果 */
+  margin: 0; /* 去掉默认的外边距 */
+  width: 100%; /* 确保每个链接占满整个宽度 */
 }
 
 .more-menu a:hover {
