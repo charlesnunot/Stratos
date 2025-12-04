@@ -1,16 +1,24 @@
-// DOM 元素
+// ====== Supabase 初始化 ======
+const supabaseUrl = 'https://zquslphbmowkgrdlygza.supabase.co';
+const supabaseKey = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+// ====== DOM 元素 ======
 const modalMask = document.getElementById('modal-mask');
 const loginModal = document.getElementById('login-modal');
 const registerModal = document.getElementById('register-modal');
 const usernameEl = document.getElementById('username');
 const userInfo = document.getElementById('user-info');
 
-// token 操作
+// ====== token 操作 ======
 function saveToken(token) { localStorage.setItem('authToken', token); }
 function getToken() { return localStorage.getItem('authToken'); }
-function clearToken() { localStorage.removeItem('authToken'); localStorage.removeItem('username'); }
+function clearToken() { 
+  localStorage.removeItem('authToken'); 
+  localStorage.removeItem('username'); 
+}
 
-// 显示用户信息
+// ====== 显示用户信息 ======
 function showUser(email) {
   usernameEl.textContent = email;
   userInfo.style.display = 'flex';
@@ -19,7 +27,7 @@ function showUser(email) {
   registerModal.style.display = 'none';
 }
 
-// 检查登录状态
+// ====== 检查登录状态 ======
 window.addEventListener('DOMContentLoaded', async () => {
   const token = getToken();
   const username = localStorage.getItem('username');
