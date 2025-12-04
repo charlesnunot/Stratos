@@ -118,7 +118,6 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   // 登录成功，保存 token 并设置用户名
   saveToken(sessionData?.access_token || '');
   localStorage.setItem('username', email);
-  console.log('data',data);
 
 });
 
