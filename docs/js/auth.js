@@ -104,7 +104,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   const password = document.getElementById('login-password').value;
 
   // 调用 Supabase 登录 API
-  const { data: sessionData, error: loginError } = await supabase.auth.signInWithPassword({
+  const { data: sessionData, error: loginError } = await supabaseClient.auth.signInWithPassword({
     email,
     password,
   });
