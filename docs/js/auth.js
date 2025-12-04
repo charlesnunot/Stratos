@@ -1,12 +1,3 @@
-// ===== ES Module 导入 Supabase =====
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.esm.js';
-
-// ===== 初始化 Supabase =====
-const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-console.log('Supabase 初始化完成', supabaseClient);
-
 // ===== DOM 元素 =====
 const modalMask = document.getElementById('modal-mask');
 const loginModal = document.getElementById('login-modal');
@@ -14,6 +5,12 @@ const registerModal = document.getElementById('register-modal');
 const usernameEl = document.getElementById('username');
 const userInfo = document.getElementById('user-info');
 const logoutBtn = document.getElementById('logout-btn');
+
+// ===== Supabase 初始化 =====
+const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+console.log('Supabase 初始化完成', supabaseClient);
 
 // ===== token 操作 =====
 function saveToken(token) { localStorage.setItem('authToken', token); }
