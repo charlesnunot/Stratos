@@ -3,17 +3,114 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stratos Homepage</title>
-<link rel="stylesheet" href="auth.css">
+<title>Stratos Web Homepage</title>
+<style>
+  :root {
+    --primary-color: #1DA1F2;
+    --background-color: #FAFAFA;
+    --text-color: #111;
+    --card-bg: #fff;
+    --border-color: #E0E0E0;
+  }
+
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+    background: var(--background-color);
+    color: var(--text-color);
+    overflow: hidden;
+  }
+
+  /* 主体布局 */
+  .sidebar { flex:1; max-width:16.66%; background:var(--background-color); display:flex; flex-direction:column; padding:20px; border-right:1px solid var(--border-color); }
+  .sidebar .brand { font-size:24px; font-weight:bold; margin-bottom:20px; color:var(--primary-color); }
+  .sidebar button { display:flex; align-items:center; gap:8px; width:100%; background:none; border:none; margin:8px 0; cursor:pointer; font-size:16px; padding:8px 12px; border-radius:8px; transition:0.2s; }
+  .sidebar button:hover { background:var(--primary-color); color:#fff; }
+
+  .center-container { flex:4; max-width:66.66%; display:flex; justify-content:center; background:var(--background-color); padding:20px; overflow-y:auto; }
+  .main-content { width:50%; }
+  .post { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+
+  .right-panel { flex:1; max-width:16.66%; background:var(--background-color); color:var(--text-color); border-left:1px solid var(--border-color); padding:20px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; }
+  .app-download { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px; align-items:center; }
+  .app-download button { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; font-size:14px; color:#fff; background:var(--primary-color); transition:0.2s; }
+  .app-download button:hover { background:#1A91DA; }
+  .user-info { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .user-info img { width:60px; height:60px; border-radius:50%; }
+  .notifications { background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+
+  @media (max-width:768px){
+    .sidebar { max-width:60px; }
+    .sidebar .brand, .sidebar button span { display:none; }
+    .right-panel { display:none; }
+    .main-content { width:100%; }
+  }
+
+  /* 遮罩层和模态 */
+  .modal-mask {
+    position: fixed;
+    top:0; left:0;
+    width:100vw;
+    height:100vh;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    justify-content:center;
+    align-items:center;
+    z-index: 1000;
+  }
+
+  .modal {
+    background:#fff;
+    padding:24px;
+    border-radius:12px;
+    width:320px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    text-align:center;
+  }
+
+  .modal input {
+    padding:8px;
+    border-radius:8px;
+    border:1px solid #E0E0E0;
+    width:100%;
+    box-sizing:border-box;
+  }
+
+  .modal button {
+    padding:8px;
+    border-radius:8px;
+    border:none;
+    cursor:pointer;
+    background:var(--primary-color);
+    color:#fff;
+  }
+  .modal button:hover { background:#1A91DA; }
+
+  .switch-mode {
+    color:var(--primary-color);
+    cursor:pointer;
+    text-decoration:underline;
+    font-size:14px;
+  }
+</style>
 </head>
 <body>
-  <!-- 首页内容 -->
+  <!-- Sidebar -->
   <div class="sidebar">
     <div class="brand">Stratos</div>
     <button>Home</button>
     <button>Search</button>
     <button>Explore</button>
+    <button>Marketplace</button>
+    <button>Create</button>
+    <button>Messages</button>
   </div>
+
+  <!-- Center content -->
   <div class="center-container">
     <div class="main-content">
       <h1>Home Feed</h1>
@@ -22,25 +119,95 @@
     </div>
   </div>
 
-  <!-- 模态登录/注册 -->
-  <div class="modal-overlay" id="modal-overlay">
+  <!-- Right panel -->
+  <div class="right-panel" id="right-panel">
+    <div class="app-download">
+      <h3>Download Stratos App</h3>
+      <button>iOS</button>
+      <button>Android</button>
+    </div>
+    <div class="user-info" id="user-info">
+      <img src="https://via.placeholder.com/60" alt="User Avatar">
+      <span id="username"></span>
+      <div class="notifications">
+        <p>New message: User C commented on your post</p>
+        <p>Friend online: User D</p>
+        <p>System notification: Event starting soon</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模态遮罩 -->
+  <div class="modal-mask" id="modal-mask">
+    <!-- 登录模态 -->
     <div class="modal" id="login-modal">
       <h2>Login</h2>
       <input type="email" id="login-email" placeholder="Email">
       <input type="password" id="login-password" placeholder="Password">
       <button id="login-btn">Login</button>
-      <p class="switch-mode" id="to-register">Don't have an account? Register</p>
+      <span class="switch-mode" id="to-register">Don't have an account? Register</span>
     </div>
 
+    <!-- 注册模态 -->
     <div class="modal" id="register-modal" style="display:none;">
       <h2>Register</h2>
       <input type="email" id="register-email" placeholder="Email">
       <input type="password" id="register-password" placeholder="Password">
       <button id="register-btn">Register</button>
-      <p class="switch-mode" id="to-login">Already have an account? Login</p>
+      <span class="switch-mode" id="to-login">Already have an account? Login</span>
     </div>
   </div>
 
-<script src="auth.js"></script>
+  <script>
+    const modalMask = document.getElementById('modal-mask');
+    const loginModal = document.getElementById('login-modal');
+    const registerModal = document.getElementById('register-modal');
+    const usernameEl = document.getElementById('username');
+    const userInfo = document.getElementById('user-info');
+
+    // 检查登录状态
+    const loggedInUser = localStorage.getItem('loggedInUser');
+    if(!loggedInUser) {
+      modalMask.style.display = 'flex';
+      loginModal.style.display = 'flex';
+      registerModal.style.display = 'none';
+      userInfo.style.display = 'none';
+    } else {
+      usernameEl.textContent = loggedInUser;
+      userInfo.style.display = 'flex';
+    }
+
+    // 登录按钮
+    document.getElementById('login-btn').addEventListener('click', () => {
+      const email = document.getElementById('login-email').value;
+      if(!email){ alert('Please enter email'); return; }
+      localStorage.setItem('loggedInUser', email);
+      modalMask.style.display = 'none';
+      usernameEl.textContent = email;
+      userInfo.style.display = 'flex';
+    });
+
+    // 注册按钮
+    document.getElementById('register-btn').addEventListener('click', () => {
+      const email = document.getElementById('register-email').value;
+      if(!email){ alert('Please enter email'); return; }
+      localStorage.setItem('loggedInUser', email);
+      modalMask.style.display = 'none';
+      usernameEl.textContent = email;
+      userInfo.style.display = 'flex';
+    });
+
+    // 切换到注册
+    document.getElementById('to-register').addEventListener('click', () => {
+      loginModal.style.display = 'none';
+      registerModal.style.display = 'flex';
+    });
+
+    // 切换到登录
+    document.getElementById('to-login').addEventListener('click', () => {
+      registerModal.style.display = 'none';
+      loginModal.style.display = 'flex';
+    });
+  </script>
 </body>
 </html>
