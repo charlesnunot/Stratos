@@ -119,22 +119,6 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
   saveToken(sessionData?.access_token || '');
   localStorage.setItem('username', email);
 
-  console.log('登录成功，sessionData:', sessionData);
-
-  // 获取当前用户信息
-  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-  if (userError) {
-    console.error('获取用户信息失败:', userError.message);
-    return;
-  }
-
-  console.log('当前用户数据:', userData);
-  const uid = userData?.id; // 获取用户 UID
-
-  if (!uid) {
-    console.error('用户 UID 获取失败');
-    return;
-  }
 
   // 获取用户资料并显示
   const userProfile = await getUserProfile(uid);
