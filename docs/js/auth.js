@@ -1,6 +1,4 @@
 // js/auth.js
-import { supabase } from './supabase.js';
-
 // ===== DOM 元素 =====
 const modalMask = document.getElementById('modal-mask');
 const loginModal = document.getElementById('login-modal');
