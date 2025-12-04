@@ -65,19 +65,13 @@ body {
   text-align:center;
 }
 
-.modal form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px; /* 输入框和按钮的垂直间距 */
-  width: 100%;
-}
-
 .modal input {
   padding:8px;
   border-radius:8px;
   border:1px solid #E0E0E0;
   width:100%;
   box-sizing:border-box;
+  margin-bottom:8px;
 }
 
 .modal button {
