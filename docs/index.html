@@ -14,7 +14,6 @@ body { font-family: Arial, sans-serif; margin:0; display:flex; }
 .modal { background:#fff; padding:20px; border-radius:8px; }
 .user-info { display:flex; flex-direction:column; align-items:center; }
 .user-info img { border-radius:50%; margin-bottom:10px; }
-button { cursor:pointer; margin-top:5px; }
 </style>
 </head>
 <body>
@@ -64,123 +63,26 @@ button { cursor:pointer; margin-top:5px; }
     <div class="modal" id="login-modal">
       <h2>Login</h2>
       <form id="login-form">
-        <input type="email" id="login-email" placeholder="Email" required autocomplete="email"><br>
-        <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password"><br>
+        <input type="email" id="login-email" placeholder="Email" required>
+        <input type="password" id="login-password" placeholder="Password" required>
         <button type="submit" id="login-btn">Login</button>
       </form>
-      <span class="switch-mode" id="to-register" style="cursor:pointer; color:blue;">Don't have an account? Register</span>
+      <span class="switch-mode" id="to-register">Don't have an account? Register</span>
     </div>
 
     <!-- 注册模态 -->
     <div class="modal" id="register-modal" style="display:none;">
       <h2>Register</h2>
       <form id="register-form">
-        <input type="email" id="register-email" placeholder="Email" required autocomplete="email"><br>
-        <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password"><br>
+        <input type="email" id="register-email" placeholder="Email" required>
+        <input type="password" id="register-password" placeholder="Password" required>
         <button type="submit" id="register-btn">Register</button>
       </form>
-      <span class="switch-mode" id="to-login" style="cursor:pointer; color:blue;">Already have an account? Login</span>
+      <span class="switch-mode" id="to-login">Already have an account? Login</span>
     </div>
   </div>
 
-  <!-- ====== Supabase JS ====== -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/supabase.min.js"></script>
-  <script>
-    // 初始化 Supabase 全局对象
-    const supabaseUrl = 'https://zquslphbmowkgrdlygza.supabase.co';
-    const supabaseKey = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-
-    // DOM 元素
-    const modalMask = document.getElementById('modal-mask');
-    const loginModal = document.getElementById('login-modal');
-    const registerModal = document.getElementById('register-modal');
-    const usernameEl = document.getElementById('username');
-    const userInfo = document.getElementById('user-info');
-    const logoutBtn = document.getElementById('logout-btn');
-
-    // token 操作
-    function saveToken(token) { localStorage.setItem('authToken', token); }
-    function getToken() { return localStorage.getItem('authToken'); }
-    function clearToken() { 
-      localStorage.removeItem('authToken'); 
-      localStorage.removeItem('username'); 
-    }
-
-    // 显示用户信息
-    function showUser(email) {
-      usernameEl.textContent = email;
-      userInfo.style.display = 'flex';
-      modalMask.style.display = 'none';
-      loginModal.style.display = 'none';
-      registerModal.style.display = 'none';
-    }
-
-    // 检查登录状态
-    window.addEventListener('DOMContentLoaded', async () => {
-      const token = getToken();
-      const username = localStorage.getItem('username');
-      if (!token || !username) {
-        modalMask.style.display = 'flex';
-        loginModal.style.display = 'flex';
-        registerModal.style.display = 'none';
-        userInfo.style.display = 'none';
-      } else {
-        showUser(username);
-      }
-    });
-
-    // 登录
-    document.getElementById('login-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
-
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) { alert(error.message); return; }
-
-      if (!data.user.email_confirmed_at) {
-        alert('Please verify your email before logging in.');
-        return;
-      }
-
-      saveToken(data.session?.access_token || '');
-      localStorage.setItem('username', email);
-      showUser(email);
-    });
-
-    // 注册
-    document.getElementById('register-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('register-email').value;
-      const password = document.getElementById('register-password').value;
-
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) { alert(error.message); return; }
-
-      alert('Registration successful! We have sent a verification link to your email. Please verify before logging in.');
-      registerModal.style.display = 'none';
-      loginModal.style.display = 'flex';
-    });
-
-    // 切换弹窗
-    document.getElementById('to-register')?.addEventListener('click', () => {
-      loginModal.style.display = 'none';
-      registerModal.style.display = 'flex';
-    });
-    document.getElementById('to-login')?.addEventListener('click', () => {
-      registerModal.style.display = 'none';
-      loginModal.style.display = 'flex';
-    });
-
-    // 退出登录
-    logoutBtn?.addEventListener('click', () => {
-      clearToken();
-      modalMask.style.display = 'flex';
-      loginModal.style.display = 'flex';
-      registerModal.style.display = 'none';
-      userInfo.style.display = 'none';
-    });
-  </script>
+  <!-- ====== Auth JS 模块化加载 ====== -->
+  <script type="module" src="js/auth.js"></script>
 </body>
 </html>
