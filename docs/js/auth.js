@@ -161,6 +161,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     });
   }
   let avatarUrl = await getUserAvatar(user.id);
+  console.log('头像:', avatarUrl);
   showUser(nickname,avatarUrl);
 });
 
