@@ -8,6 +8,7 @@
   padding: 20px;
   display: flex;
   flex-direction: column;
+  border-right: 1px solid var(--border-color);
 }
 
 /* Brand name */
@@ -80,4 +81,3 @@
     font-size: 14px;
   }
 }
-
