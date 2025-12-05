@@ -98,14 +98,16 @@ body {
   flex: 4;
   max-width: 66.66%;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   background: var(--background-color);
   padding: 20px;
   overflow-y: auto;
 }
 
+/* Main Content (3/4) */
 .main-content {
-  width: 50%;
+  width: 75%; /* 3/4 */
+  padding-right: 20px;
 }
 
 .setting-option {
@@ -142,6 +144,39 @@ body {
 
 .setting-option button:hover {
   background: #1A91DA;
+}
+
+/* Side Content (1/4) */
+.side-content {
+  width: 25%; /* 1/4 */
+  padding: 20px;
+}
+
+.side-content h3 {
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+.side-content .info {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.side-content .info p {
+  margin: 5px 0;
+}
+
+.side-content input[type="file"] {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 
 /* Right Panel */
