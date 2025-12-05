@@ -203,21 +203,6 @@ document.getElementById('to-login')?.addEventListener('click', () => {
   loginModal.style.display = 'flex';
 });
 
-// 显示和隐藏侧边栏的更多菜单
-document.getElementById('more-button').addEventListener('click', () => {
-  const sidebar = document.getElementById('sidebar');
-  sidebar.classList.toggle('show-more');
-});
-
-// 退出登录按钮
-document.getElementById('logout-btn').addEventListener('click', () => {
-  clearToken();
-  modalMask.style.display = 'flex';
-  loginModal.style.display = 'flex';
-  registerModal.style.display = 'none';
-  userInfo.style.display = 'none';
-});
-
 // ===== 点击 "Go to Login" =====
 document.getElementById('go-to-login')?.addEventListener('click', () => {
   emailVerificationModal.style.display = 'none';
