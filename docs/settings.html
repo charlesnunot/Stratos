@@ -41,19 +41,21 @@
       margin-left: 16.6667%; /* 左侧栏宽度占用 */
       padding: 20px;
     }
-    
-    /* 右侧栏 - 第一个右侧面板，占1/6宽度 */
-    .second-right-panel {
+
+    /* 右侧栏 - 公共样式 */
+    .right-panel {
       width: 16.6667%; /* 1/6 */
-      background-color: #f4f4f4; /* 第一个右侧栏背景色 */
       padding: 20px;
     }
 
-    /* 右侧栏区域 - 第二个右侧面板，占1/6宽度 */
-    .right-panel {
-      width: 16.6667%; /* 1/6 */
+    /* 第一个右侧面板 */
+    .first-right-panel {
       background-color: #f4f4f4; /* 第一个右侧栏背景色 */
-      padding: 20px;
+    }
+
+    /* 第二个右侧面板 */
+    .second-right-panel {
+      background-color: #e0e0e0; /* 第二个右侧栏背景色 */
     }
 
     /* 设置页面表单样式 */
@@ -151,8 +153,8 @@
     </div>
   </div>
 
-  <!-- 第一个右侧栏 -->
-  <div class="right-panel">
+  <!-- 第一个右侧面板 -->
+  <div class="right-panel first-right-panel">
     <div class="app-download">
       <h3>Download Stratos App</h3>
       <button>iOS</button>
@@ -160,8 +162,8 @@
     </div>
   </div>
 
-  <!-- 第二个右侧栏 -->
-  <div class="second-right-panel">
+  <!-- 第二个右侧面板 -->
+  <div class="right-panel second-right-panel">
     <h3>Other Settings</h3>
     <p>Here you can configure other settings.</p>
     <button>Change Password</button>
