@@ -113,9 +113,11 @@ function showUser(nickname, avatarUrl) {
 
 
 // ===== 检查登录状态 =====
-window.addEventListener('DOMContentLoaded', () => {
+window.onload = () => {
+  // 等待所有资源加载完成后再执行
   const token = getToken();
   const username = localStorage.getItem('username');
+
   if (!token || !username) {
     modalMask.style.display = 'flex';
     loginModal.style.display = 'flex';
@@ -124,7 +126,7 @@ window.addEventListener('DOMContentLoaded', () => {
   } else {
     showUser(username);
   }
-});
+};
 
 // ===== 登录 =====
 document.getElementById('login-form')?.addEventListener('submit', async (e) => {
