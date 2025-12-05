@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <style>
-    /* 使页面整体布局成为一个Flex容器 */
+    /* 页面整体布局 */
     body {
       display: flex;
       flex-direction: row;
@@ -16,28 +16,43 @@
       height: 100vh;
     }
 
-    /* Sidebar 样式 */
+    /* 左侧栏 - 占1/6宽度 */
     .sidebar {
-      width: 250px;
+      width: 16.6667%; /* 1/6 */
       background-color: #f4f4f4;
       padding: 20px;
       position: fixed;
       height: 100vh;
       left: 0;
       top: 0;
+      display: flex;
+      flex-direction: column;
     }
 
-    /* Center content 样式 */
+    .sidebar .brand {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    /* 中间内容区域 - 占3/6宽度 */
     .center-container {
-      flex: 3;
-      margin-left: 250px; /* 避开 Sidebar */
+      flex: 3; /* 3/6 */
+      margin-left: 16.6667%; /* 左侧栏宽度占用 */
       padding: 20px;
     }
 
-    /* 右侧面板样式（两个面板） */
+    /* 右侧栏区域 - 第一个右侧面板，占1/6宽度 */
     .right-panel {
-      width: 25%; /* 右边栏占 1/4 宽度 */
+      width: 16.6667%; /* 1/6 */
       background-color: #f4f4f4;
+      padding: 20px;
+    }
+
+    /* 右侧栏 - 第二个右侧面板，占1/6宽度 */
+    .second-right-panel {
+      width: 16.6667%; /* 1/6 */
+      background-color: #e0e0e0;
       padding: 20px;
     }
 
@@ -69,7 +84,7 @@
       background-color: #007bb5;
     }
 
-    /* 保证右边栏内容居中 */
+    /* 右侧栏内容居中 */
     .right-panel .app-download {
       display: flex;
       flex-direction: column;
@@ -89,12 +104,6 @@
       background-color: #005f8d;
     }
 
-    /* 第二个右侧面板样式 */
-    .second-right-panel {
-      background-color: #e0e0e0;
-      padding: 20px;
-    }
-
     .second-right-panel h3 {
       margin-top: 0;
     }
@@ -102,7 +111,7 @@
 </head>
 <body>
 
-  <!-- Sidebar -->
+  <!-- 左侧栏 -->
   <div class="sidebar" id="sidebar">
     <div class="brand">Stratos</div>
     <button>Home</button>
@@ -112,12 +121,12 @@
     <button>Create</button>
     <button>Messages</button>
 
-    <!-- More Button -->
+    <!-- 更多按钮 -->
     <div class="more-button" id="more-button">
       <i class="fas fa-bars"></i> More
     </div>
 
-    <!-- More Menu -->
+    <!-- 更多菜单 -->
     <div class="more-menu" id="more-menu">
       <a href="settings.html" id="settings"><i class="fas fa-cogs"></i> Settings</a>
       <a href="#" id="report-issue"><i class="fas fa-exclamation-circle"></i> Report Issue</a>
@@ -126,7 +135,7 @@
     </div>
   </div>
 
-  <!-- Center content -->
+  <!-- 中间内容 -->
   <div class="center-container">
     <div class="main-content">
       <h1>Settings Page</h1>
@@ -142,7 +151,7 @@
     </div>
   </div>
 
-  <!-- Right panel (第一个右侧面板) -->
+  <!-- 第一个右侧栏 -->
   <div class="right-panel">
     <div class="app-download">
       <h3>Download Stratos App</h3>
@@ -151,8 +160,8 @@
     </div>
   </div>
 
-  <!-- 第二个右侧面板 -->
-  <div class="right-panel second-right-panel">
+  <!-- 第二个右侧栏 -->
+  <div class="second-right-panel">
     <h3>Other Settings</h3>
     <p>Here you can configure other settings.</p>
     <button>Change Password</button>
