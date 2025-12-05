@@ -26,6 +26,35 @@
   color: var(--primary-color);
 }
 
+.sidebar button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  margin: 8px 0;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: 0.2s;
+}
+
+.sidebar button:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.more-button {
+  margin-top: auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  color: var(--text-color);
+}
+
 /* More Menu */
 .more-menu {
   display: none;
@@ -37,40 +66,22 @@
   width: 100%;
 }
 
-/* Main container layout */
-.center-container {
-  flex: 4;
-  max-width: 66.66%;
-  display: flex;
-  justify-content: flex-start;
-  background: var(--background-color);
-  padding: 0;
-  overflow-y: auto;
+.more-menu a {
+  display: block;
+  text-decoration: none;
+  color: #333;
+  font-size: 16px;
+  padding: 10px;
+  border-radius: 5px;
 }
 
-/* Main Content (3/4) */
-.main-content {
-  width: 75%; /* 3/4 */
-  padding-right: 20px;
+.more-menu a:hover {
+  color: #007bff;
+  background-color: #f0f0f0;
 }
 
-.setting-option {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-/* Side Content (1/4) */
-.side-content {
-  width: 25%; /* 1/4 */
-  padding: 20px;
-  border-left: 1px solid var(--border-color); /* 添加左边框 */
-  height: 100vh; /* 使其高度充满整个屏幕 */
-  box-sizing: border-box; /* 确保padding不会影响宽度 */
-  position: relative; /* 使左边栏也能进行定位 */
+.sidebar.show-more .more-menu {
+  display: block;
 }
 
 /* Right Panel */
@@ -87,3 +98,50 @@
   overflow-y: auto;
 }
 
+.app-download {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.app-download button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #fff;
+  background: var(--primary-color);
+}
+
+.app-download button:hover {
+  background: #1A91DA;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-info img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+}
+
+.notifications {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
