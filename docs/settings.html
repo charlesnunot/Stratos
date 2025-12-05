@@ -11,6 +11,9 @@
     body {
       display: flex;
       flex-direction: row;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
     }
 
     /* Sidebar 样式 */
@@ -33,9 +36,9 @@
 
     /* Right panel 样式 */
     .right-panel {
-      flex: 1;
-      padding: 20px;
+      width: 25%; /* 右边栏占 1/4 宽度 */
       background-color: #f4f4f4;
+      padding: 20px;
     }
 
     /* 设置页面表单样式 */
@@ -64,6 +67,26 @@
 
     #settings-form button:hover {
       background-color: #007bb5;
+    }
+
+    /* 保证右边栏内容居中 */
+    .right-panel .app-download {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .right-panel button {
+      padding: 10px;
+      background-color: #007bb5;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin: 10px 0;
+    }
+
+    .right-panel button:hover {
+      background-color: #005f8d;
     }
   </style>
 </head>
