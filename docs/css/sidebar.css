@@ -1,1 +1,84 @@
+/* sidebar.css */
+
+/* Sidebar container */
+.sidebar {
+  background: var(--background-color);
+  color: var(--text-color);
+  width: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+}
+
+/* Brand name */
+.sidebar .brand {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+/* Buttons */
+.sidebar button {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 16px;
+  padding: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar button:hover {
+  background-color: var(--primary-color);
+  color: #fff;
+}
+
+/* More Button */
+.sidebar .more-button {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.sidebar .more-button i {
+  margin-right: 8px;
+}
+
+/* More Menu */
+.sidebar .more-menu {
+  display: none;
+  margin-top: 10px;
+}
+
+.sidebar .more-menu a {
+  display: block;
+  color: var(--text-color);
+  text-decoration: none;
+  padding: 10px 0;
+}
+
+.sidebar .more-menu a:hover {
+  background-color: var(--primary-color);
+  color: #fff;
+}
+
+/* Show more menu when clicked */
+.sidebar .more-button.active + .more-menu {
+  display: block;
+}
+
+/* Adjust for smaller screens */
+@media (max-width: 768px) {
+  .sidebar {
+    padding: 15px;
+  }
+
+  .sidebar button {
+    font-size: 14px;
+  }
+}
 
