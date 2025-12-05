@@ -10,26 +10,29 @@
 </head>
 <body>
 
-  <!-- Sidebar -->
-  <div id="sidebar-container"></div>
+  <!-- Main container wrapping sidebar, center content, and right panel -->
+  <div id="main-container">
+    <!-- Sidebar -->
+    <div id="sidebar-container"></div>
 
-  <!-- Center content -->
-  <div class="center-container">
-    <div class="main-content">
-      <h1>Home Feed</h1>
-      <div class="post">
-        <h3>User A's Post</h3>
-        <p>Sample content...</p>
-      </div>
-      <div class="post">
-        <h3>User B's Post</h3>
-        <p>Sample content...</p>
+    <!-- Center content -->
+    <div class="center-container">
+      <div class="main-content">
+        <h1>Home Feed</h1>
+        <div class="post">
+          <h3>User A's Post</h3>
+          <p>Sample content...</p>
+        </div>
+        <div class="post">
+          <h3>User B's Post</h3>
+          <p>Sample content...</p>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Right Panel -->
-  <div id="right-panel-container"></div>
+    <!-- Right Panel -->
+    <div id="right-panel-container"></div>
+  </div>
 
   <!-- Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
