@@ -3,117 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Settings - Stratos</title>
+  <title>Stratos Web Homepage</title>
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/right-panel.css"> <!-- 引入右侧面板单独的样式文件 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-  <style>
-    /* 页面整体布局 */
-    body {
-      display: flex;
-      flex-direction: row;
-      margin: 0;
-      padding: 0;
-      height: 100vh;
-    }
-
-    /* 左侧栏 - 占1/6宽度 */
-    .sidebar {
-      width: 16.6667%; /* 1/6 */
-      background-color: #f4f4f4;
-      padding: 20px;
-      position: fixed;
-      height: 100vh;
-      left: 0;
-      top: 0;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .sidebar .brand {
-      font-size: 24px;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-
-    /* 中间内容区域 - 占3/6宽度 */
-    .center-container {
-      flex: 3; /* 3/6 */
-      margin-left: 16.6667%; /* 左侧栏宽度占用 */
-      padding: 20px;
-    }
-
-    /* 右侧栏 - 公共样式 */
-    .right-panel {
-      width: 16.6667%; /* 1/6 */
-      padding: 20px;
-    }
-
-    /* 第一个右侧面板 */
-    .first-right-panel {
-      background-color: #f4f4f4; /* 第一个右侧栏背景色 */
-    }
-
-    /* 第二个右侧面板 */
-    .second-right-panel {
-      background-color: #e0e0e0; /* 第二个右侧栏背景色 */
-    }
-
-    /* 设置页面表单样式 */
-    #settings-form {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    #settings-form input {
-      padding: 10px;
-      font-size: 16px;
-      width: 100%;
-      max-width: 400px;
-      margin: 5px 0;
-    }
-
-    #settings-form button {
-      padding: 10px 20px;
-      background-color: #1DA1F2;
-      color: white;
-      font-size: 16px;
-      border: none;
-      cursor: pointer;
-    }
-
-    #settings-form button:hover {
-      background-color: #007bb5;
-    }
-
-    /* 右侧栏内容居中 */
-    .right-panel .app-download {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .right-panel button {
-      padding: 10px;
-      background-color: #007bb5;
-      color: white;
-      border: none;
-      cursor: pointer;
-      margin: 10px 0;
-    }
-
-    .right-panel button:hover {
-      background-color: #005f8d;
-    }
-
-    .second-right-panel h3 {
-      margin-top: 0;
-    }
-  </style>
 </head>
 <body>
 
-  <!-- 左侧栏 -->
+  <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
     <div class="brand">Stratos</div>
     <button>Home</button>
@@ -123,12 +20,12 @@
     <button>Create</button>
     <button>Messages</button>
 
-    <!-- 更多按钮 -->
+    <!-- More Button -->
     <div class="more-button" id="more-button">
       <i class="fas fa-bars"></i> More
     </div>
 
-    <!-- 更多菜单 -->
+    <!-- More Menu -->
     <div class="more-menu" id="more-menu">
       <a href="settings.html" id="settings"><i class="fas fa-cogs"></i> Settings</a>
       <a href="#" id="report-issue"><i class="fas fa-exclamation-circle"></i> Report Issue</a>
@@ -137,24 +34,17 @@
     </div>
   </div>
 
-  <!-- 中间内容 -->
+  <!-- Center content -->
   <div class="center-container">
     <div class="main-content">
-      <h1>Settings Page</h1>
-      <form id="settings-form">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" placeholder="Enter your username" required>
-        
-        <label for="avatar">Avatar:</label>
-        <input type="file" id="avatar" name="avatar">
-
-        <button type="submit">Save Changes</button>
-      </form>
+      <h1>Home Feed</h1>
+      <div class="post"><h3>User A's Post</h3><p>Sample content...</p></div>
+      <div class="post"><h3>User B's Post</h3><p>Sample content...</p></div>
     </div>
   </div>
 
-  <!-- 第一个右侧面板 -->
-  <div class="right-panel first-right-panel">
+  <!-- Right Panel 1 -->
+  <div class="right-panel" id="right-panel-1">
     <div class="app-download">
       <h3>Download Stratos App</h3>
       <button>iOS</button>
@@ -162,18 +52,24 @@
     </div>
   </div>
 
-  <!-- 第二个右侧面板 -->
-  <div class="right-panel second-right-panel">
-    <h3>Other Settings</h3>
-    <p>Here you can configure other settings.</p>
-    <button>Change Password</button>
-    <button>Notifications</button>
+  <!-- Right Panel 2 -->
+  <div class="right-panel" id="right-panel-2">
+    <div class="user-info">
+      <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
+      <span id="username">John Doe</span>
+      <div class="notifications">
+        <p>New message: User C commented on your post</p>
+        <p>Friend online: User D</p>
+        <p>System notification: Event starting soon</p>
+      </div>
+      <button id="logout-btn">Logout</button>
+    </div>
   </div>
 
   <!-- 引入 Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <!-- 引入自定义 auth.js -->
   <script src="js/auth.js"></script>
-  <script src="js/settings.js"></script>
 
 </body>
 </html>
