@@ -150,6 +150,7 @@ body {
 .side-content {
   width: 25%; /* 1/4 */
   padding: 20px;
+  border-left: 1px solid var(--border-color); /* 添加左边框 */
 }
 
 .side-content h3 {
