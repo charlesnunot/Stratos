@@ -2,7 +2,7 @@
 .right-panel {
   flex: 1;
   max-width: 16.66%;
-  background: var(--background-color);
+  background: var(--background-color); /* 这里使用了全局的背景颜色 */
   color: var(--text-color);
   border-left: 1px solid var(--border-color);
   padding: 20px;
@@ -14,7 +14,7 @@
 
 /* 第一个右侧面板（右侧面板1） */
 #right-panel-1 {
-  background: var(--background-color);
+  background: var(--background-color); /* 使用全局背景颜色 */
 }
 
 .app-download {
@@ -45,7 +45,7 @@
 
 /* 第二个右侧面板（右侧面板2） */
 #right-panel-2 {
-  background-color: #e0e0e0; /* 适合用作背景色 */
+  background-color: #e0e0e0; /* 明确为第二个面板指定背景颜色 */
 }
 
 .user-info {
@@ -83,4 +83,3 @@
 #logout-btn:hover {
   background: #1A91DA;
 }
-
