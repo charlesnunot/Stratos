@@ -1,1 +1,89 @@
+/* styles.css */
+:root {
+  --primary-color: #1DA1F2;
+  --background-color: #FAFAFA;
+  --text-color: #111;
+  --card-bg: #fff;
+  --border-color: #E0E0E0;
+}
+
+/* Sidebar */
+.sidebar {
+  flex: 1;
+  max-width: 16.66%;
+  background: var(--background-color);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border-right: 1px solid var(--border-color);
+  position: relative;
+}
+
+.sidebar .brand {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: var(--primary-color);
+}
+
+/* More Menu */
+.more-menu {
+  display: none;
+  flex-direction: column;
+  margin-top: 20px;
+  padding-left: 10px;
+  padding-right: 10px;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Main container layout */
+.center-container {
+  flex: 4;
+  max-width: 66.66%;
+  display: flex;
+  justify-content: flex-start;
+  background: var(--background-color);
+  padding: 0;
+  overflow-y: auto;
+}
+
+/* Main Content (3/4) */
+.main-content {
+  width: 75%; /* 3/4 */
+  padding-right: 20px;
+}
+
+.setting-option {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Side Content (1/4) */
+.side-content {
+  width: 25%; /* 1/4 */
+  padding: 20px;
+  border-left: 1px solid var(--border-color); /* 添加左边框 */
+  height: 100vh; /* 使其高度充满整个屏幕 */
+  box-sizing: border-box; /* 确保padding不会影响宽度 */
+  position: relative; /* 使左边栏也能进行定位 */
+}
+
+/* Right Panel */
+.right-panel {
+  flex: 1;
+  max-width: 16.66%;
+  background: var(--background-color);
+  color: var(--text-color);
+  border-left: 1px solid var(--border-color);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
 
