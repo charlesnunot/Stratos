@@ -11,9 +11,7 @@
 <body>
 
   <!-- Sidebar and Right Panel Container -->
-  <div id="sidebar-right-panel-container">
-    <iframe src="sidebar-right-panel.html" width="100%" height="100%" frameborder="0"></iframe>
-  </div>
+  <div id="sidebar-right-panel-container"></div>
 
   <!-- Center content -->
   <div class="center-container">
@@ -34,6 +32,20 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <!-- Custom Auth Script -->
   <script src="js/auth.js"></script>
+
+  <script>
+    function loadSidebarRightPanel() {
+      fetch('sidebar-right-panel.html')
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('sidebar-right-panel-container').innerHTML = data;
+        })
+        .catch(error => {
+          console.error('Error loading sidebar and right panel:', error);
+        });
+    }
+    window.onload = loadSidebarRightPanel;
+  </script>
 
 </body>
 </html>
