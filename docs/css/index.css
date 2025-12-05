@@ -66,8 +66,6 @@ body {
   padding: 20px;
   overflow-y: auto;
   background: var(--card-bg); /* Ensure background color for visibility */
-  border-left: 1px solid var(--border-color);  /* Left border */
-  border-right: 1px solid var(--border-color); /* Right border */
 }
 
 /* Main content section */
