@@ -93,14 +93,14 @@ body {
   display: block;
 }
 
-/* Center content */
+/* Main container layout */
 .center-container {
   flex: 4;
   max-width: 66.66%;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   background: var(--background-color);
-  padding: 20px;
+  padding: 0;
   overflow-y: auto;
 }
 
@@ -149,12 +149,20 @@ body {
 /* Side Content (1/4) */
 .side-content {
   width: 25%; /* 1/4 */
-  padding: 20px 20px 20px 0; /* 只在右边和上下加内边距，去掉左边的内边距 */
+  padding: 20px;
   border-left: 1px solid var(--border-color); /* 添加左边框 */
   height: 100vh; /* 使其高度充满整个屏幕 */
   box-sizing: border-box; /* 确保padding不会影响宽度 */
+  position: relative; /* 使左边栏也能进行定位 */
 }
 
+/* To ensure the side-content stretches to the bottom */
+.center-container .side-content {
+  position: sticky;
+  top: 0; /* 固定在顶部 */
+}
+
+/* Side Content title and info box styling */
 .side-content h3 {
   font-size: 15px;
   margin-bottom: 15px;
