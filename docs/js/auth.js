@@ -97,6 +97,10 @@ async function getUserAvatar(uid) {
 
 // ===== 显示用户信息 =====
 function showUser(nickname, avatarUrl) {
+  if (!nickname) {
+    console.error('No username found');
+    return;
+  }
   usernameEl.textContent = nickname;
   const avatarElement = document.getElementById('user-avatar');
   if (avatarElement) {
@@ -106,6 +110,7 @@ function showUser(nickname, avatarUrl) {
   modalMask.style.display = 'none';
   registerModal.style.display = 'none';
 }
+
 
 // ===== 检查登录状态 =====
 window.addEventListener('DOMContentLoaded', () => {
