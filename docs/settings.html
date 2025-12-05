@@ -35,7 +35,8 @@
 
   <!-- Center content -->
   <div class="center-container">
-    <div class="main-content">
+    <!-- Left 3/4 content -->
+    <div class="main-content" style="flex: 3;">
       <h1>Settings</h1>
       <div class="setting-option">
         <h3>Change Email</h3>
@@ -52,6 +53,17 @@
       </div>
       <div class="setting-option">
         <button>Save Changes</button>
+      </div>
+    </div>
+
+    <!-- New 1/4 content (for example: profile picture, account info) -->
+    <div class="side-content" style="flex: 1; padding: 20px;">
+      <h3>Profile Picture</h3>
+      <input type="file" id="avatar" />
+      <h3>Account Information</h3>
+      <div class="info">
+        <p><strong>Username:</strong> <span id="username">User</span></p>
+        <p><strong>Email:</strong> <span id="user-email">user@example.com</span></p>
       </div>
     </div>
   </div>
