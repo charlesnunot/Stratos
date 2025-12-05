@@ -10,10 +10,22 @@
 body {
   font-family: Arial, sans-serif;
   display: flex;
+  justify-content: center; /* Horizontally center the main content */
+  align-items: flex-start; /* Align items at the top */
   flex-direction: row; /* Ensure horizontal layout */
   height: 100vh;
   background: var(--background-color);
   color: var(--text-color);
+  width: 100%; /* Make sure the body takes full width */
+}
+
+/* Main container */
+#main-container {
+  display: flex;
+  flex-direction: row; /* Maintain horizontal layout for sidebar, center content, and right panel */
+  width: 100%;
+  max-width: 1200px; /* Optional: You can limit the max width for the whole page */
+  justify-content: space-between;
 }
 
 /* Sidebar container */
