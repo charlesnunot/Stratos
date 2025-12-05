@@ -39,6 +39,39 @@
     <div id="right-panel-container"></div>
   </div>
 
+  <!-- 模态遮罩 -->
+  <div class="modal-mask" id="modal-mask" style="display:none;">
+    <!-- 登录模态 -->
+    <div class="modal" id="login-modal">
+      <h2>Login</h2>
+      <form id="login-form">
+        <input type="email" id="login-email" placeholder="Email" required autocomplete="username">
+        <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
+        <button type="submit" id="login-btn">Login</button>
+      </form>
+      <span class="switch-mode" id="to-register">Don't have an account? Register</span>
+    </div>
+
+    <!-- 注册模态 -->
+    <div class="modal" id="register-modal" style="display:none;">
+      <h2>Register</h2>
+      <form id="register-form">
+        <input type="email" id="register-email" placeholder="Email" required autocomplete="username">
+        <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
+        <button type="submit" id="register-btn">Register</button>
+      </form>
+      <div id="register-message" style="color:green; margin-top:8px; display:none;"></div>
+      <span class="switch-mode" id="to-login">Already have an account? Login</span>
+    </div>
+
+    <!-- 新增邮箱验证提示模态 -->
+    <div class="modal" id="email-verification-modal" style="display:none;">
+      <h2>Email Verification Required</h2>
+      <p>Please check your email for the verification link before logging in.</p>
+      <button id="go-to-login">Go to Login</button>
+    </div>
+  </div>
+
   <!-- Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <!-- Custom Auth Script -->
