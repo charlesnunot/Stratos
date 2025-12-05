@@ -1,1 +1,94 @@
+/* Right Panel Container */
+.right-panel {
+  background: var(--background-color);
+  color: var(--text-color);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-left: 1px solid var(--border-color);
+  height: 100vh; /* Full height for right panel */
+}
+
+/* App Download Section */
+.app-download {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.app-download h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.app-download button {
+  background-color: var(--primary-color);
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  padding: 10px;
+  margin-top: 10px;
+  width: 100%;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.app-download button:hover {
+  background-color: darken(var(--primary-color), 10%);
+}
+
+/* User Info Section */
+.user-info {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.user-info #user-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  margin-bottom: 10px;
+}
+
+.user-info #username {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.user-info .notifications p {
+  margin-bottom: 8px;
+}
+
+.user-info #logout-btn {
+  background-color: #f44336; /* Red for logout */
+  border: none;
+  color: white;
+  font-size: 14px;
+  padding: 10px;
+  margin-top: 10px;
+  width: 100%;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.user-info #logout-btn:hover {
+  background-color: darken(#f44336, 10%);
+}
+
+/* Responsive Styles for Smaller Screens */
+@media (max-width: 768px) {
+  .right-panel {
+    padding: 15px;
+  }
+
+  .right-panel .app-download button,
+  .right-panel #logout-btn {
+    font-size: 12px;
+    padding: 8px;
+  }
+}
 
