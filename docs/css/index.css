@@ -1,5 +1,3 @@
-/* index.css */
-
 /* Reset margin and padding */
 * {
   margin: 0;
@@ -26,6 +24,7 @@ body {
   width: 100%;
   max-width: 1200px; /* Optional: You can limit the max width for the whole page */
   justify-content: space-between;
+  margin: 0 auto; /* Center the container horizontally */
 }
 
 /* Sidebar container */
