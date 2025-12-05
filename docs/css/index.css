@@ -1,18 +1,25 @@
-/* 主页中心内容部分样式 */
+/* index.css */
+/* Main content section */
 .center-container {
-  flex: 4;
-  max-width: 66.66%;
   display: flex;
-  justify-content: center;
-  background: var(--background-color);
+  flex-direction: row;
+  justify-content: flex-start;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#sidebar-right-panel-container {
+  display: flex;
+  flex: 1;
+}
+
+.main-content {
+  flex: 4;
   padding: 20px;
   overflow-y: auto;
 }
 
-.main-content {
-  width: 50%;
-}
-
+/* Post Styles */
 .post {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
@@ -22,7 +29,7 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-/* Modal 样式 */
+/* Modal Styles */
 .modal-mask {
   position: fixed;
   top: 0;
@@ -77,7 +84,7 @@
   font-size: 14px;
 }
 
-/* 响应式设计 */
+/* Responsive Design */
 @media (max-width: 768px) {
   .main-content {
     width: 100%;
