@@ -16,10 +16,37 @@ body {
   color: var(--text-color);
 }
 
+/* Sidebar container */
+#sidebar-container {
+  flex: 1; /* Sidebar takes 1/6 of the width */
+  max-width: 16.66%;
+  background: var(--background-color);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border-right: 1px solid var(--border-color);
+  height: 100vh; /* Full height */
+}
+
+/* Right panel container */
+#right-panel-container {
+  flex: 1; /* Right panel takes 1/6 of the width */
+  max-width: 16.66%;
+  background: var(--background-color);
+  color: var(--text-color);
+  border-left: 1px solid var(--border-color);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  height: 100vh; /* Full height */
+}
+
 /* Center content area */
 .center-container {
-  flex: 4;
-  max-width: 66.66%; /* Adjust the width of the center content */
+  flex: 4; /* Center content takes 2/3 of the width */
+  max-width: 66.66%;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -27,10 +54,12 @@ body {
   overflow-y: auto;
 }
 
+/* Main content section */
 .main-content {
   width: 100%;
 }
 
+/* Post styling */
 .post {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
@@ -38,11 +67,6 @@ body {
   padding: 12px;
   margin-bottom: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-/* Ensure Flexbox layout for sidebar and right panel */
-#sidebar-container, #right-panel-container {
-  height: 100vh; /* Full height for sidebar and right panel */
 }
 
 /* Responsive styles for small screens */
