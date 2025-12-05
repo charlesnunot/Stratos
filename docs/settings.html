@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stratos Web Homepage</title>
   <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/right-panel.css"> <!-- 引入右侧面板单独的样式文件 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
@@ -43,26 +43,55 @@
     </div>
   </div>
 
-  <!-- Right Panel 1 -->
-  <div class="right-panel" id="right-panel-1">
+  <!-- Right panel -->
+  <div class="right-panel" id="right-panel">
     <div class="app-download">
       <h3>Download Stratos App</h3>
       <button>iOS</button>
       <button>Android</button>
     </div>
-  </div>
-
-  <!-- Right Panel 2 -->
-  <div class="right-panel" id="right-panel-2">
-    <div class="user-info">
+    <div class="user-info" id="user-info" style="display:none;">
       <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
-      <span id="username">John Doe</span>
+      <span id="username"></span>
       <div class="notifications">
         <p>New message: User C commented on your post</p>
         <p>Friend online: User D</p>
         <p>System notification: Event starting soon</p>
       </div>
       <button id="logout-btn">Logout</button>
+    </div>
+  </div>
+
+  <!-- 模态遮罩 -->
+  <div class="modal-mask" id="modal-mask" style="display:none;">
+    <!-- 登录模态 -->
+    <div class="modal" id="login-modal">
+      <h2>Login</h2>
+      <form id="login-form">
+        <input type="email" id="login-email" placeholder="Email" required autocomplete="username">
+        <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
+        <button type="submit" id="login-btn">Login</button>
+      </form>
+      <span class="switch-mode" id="to-register">Don't have an account? Register</span>
+    </div>
+
+    <!-- 注册模态 -->
+    <div class="modal" id="register-modal" style="display:none;">
+      <h2>Register</h2>
+      <form id="register-form">
+        <input type="email" id="register-email" placeholder="Email" required autocomplete="username">
+        <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
+        <button type="submit" id="register-btn">Register</button>
+      </form>
+      <div id="register-message" style="color:green; margin-top:8px; display:none;"></div>
+      <span class="switch-mode" id="to-login">Already have an account? Login</span>
+    </div>
+
+    <!-- 新增邮箱验证提示模态 -->
+    <div class="modal" id="email-verification-modal" style="display:none;">
+      <h2>Email Verification Required</h2>
+      <p>Please check your email for the verification link before logging in.</p>
+      <button id="go-to-login">Go to Login</button>
     </div>
   </div>
 
