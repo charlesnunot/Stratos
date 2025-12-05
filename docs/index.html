@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stratos Web Homepage</title>
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/index.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
 
-  <!-- Include sidebar and right panel -->
+  <!-- Sidebar and Right Panel Container -->
   <div id="sidebar-right-panel-container">
-    <object type="text/html" data="sidebar-right-panel.html" width="100%" height="100%"></object>
+    <iframe src="sidebar-right-panel.html" width="100%" height="100%" frameborder="0"></iframe>
   </div>
 
   <!-- Center content -->
@@ -31,7 +32,7 @@
 
   <!-- Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <!-- 引入自定义 auth.js -->
+  <!-- Custom Auth Script -->
   <script src="js/auth.js"></script>
 
 </body>
