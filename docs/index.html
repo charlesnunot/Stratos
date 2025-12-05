@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,92 +9,27 @@
 </head>
 <body>
 
-  <!-- Sidebar -->
-  <div class="sidebar" id="sidebar">
-    <div class="brand">Stratos</div>
-    <button>Home</button>
-    <button>Search</button>
-    <button>Explore</button>
-    <button>Marketplace</button>
-    <button>Create</button>
-    <button>Messages</button>
-
-    <!-- More Button -->
-    <div class="more-button" id="more-button">
-      <i class="fas fa-bars"></i> More
-    </div>
-
-    <!-- More Menu -->
-    <div class="more-menu" id="more-menu">
-      <a href="settings.html" id="settings"><i class="fas fa-cogs"></i> Settings</a>
-      <a href="#" id="report-issue"><i class="fas fa-exclamation-circle"></i> Report Issue</a>
-      <a href="#" id="switch-account"><i class="fas fa-sync-alt"></i> Switch Account</a>
-      <a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
-    </div>
+  <!-- Include sidebar and right panel -->
+  <div id="sidebar-right-panel-container">
+    <object type="text/html" data="sidebar-right-panel.html" width="100%" height="100%"></object>
   </div>
 
   <!-- Center content -->
   <div class="center-container">
     <div class="main-content">
       <h1>Home Feed</h1>
-      <div class="post"><h3>User A's Post</h3><p>Sample content...</p></div>
-      <div class="post"><h3>User B's Post</h3><p>Sample content...</p></div>
-    </div>
-  </div>
-
-  <!-- Right panel -->
-  <div class="right-panel" id="right-panel">
-    <div class="app-download">
-      <h3>Download Stratos App</h3>
-      <button>iOS</button>
-      <button>Android</button>
-    </div>
-    <div class="user-info" id="user-info" style="display:none;">
-      <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
-      <span id="username"></span>
-      <div class="notifications">
-        <p>New message: User C commented on your post</p>
-        <p>Friend online: User D</p>
-        <p>System notification: Event starting soon</p>
+      <div class="post">
+        <h3>User A's Post</h3>
+        <p>Sample content...</p>
       </div>
-      <button id="logout-btn">Logout</button>
+      <div class="post">
+        <h3>User B's Post</h3>
+        <p>Sample content...</p>
+      </div>
     </div>
   </div>
 
-  <!-- 模态遮罩 -->
-  <div class="modal-mask" id="modal-mask" style="display:none;">
-    <!-- 登录模态 -->
-    <div class="modal" id="login-modal">
-      <h2>Login</h2>
-      <form id="login-form">
-        <input type="email" id="login-email" placeholder="Email" required autocomplete="username">
-        <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
-        <button type="submit" id="login-btn">Login</button>
-      </form>
-      <span class="switch-mode" id="to-register">Don't have an account? Register</span>
-    </div>
-
-    <!-- 注册模态 -->
-    <div class="modal" id="register-modal" style="display:none;">
-      <h2>Register</h2>
-      <form id="register-form">
-        <input type="email" id="register-email" placeholder="Email" required autocomplete="username">
-        <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
-        <button type="submit" id="register-btn">Register</button>
-      </form>
-      <div id="register-message" style="color:green; margin-top:8px; display:none;"></div>
-      <span class="switch-mode" id="to-login">Already have an account? Login</span>
-    </div>
-
-    <!-- 新增邮箱验证提示模态 -->
-    <div class="modal" id="email-verification-modal" style="display:none;">
-      <h2>Email Verification Required</h2>
-      <p>Please check your email for the verification link before logging in.</p>
-      <button id="go-to-login">Go to Login</button>
-    </div>
-  </div>
-
-  <!-- 引入 Supabase UMD -->
+  <!-- Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <!-- 引入自定义 auth.js -->
   <script src="js/auth.js"></script>
