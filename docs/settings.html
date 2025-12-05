@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stratos Web Homepage</title>
+  <title>Settings - Stratos Web</title>
   <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
@@ -34,41 +34,77 @@
   </div>
 
   <!-- Center content -->
-  <div class="center-container-settings">
+  <div class="center-container">
     <div class="main-content">
-      <h1>Home Feed</h1>
-      <div class="post"><h3>User A's Post</h3><p>Sample content...</p></div>
-      <div class="post"><h3>User B's Post</h3><p>Sample content...</p></div>
-    </div>
-  </div>
-
-  <!-- Right panel container -->
-  <div class="right-panel-container">
-    <div class="right-panel" id="right-panel-1">
-      <div class="app-download">
-        <h3>Download Stratos App</h3>
-        <button>iOS</button>
-        <button>Android</button>
+      <h1>Settings</h1>
+      <div class="setting-option">
+        <h3>Change Email</h3>
+        <input type="email" placeholder="Enter new email" />
       </div>
-    </div>
-    <div class="right-panel" id="right-panel-2">
-      <div class="user-info" id="user-info" style="display:none;">
-        <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
-        <span id="username"></span>
-        <div class="notifications">
-          <p>New message: User C commented on your post</p>
-          <p>Friend online: User D</p>
-          <p>System notification: Event starting soon</p>
-        </div>
-        <button id="logout-btn">Logout</button>
+      <div class="setting-option">
+        <h3>Change Password</h3>
+        <input type="password" placeholder="Enter new password" />
+      </div>
+      <div class="setting-option">
+        <h3>Notification Preferences</h3>
+        <input type="checkbox" id="email-notifications" />
+        <label for="email-notifications">Enable Email Notifications</label>
+      </div>
+      <div class="setting-option">
+        <button>Save Changes</button>
       </div>
     </div>
   </div>
 
-  <!-- 引入 Supabase UMD -->
+  <!-- Right panel -->
+  <div class="right-panel" id="right-panel">
+    <div class="app-download">
+      <h3>Download Stratos App</h3>
+      <button>iOS</button>
+      <button>Android</button>
+    </div>
+    <div class="user-info" id="user-info" style="display:none;">
+      <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
+      <span id="username"></span>
+      <div class="notifications">
+        <p>New message: User C commented on your post</p>
+        <p>Friend online: User D</p>
+        <p>System notification: Event starting soon</p>
+      </div>
+      <button id="logout-btn">Logout</button>
+    </div>
+  </div>
+
+  <!-- Modal Mask -->
+  <div class="modal-mask" id="modal-mask" style="display:none;">
+    <!-- Login Modal -->
+    <div class="modal" id="login-modal">
+      <h2>Login</h2>
+      <form id="login-form">
+        <input type="email" id="login-email" placeholder="Email" required autocomplete="username">
+        <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
+        <button type="submit" id="login-btn">Login</button>
+      </form>
+      <span class="switch-mode" id="to-register">Don't have an account? Register</span>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal" id="register-modal" style="display:none;">
+      <h2>Register</h2>
+      <form id="register-form">
+        <input type="email" id="register-email" placeholder="Email" required autocomplete="username">
+        <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
+        <button type="submit" id="register-btn">Register</button>
+      </form>
+      <div id="register-message" style="color:green; margin-top:8px; display:none;"></div>
+      <span class="switch-mode" id="to-login">Already have an account? Login</span>
+    </div>
+  </div>
+
+  <!-- Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <!-- 删除自定义 auth.js 引用 -->
-  <!-- <script src="js/auth.js"></script> -->
+  <!-- Custom Auth Script -->
+  <script src="js/auth.js"></script>
 
 </body>
 </html>
