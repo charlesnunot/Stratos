@@ -149,7 +149,7 @@ body {
 /* Side Content (1/4) */
 .side-content {
   width: 25%; /* 1/4 */
-  padding: 20px;
+  padding: 20px 20px 20px 0; /* 只在右边和上下加内边距，去掉左边的内边距 */
   border-left: 1px solid var(--border-color); /* 添加左边框 */
 }
 
