@@ -4,7 +4,7 @@
 .sidebar {
   background: var(--background-color);
   color: var(--text-color);
-  width: 100%;
+  width: 100%;  /* This width will be controlled by the parent container */
   padding: 20px;
   display: flex;
   flex-direction: column;
