@@ -2,9 +2,10 @@
 
 // 显示和隐藏侧边栏的更多菜单
 document.getElementById('more-button').addEventListener('click', () => {
-  const sidebar = document.getElementById('sidebar');
-  sidebar.classList.toggle('show-more');
+  const moreButton = document.getElementById('more-button');
+  moreButton.classList.toggle('active'); // 切换 active 类
 });
+
 
 // 退出登录按钮
 document.getElementById('logout-btn').addEventListener('click', () => {
