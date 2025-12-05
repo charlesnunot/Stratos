@@ -29,7 +29,6 @@ body {
   display: flex;
   flex-direction: row; /* Maintain horizontal layout for sidebar, center content, and right panel */
   width: 100%;
-  max-width: 1200px; /* Optional: You can limit the max width for the whole page */
   justify-content: space-between;
   margin: 0 auto; /* Center the container horizontally */
   padding: 0 10px;
