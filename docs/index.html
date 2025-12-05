@@ -10,8 +10,9 @@
 </head>
 <body>
 
-  <!-- Sidebar and Right Panel Container -->
-  <div id="sidebar-right-panel-container"></div>
+  <!-- Sidebar -->
+  <div id="sidebar-container"></div>
+  <!-- Sidebar -->
 
   <!-- Center content -->
   <div class="center-container">
@@ -34,17 +35,17 @@
   <script src="js/auth.js"></script>
 
   <script>
-    function loadSidebarRightPanel() {
-      fetch('sidebar-right-panel.html')
+    function loadSidebarPanel() {
+      fetch('sidebar.html')
         .then(response => response.text())
         .then(data => {
-          document.getElementById('sidebar-right-panel-container').innerHTML = data;
+          document.getElementById('sidebar-container').innerHTML = data;
         })
         .catch(error => {
-          console.error('Error loading sidebar and right panel:', error);
+          console.error('Error loading sidebar panel:', error);
         });
     }
-    window.onload = loadSidebarRightPanel;
+    window.onload = loadSidebarPanel;
   </script>
 
 </body>
