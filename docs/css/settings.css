@@ -25,7 +25,7 @@ body {
   flex-direction: column;
   padding: 20px;
   border-right: 1px solid var(--border-color);
-  position: relative; /* Allow absolute positioning inside */
+  position: relative;
 }
 
 .sidebar .brand {
@@ -55,52 +55,47 @@ body {
   color: #fff;
 }
 
-/* More Button */
 .more-button {
-  margin-top: auto; /* Pushes it to the bottom of the sidebar */
+  margin-top: auto;
   cursor: pointer;
   display: flex;
   align-items: center;
-  font-size: 18px; /* Adjust size of the button */
+  font-size: 18px;
   color: var(--text-color);
 }
 
-/* 隐藏 More Menu 默认 */
+/* More Menu */
 .more-menu {
-  display: none; /* 默认隐藏 */
-  flex-direction: column; /* 垂直排列 */
+  display: none;
+  flex-direction: column;
   margin-top: 20px;
   padding-left: 10px;
   padding-right: 10px;
-  gap: 10px; /* 添加间隔，确保菜单项之间有距离 */
-  width: 100%; /* 确保占满父容器的宽度 */
+  gap: 10px;
+  width: 100%;
 }
 
 .more-menu a {
-  display: block; /* 确保每个链接都在自己的一行 */
+  display: block;
   text-decoration: none;
   color: #333;
   font-size: 16px;
-  padding: 10px; /* 增加内边距使每个链接更大 */
-  border-radius: 5px; /* 圆角效果 */
-  margin: 0; /* 去掉默认的外边距 */
-  width: 100%; /* 确保每个链接占满整个宽度 */
+  padding: 10px;
+  border-radius: 5px;
 }
 
 .more-menu a:hover {
   color: #007bff;
-  background-color: #f0f0f0; /* 鼠标悬停时的背景色 */
+  background-color: #f0f0f0;
 }
 
-/* 显示 More Menu */
 .sidebar.show-more .more-menu {
   display: block;
 }
 
-
 /* Center content */
-.center-container-settings {
-  flex: 3;
+.center-container {
+  flex: 4;
   max-width: 66.66%;
   display: flex;
   justify-content: center;
@@ -113,13 +108,40 @@ body {
   width: 50%;
 }
 
-.post {
+.setting-option {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.setting-option h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.setting-option input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+
+.setting-option button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.setting-option button:hover {
+  background: #1A91DA;
 }
 
 /* Right Panel */
@@ -155,7 +177,6 @@ body {
   font-size: 14px;
   color: #fff;
   background: var(--primary-color);
-  transition: 0.2s;
 }
 
 .app-download button:hover {
@@ -215,7 +236,6 @@ body {
   border-radius: 8px;
   border: 1px solid #E0E0E0;
   width: 100%;
-  box-sizing: border-box;
   margin-bottom: 8px;
 }
 
@@ -238,20 +258,4 @@ body {
   cursor: pointer;
   text-decoration: underline;
   font-size: 14px;
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    max-width: 60px;
-  }
-  .sidebar .brand,
-  .sidebar button span {
-    display: none;
-  }
-  .right-panel {
-    display: none;
-  }
-  .main-content {
-    width: 100%;
-  }
 }
