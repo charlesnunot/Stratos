@@ -34,7 +34,7 @@
       padding: 20px;
     }
 
-    /* Right panel 样式 */
+    /* 右侧面板样式（两个面板） */
     .right-panel {
       width: 25%; /* 右边栏占 1/4 宽度 */
       background-color: #f4f4f4;
@@ -88,6 +88,16 @@
     .right-panel button:hover {
       background-color: #005f8d;
     }
+
+    /* 第二个右侧面板样式 */
+    .second-right-panel {
+      background-color: #e0e0e0;
+      padding: 20px;
+    }
+
+    .second-right-panel h3 {
+      margin-top: 0;
+    }
   </style>
 </head>
 <body>
@@ -132,13 +142,21 @@
     </div>
   </div>
 
-  <!-- Right panel -->
-  <div class="right-panel" id="right-panel">
+  <!-- Right panel (第一个右侧面板) -->
+  <div class="right-panel">
     <div class="app-download">
       <h3>Download Stratos App</h3>
       <button>iOS</button>
       <button>Android</button>
     </div>
+  </div>
+
+  <!-- 第二个右侧面板 -->
+  <div class="right-panel second-right-panel">
+    <h3>Other Settings</h3>
+    <p>Here you can configure other settings.</p>
+    <button>Change Password</button>
+    <button>Notifications</button>
   </div>
 
   <!-- 引入 Supabase UMD -->
