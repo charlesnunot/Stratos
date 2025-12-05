@@ -4,6 +4,13 @@
   padding: 0;
 }
 
+/* Vertical Divider */
+.vertical-divider {
+  width: 1px;
+  background-color: #ccc; /* Light gray color for the divider */
+  height: 100vh; /* Full height of the viewport */
+}
+
 /* General body styles */
 body {
   font-family: Arial, sans-serif;
