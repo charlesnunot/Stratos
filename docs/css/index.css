@@ -6,7 +6,7 @@
 
 /* Vertical Divider */
 .vertical-divider {
-  width: 1px;
+  width: 2px;
   background-color: #fafafa;
   height: 100vh; /* Full height of the viewport */
 }
