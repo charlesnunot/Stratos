@@ -151,6 +151,8 @@ body {
   width: 25%; /* 1/4 */
   padding: 20px 20px 20px 0; /* 只在右边和上下加内边距，去掉左边的内边距 */
   border-left: 1px solid var(--border-color); /* 添加左边框 */
+  height: 100vh; /* 使其高度充满整个屏幕 */
+  box-sizing: border-box; /* 确保padding不会影响宽度 */
 }
 
 .side-content h3 {
