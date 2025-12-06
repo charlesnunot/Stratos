@@ -1,5 +1,13 @@
 /* index.css */
 
+:root {
+  --primary-color: #1DA1F2;   /* 蓝色，也可以改成灰色 */
+  --background-color: #FAFAFA; /* 页面背景色 */
+  --text-color: #111;           /* 默认文字色 */
+  --card-bg: #fff;              /* 卡片背景 */
+  --border-color: #E0E0E0;      /* 边框颜色 */
+}
+
 /* Reset margin and padding */
 * {
   margin: 0;
