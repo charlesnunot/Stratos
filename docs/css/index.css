@@ -1,54 +1,57 @@
+/* index.css */
+
 /* Reset margin and padding */
 * {
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
 }
 
 /* Vertical Divider */
 .vertical-divider {
   width: 1px;
   background-color: #f2f2f2;
-  height: 100vh; /* Full height of the viewport */
+  height: 100vh;
 }
 
 /* General body styles */
 body {
   font-family: Arial, sans-serif;
   display: flex;
-  justify-content: center; /* Horizontally center the main content */
-  align-items: flex-start; /* Align items at the top */
-  flex-direction: row; /* Ensure horizontal layout */
+  justify-content: center;
+  align-items: flex-start;
+  flex-direction: row;
   height: 100vh;
   background: var(--background-color);
   color: var(--text-color);
-  width: 100%; /* Make sure the body takes full width */
+  width: 100%;
 }
 
 /* Main container */
 #main-container {
   display: flex;
-  flex-direction: row; /* Maintain horizontal layout for sidebar, center content, and right panel */
+  flex-direction: row;
   width: 100%;
   justify-content: space-between;
-  margin: 0 auto; /* Center the container horizontally */
+  margin: 0 auto;
   padding: 0 10px;
 }
 
 /* Sidebar container */
 #sidebar-container {
-  flex: 1; /* Sidebar takes 1/6 of the width */
+  flex: 1;
   max-width: 16.66%;
   background: var(--background-color);
   display: flex;
   flex-direction: column;
   padding: 20px;
   border-right: 1px solid var(--border-color);
-  height: 100vh; /* Full height */
+  height: 100vh;
 }
 
 /* Right panel container */
 #right-panel-container {
-  flex: 1; /* Right panel takes 1/6 of the width */
+  flex: 1;
   max-width: 16.66%;
   background: var(--background-color);
   color: var(--text-color);
@@ -58,12 +61,12 @@ body {
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
-  height: 100vh; /* Full height */
+  height: 100vh;
 }
 
 /* Center content area */
 .center-container {
-  flex: 4; /* Center content takes 2/3 of the width */
+  flex: 4;
   width: 100%;
   max-width: 66.66%;
   display: flex;
@@ -71,7 +74,7 @@ body {
   justify-content: flex-start;
   padding: 20px;
   overflow-y: auto;
-  background: var(--card-bg); /* Ensure background color for visibility */
+  background: var(--card-bg);
 }
 
 /* Main content section */
@@ -123,6 +126,7 @@ body {
   margin-bottom: 8px;
 }
 
+/* 按钮初始深色文字，悬停文字灰色，背景高亮 */
 .modal button {
   padding: 8px;
   border-radius: 8px;
@@ -130,13 +134,17 @@ body {
   border: none;
   cursor: pointer;
   background: var(--primary-color);
-  color: #fff;
+  color: #333; /* 初始文字深色 */
+  font-weight: bold;
+  transition: all 0.2s;
 }
 
 .modal button:hover {
-  background: #1A91DA;
+  background: #1A91DA; /* 背景高亮 */
+  color: gray; /* 悬停文字灰色 */
 }
 
+/* 切换模式文本 */
 .switch-mode {
   color: var(--primary-color);
   cursor: pointer;
@@ -147,7 +155,7 @@ body {
 /* Responsive styles for small screens */
 @media (max-width: 768px) {
   body {
-    flex-direction: column; /* Stack elements vertically for smaller screens */
+    flex-direction: column;
   }
 
   #sidebar-container, #right-panel-container {
