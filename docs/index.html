@@ -62,7 +62,9 @@
   <!-- 主逻辑脚本 -->
   <script src="js/sidebar.js"></script>
   <script src="js/auth.js"></script>
-  <script>
+  <script type="module">
+    import { initSidebar } from './js/sidebar.js';
+    import { initAuth } from './js/auth.js';
     async function loadSidebarAndRightPanel() {
       try {
         // 加载 sidebar
@@ -75,7 +77,7 @@
 
         // 初始化 sidebar 和 auth
         initSidebar();
-        initAuth();
+        await initAuth();
 
       } catch (err) {
         console.error('加载 Sidebar 或 Right Panel 出错:', err);
