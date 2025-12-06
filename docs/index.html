@@ -61,30 +61,32 @@
 
   <!-- 主逻辑脚本 -->
   <script type="module">
-    import { initSidebar } from './js/sidebar.js';
-    import { initAuth } from './js/auth.js';
-    async function loadSidebarAndRightPanel() {
-      try {
-        // 加载 sidebar
-        const sidebarResp = await fetch('sidebar.html');
-        document.getElementById('sidebar-container').innerHTML = await sidebarResp.text();
+  import { initSidebar } from './js/sidebar.js';
+  import { initAuth } from './js/auth.js';
+  import { initRightPanel } from './js/rightPanel.js';
 
-        // 加载 right-panel
-        const rightResp = await fetch('right-panel.html');
-        document.getElementById('right-panel-container').innerHTML = await rightResp.text();
+  async function loadSidebarAndRightPanel() {
+    try {
+      // 加载 sidebar
+      const sidebarResp = await fetch('sidebar.html');
+      document.getElementById('sidebar-container').innerHTML = await sidebarResp.text();
 
-        // 初始化 sidebar 和 auth
-        initSidebar();
-        await initAuth();
+      // 加载 right-panel
+      const rightResp = await fetch('right-panel.html');
+      document.getElementById('right-panel-container').innerHTML = await rightResp.text();
 
-      } catch (err) {
-        console.error('加载 Sidebar 或 Right Panel 出错:', err);
-      }
+      // 初始化模块
+      initSidebar();
+      initRightPanel(); // 初始化右侧面板
+      await initAuth(); // 初始化登录/注册弹窗及用户状态
+    } catch (err) {
+      console.error('加载 Sidebar 或 Right Panel 出错:', err);
     }
+  }
 
-    // 页面加载时调用
-    window.addEventListener('DOMContentLoaded', loadSidebarAndRightPanel);
-  </script>
+  window.addEventListener('DOMContentLoaded', loadSidebarAndRightPanel);
+</script>
+
 
 </body>
 </html>
