@@ -1,4 +1,3 @@
-// js/rightPanel.js
 import { getUser, clearUser } from './userManager.js';
 
 export function initRightPanel() {
@@ -10,7 +9,6 @@ export function initRightPanel() {
   const loginModal = document.getElementById('login-modal');
   const registerModal = document.getElementById('register-modal');
 
-  // 初始化显示用户信息
   const user = getUser();
   if (user && user.nickname) {
     if (usernameEl) usernameEl.textContent = user.nickname;
@@ -20,7 +18,6 @@ export function initRightPanel() {
     userInfoEl.style.display = 'none';
   }
 
-  // 登出按钮逻辑
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
       clearUser();
@@ -34,4 +31,3 @@ export function initRightPanel() {
     });
   }
 }
-
