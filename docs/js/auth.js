@@ -1,5 +1,6 @@
-import { setUser, getUser, clearUser } from './userManager.js';
-import { getUserAvatar, getUserProfile, upsertUserProfile, supabase } from './userService.js';
+// js/auth.js
+import { setUser, getUser } from './userManager.js';
+import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './userService.js';
 
 function generateDefaultNickname(email) {
   const prefix = email.split('@')[0] || 'User';
@@ -25,21 +26,18 @@ function updateUI(user) {
 }
 
 export async function initAuth() {
-  const modalMask = document.getElementById('modal-mask');
-  const loginModal = document.getElementById('login-modal');
-  const registerModal = document.getElementById('register-modal');
-
   const token = localStorage.getItem('authToken');
   const user = getUser();
 
   if (!token || !user) {
-    if (modalMask) modalMask.style.display = 'flex';
-    if (loginModal) loginModal.style.display = 'flex';
-    if (registerModal) registerModal.style.display = 'none';
+    document.getElementById('modal-mask').style.display = 'flex';
+    document.getElementById('login-modal').style.display = 'flex';
+    document.getElementById('register-modal').style.display = 'none';
   } else {
     updateUI(user);
   }
 
+  // 登录
   document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
@@ -49,17 +47,16 @@ export async function initAuth() {
     if (error) { alert(error.message); return; }
 
     localStorage.setItem('authToken', sessionData?.access_token || '');
-
     let userProfile = await getUserProfile(sessionData.user.id);
     const nickname = userProfile?.nickname || generateDefaultNickname(email);
     if (!userProfile) userProfile = await upsertUserProfile({ uid: sessionData.user.id, nickname });
-
     const avatarUrl = await getUserAvatar(sessionData.user.id);
 
     setUser({ uid: sessionData.user.id, email, nickname, avatarUrl, accessToken: sessionData?.access_token });
     updateUI(getUser());
   });
 
+  // 注册
   document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('register-email').value;
@@ -73,9 +70,8 @@ export async function initAuth() {
       return;
     }
 
-    const emailVerificationModal = document.getElementById('email-verification-modal');
-    if (emailVerificationModal) emailVerificationModal.style.display='flex';
-    if (modalMask) modalMask.style.display='flex';
-    if (registerModal) registerModal.style.display='none';
+    document.getElementById('email-verification-modal').style.display='flex';
+    document.getElementById('modal-mask').style.display='flex';
+    document.getElementById('register-modal').style.display='none';
   });
 }
