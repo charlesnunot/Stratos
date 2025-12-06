@@ -31,7 +31,7 @@
 
 .sidebar button:hover {
   background-color: var(--primary-color);
-  color: #fff;
+  color: gray;
 }
 
 /* More Button */
