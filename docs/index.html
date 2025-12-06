@@ -97,6 +97,10 @@
           document.getElementById('right-panel-container').innerHTML = data;
           const script = document.createElement('script');
           script.src = 'js/auth.js';
+          script.onload = () => {
+            console.log("auth.js 加载完成，执行 initAuth()");
+            initAuth();
+          };
           document.body.appendChild(script);
         })
         .catch(error => {
