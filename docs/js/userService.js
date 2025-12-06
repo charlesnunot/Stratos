@@ -1,10 +1,11 @@
-// js/userService.js
-
 const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
 export const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// 获取指定用户头像
+function defaultAvatar() {
+  return 'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg';
+}
+
 export async function getUserAvatar(uid) {
   if (!uid) return defaultAvatar();
   try {
@@ -14,17 +15,11 @@ export async function getUserAvatar(uid) {
       .eq('uid', uid);
     if (error || !data || data.length === 0) return defaultAvatar();
     return data[0].avatar_url;
-  } catch (err) {
-    console.error('获取用户头像失败:', err);
+  } catch {
     return defaultAvatar();
   }
 }
 
-function defaultAvatar() {
-  return 'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg';
-}
-
-// 获取指定用户资料
 export async function getUserProfile(uid) {
   try {
     const { data, error } = await supabase
@@ -32,15 +27,13 @@ export async function getUserProfile(uid) {
       .select('*')
       .eq('uid', uid)
       .maybeSingle();
-    if (error) { console.error(error); return null; }
+    if (error) return null;
     return data || null;
-  } catch (err) {
-    console.error('获取用户资料异常:', err);
+  } catch {
     return null;
   }
 }
 
-// 提交或更新用户资料
 export async function upsertUserProfile(profile) {
   try {
     const { data, error } = await supabase
@@ -48,11 +41,9 @@ export async function upsertUserProfile(profile) {
       .upsert(profile, { onConflict: 'uid' })
       .select('*')
       .maybeSingle();
-    if (error) { console.error('更新用户资料失败:', error); return null; }
+    if (error) return null;
     return data || null;
-  } catch (err) {
-    console.error('提交用户资料异常:', err);
+  } catch {
     return null;
   }
 }
-
