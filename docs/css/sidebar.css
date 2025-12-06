@@ -4,7 +4,7 @@
 .sidebar {
   background: var(--background-color);
   color: var(--text-color);
-  width: 100%;  /* This width will be controlled by the parent container */
+  width: 100%;
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -27,12 +27,12 @@
   margin-bottom: 10px;
   cursor: pointer;
   text-align: left;
-  transition: color 0.2s; /* 平滑过渡 */
+  transition: all 0.2s;
 }
 
 .sidebar button:hover {
   background-color: var(--primary-color);
-  color: gray; /* 鼠标悬停显示灰色 */
+  color: gray; /* 统一悬停文字为灰色 */
 }
 
 /* More Button */
@@ -42,7 +42,6 @@
   align-items: center;
   cursor: pointer;
   font-size: 16px;
-  transition: color 0.2s;
 }
 
 .sidebar .more-button i {
@@ -60,12 +59,12 @@
   color: var(--text-color);
   text-decoration: none;
   padding: 10px 0;
-  transition: color 0.2s; /* 平滑过渡 */
+  transition: all 0.2s;
 }
 
 .sidebar .more-menu a:hover {
   background-color: var(--primary-color);
-  color: gray; /* 鼠标悬停显示灰色 */
+  color: gray; /* 统一悬停文字为灰色 */
 }
 
 /* Show more menu when clicked */
