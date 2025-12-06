@@ -113,20 +113,22 @@ function showUser(nickname, avatarUrl) {
 
 
 // ===== 检查登录状态 =====
-window.onload = () => {
-  // 等待所有资源加载完成后再执行
+window.addEventListener('DOMContentLoaded', () => {
   const token = getToken();
   const username = localStorage.getItem('username');
 
   if (!token || !username) {
+    // 未登录 → 打开登录窗口
     modalMask.style.display = 'flex';
     loginModal.style.display = 'flex';
     registerModal.style.display = 'none';
     userInfo.style.display = 'none';
   } else {
+    // 已登录 → 显示用户信息
     showUser(username);
   }
-};
+});
+
 
 // ===== 登录 =====
 document.getElementById('login-form')?.addEventListener('submit', async (e) => {
