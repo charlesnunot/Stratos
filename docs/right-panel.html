@@ -7,15 +7,24 @@
     <button>iOS</button>
     <button>Android</button>
   </div>
+
   <div class="user-info" id="user-info" style="display:none;">
-    <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
-    <span id="username"></span>
+    <!-- 头像 -->
+    <div class="user-avatar-wrapper">
+      <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
+    </div>
+
+    <!-- 昵称 -->
+    <div id="username" class="user-nickname"></div>
+
+    <!-- 消息通知 -->
     <div class="notifications">
       <p>New message: User C commented on your post</p>
       <p>Friend online: User D</p>
       <p>System notification: Event starting soon</p>
     </div>
+
+    <!-- 登出按钮 -->
     <button id="logout-btn">Logout</button>
   </div>
 </div>
-
