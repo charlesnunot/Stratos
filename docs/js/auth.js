@@ -1,7 +1,7 @@
-// auth.js
+// js/auth.js
 import { initUser, setUser, getUser, updateUser, clearUser } from './userManager.js';
 
-export function initAuth() {
+export async function initAuth() {
   const modalMask = document.getElementById('modal-mask');
   const loginModal = document.getElementById('login-modal');
   const registerModal = document.getElementById('register-modal');
@@ -12,12 +12,18 @@ export function initAuth() {
 
   if (!usernameEl || !userInfo) return;
 
-  // 初始化全局用户数据
-  initUser();
-
   const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function saveToken(token) { localStorage.setItem('authToken', token); }
+  function getToken() { return localStorage.getItem('authToken'); }
+
+  const generateDefaultNickname = (email) => {
+    const prefix = email.split('@')[0] || 'User';
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    return `${prefix.slice(0,5)}${randomNum}${prefix.slice(-1)}`;
+  };
 
   async function getUserProfile(uid) {
     const { data } = await supabaseClient.from('user_profiles').select('*').eq('uid', uid).maybeSingle();
@@ -25,7 +31,10 @@ export function initAuth() {
   }
 
   async function upsertUserProfile(profile) {
-    const { data } = await supabaseClient.from('user_profiles').upsert(profile, { onConflict: 'uid' }).select('*').maybeSingle();
+    const { data } = await supabaseClient.from('user_profiles')
+      .upsert(profile, { onConflict: 'uid' })
+      .select('*')
+      .maybeSingle();
     return data || null;
   }
 
@@ -38,30 +47,31 @@ export function initAuth() {
     }
   }
 
-  const generateDefaultNickname = (email) => {
-    const prefix = email.split('@')[0] || 'User';
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    return `${prefix.slice(0,5)}${randomNum}${prefix.slice(-1)}`;
-  };
-
-  // 初始化页面显示
-  const currentUser = getUser();
-  if (currentUser && currentUser.nickname && currentUser.avatarUrl) {
-    usernameEl.textContent = currentUser.nickname;
+  // 页面显示用户信息
+  function renderUserUI(user) {
+    usernameEl.textContent = user.nickname;
     const avatarEl = document.getElementById('user-avatar');
-    if (avatarEl) avatarEl.src = currentUser.avatarUrl;
+    if (avatarEl) avatarEl.src = user.avatarUrl;
     userInfo.style.display = 'flex';
     modalMask.style.display = 'none';
     loginModal.style.display = 'none';
     registerModal.style.display = 'none';
-  } else {
+  }
+
+  // 初始化用户
+  const token = getToken();
+  const storedUser = getUser();
+
+  if (!token || !storedUser) {
     modalMask.style.display = 'flex';
     loginModal.style.display = 'flex';
     registerModal.style.display = 'none';
     userInfo.style.display = 'none';
+  } else {
+    renderUserUI(storedUser);
   }
 
-  // 登录表单
+  // 登录逻辑
   document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
@@ -70,13 +80,16 @@ export function initAuth() {
     const { data: sessionData, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) { alert(error.message); return; }
 
-    // 获取或生成用户信息
+    saveToken(sessionData?.access_token || '');
+    localStorage.setItem('username', email);
+
     let userProfile = await getUserProfile(sessionData.user.id);
     const nickname = userProfile?.nickname || generateDefaultNickname(email);
+
     if (!userProfile) userProfile = await upsertUserProfile({ uid: sessionData.user.id, nickname });
+
     const avatarUrl = await getUserAvatar(sessionData.user.id);
 
-    // 设置全局用户信息
     setUser({
       uid: sessionData.user.id,
       email,
@@ -85,17 +98,10 @@ export function initAuth() {
       accessToken: sessionData?.access_token || ''
     });
 
-    // 更新页面显示
-    usernameEl.textContent = nickname;
-    const avatarEl = document.getElementById('user-avatar');
-    if (avatarEl) avatarEl.src = avatarUrl;
-    userInfo.style.display = 'flex';
-    modalMask.style.display = 'none';
-    loginModal.style.display = 'none';
-    registerModal.style.display = 'none';
+    renderUserUI(getUser());
   });
 
-  // 注册表单
+  // 注册逻辑
   document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('register-email').value;
@@ -116,7 +122,7 @@ export function initAuth() {
     registerModal.style.display='none';
   });
 
-  // 切换注册/登录
+  // 切换登录/注册
   document.getElementById('to-register')?.addEventListener('click', () => {
     loginModal.style.display='none';
     registerModal.style.display='flex';
@@ -134,6 +140,8 @@ export function initAuth() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
       clearUser();
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('username');
       modalMask.style.display='flex';
       loginModal.style.display='flex';
       registerModal.style.display='none';
