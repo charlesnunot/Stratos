@@ -1,4 +1,3 @@
-// js/auth.js
 import { setUser, getUser, clearUser } from './userManager.js';
 import { getUserAvatar, getUserProfile, upsertUserProfile, supabase } from './userService.js';
 
@@ -41,7 +40,6 @@ export async function initAuth() {
     updateUI(user);
   }
 
-  // 登录
   document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
@@ -62,7 +60,6 @@ export async function initAuth() {
     updateUI(getUser());
   });
 
-  // 注册
   document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('register-email').value;
