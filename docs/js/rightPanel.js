@@ -1,4 +1,4 @@
-import { getUser, clearUser } from './userManager.js';
+import { getUser, clearUser,clearUser } from './userManager.js'
 
 export function initRightPanel() {
   const userInfoEl = document.getElementById('user-info');
