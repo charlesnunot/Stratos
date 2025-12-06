@@ -32,10 +32,28 @@ export async function initAuth() {
   }
 
   async function getUserAvatar(uid) {
+    // 如果 uid 不存在，直接返回默认头像
+    if (!uid) return 'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg';
+  
     try {
-      const { data } = await supabaseClient.from('user_avatars').select('avatar_url').eq('uid', uid).single();
-      return data?.avatar_url || 'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg';
-    } catch {
+      const { data, error } = await supabaseClient
+        .from('user_avatars')
+        .select('avatar_url')
+        .eq('uid', uid);
+  
+      if (error) {
+        console.error('Supabase error:', error);
+        return 'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg';
+      }
+  
+      // 返回第一条记录的 avatar_url，如果没有数据则返回默认头像
+      if (data && data.length > 0) {
+        return data[0].avatar_url;
+      }
+  
+      return 'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg';
+    } catch (err) {
+      console.error(err);
       return 'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg';
     }
   }
