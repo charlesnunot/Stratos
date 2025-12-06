@@ -1,4 +1,11 @@
 // ===== DOM 元素 =====
+const modalMask = document.getElementById('modal-mask');
+const loginModal = document.getElementById('login-modal');
+const registerModal = document.getElementById('register-modal');
+const usernameEl = document.getElementById('username');
+const userInfo = document.getElementById('user-info');
+const logoutBtn = document.getElementById('logout-btn');
+const emailVerificationModal = document.getElementById('email-verification-modal');
 
 
 // ===== token 操作 =====
@@ -108,13 +115,6 @@ function showUser(nickname, avatarUrl) {
 
 // ===== 检查登录状态 =====
 window.addEventListener('DOMContentLoaded', () => {
-  const modalMask = document.getElementById('modal-mask');
-  const loginModal = document.getElementById('login-modal');
-  const registerModal = document.getElementById('register-modal');
-  const usernameEl = document.getElementById('username');
-  const userInfo = document.getElementById('user-info');
-  const logoutBtn = document.getElementById('logout-btn');
-  const emailVerificationModal = document.getElementById('email-verification-modal');
   const token = getToken();
   const username = localStorage.getItem('username');
 
