@@ -9,7 +9,6 @@
 </head>
 <body>
 
-  <!-- Main container wrapping sidebar, center content, and right panel -->
   <div id="main-container">
     <div id="sidebar-container"></div>
     <div class="vertical-divider"></div>
@@ -33,7 +32,7 @@
       <form id="login-form" autocomplete="off">
         <input type="email" id="login-email" placeholder="Email" required autocomplete="username">
         <input type="password" id="login-password" placeholder="Password" required autocomplete="new-password">
-        <button type="submit" id="login-btn">Login</button>
+        <button type="submit">Login</button>
       </form>
       <span class="switch-mode" id="to-register">Don't have an account? Register</span>
     </div>
@@ -43,7 +42,7 @@
       <form id="register-form" autocomplete="off">
         <input type="email" id="register-email" placeholder="Email" required autocomplete="username">
         <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
-        <button type="submit" id="register-btn">Register</button>
+        <button type="submit">Register</button>
       </form>
       <div id="register-message" style="color:green; margin-top:8px; display:none;"></div>
       <span class="switch-mode" id="to-login">Already have an account? Login</span>
@@ -59,33 +58,8 @@
   <!-- Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
-  <!-- 主逻辑脚本 -->
-  <script type="module">
-    import { initSidebar } from './js/sidebar.js';
-    import { initAuth } from './js/auth.js';
-    import { initRightPanel } from './js/rightPanel.js';
-
-    async function loadSidebarAndRightPanel() {
-      try {
-        // 加载 sidebar
-        const sidebarResp = await fetch('components/sidebar.html');
-        document.getElementById('sidebar-container').innerHTML = await sidebarResp.text();
-
-        // 加载 right-panel
-        const rightResp = await fetch('components/right-panel.html');
-        document.getElementById('right-panel-container').innerHTML = await rightResp.text();
-
-        // 初始化模块
-        initSidebar();
-        initRightPanel();
-        await initAuth();
-      } catch (err) {
-        console.error('加载 Sidebar 或 Right Panel 出错:', err);
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', loadSidebarAndRightPanel);
-  </script>
+  <!-- 主逻辑模块 -->
+  <script type="module" src="js/main.js"></script>
 
 </body>
 </html>
