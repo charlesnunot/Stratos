@@ -1,29 +1,21 @@
 // js/userManager.js
 
-let userData = null;
+let currentUser = null;
 
-export function initUser() {
-  const saved = localStorage.getItem('userData');
-  if (saved) userData = JSON.parse(saved);
-  else userData = null;
-}
-
-export function setUser(data) {
-  userData = data;
-  localStorage.setItem('userData', JSON.stringify(data));
+export function setUser(user) {
+  currentUser = user;
+  localStorage.setItem('currentUser', JSON.stringify(user));
 }
 
 export function getUser() {
-  return userData;
-}
-
-export function updateUser(updates) {
-  if (!userData) return;
-  userData = { ...userData, ...updates };
-  localStorage.setItem('userData', JSON.stringify(userData));
+  if (!currentUser) {
+    const data = localStorage.getItem('currentUser');
+    if (data) currentUser = JSON.parse(data);
+  }
+  return currentUser;
 }
 
 export function clearUser() {
-  userData = null;
-  localStorage.removeItem('userData');
+  currentUser = null;
+  localStorage.removeItem('currentUser');
 }
