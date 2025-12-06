@@ -1,4 +1,4 @@
-import { clearUser } from './userManager.js';
+import { getUser, clearUser,clearUser } from './userManager.js'
 
 export function initSidebar() {
   const moreButton = document.getElementById('more-button');
