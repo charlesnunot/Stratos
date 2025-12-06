@@ -1,5 +1,3 @@
-// js/userManager.js
-
 let currentUser = null;
 
 export function setUser(user) {
