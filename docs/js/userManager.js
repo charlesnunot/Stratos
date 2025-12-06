@@ -1,33 +1,28 @@
 // js/userManager.js
+
 let userData = null;
 
-// 初始化用户状态（可选）
-export function initUser(initialData = null) {
-  userData = initialData;
+export function initUser() {
+  const saved = localStorage.getItem('userData');
+  if (saved) userData = JSON.parse(saved);
+  else userData = null;
 }
 
-// 设置用户信息
 export function setUser(data) {
-  userData = { ...data };
-  localStorage.setItem('userData', JSON.stringify(userData));
+  userData = data;
+  localStorage.setItem('userData', JSON.stringify(data));
 }
 
-// 获取用户信息
 export function getUser() {
-  if (!userData) {
-    const stored = localStorage.getItem('userData');
-    if (stored) userData = JSON.parse(stored);
-  }
   return userData;
 }
 
-// 更新用户信息（部分字段）
-export function updateUser(update) {
-  userData = { ...getUser(), ...update };
+export function updateUser(updates) {
+  if (!userData) return;
+  userData = { ...userData, ...updates };
   localStorage.setItem('userData', JSON.stringify(userData));
 }
 
-// 清除用户信息
 export function clearUser() {
   userData = null;
   localStorage.removeItem('userData');
