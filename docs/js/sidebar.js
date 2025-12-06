@@ -1,4 +1,3 @@
-// js/sidebar.js
 import { clearUser } from './userManager.js';
 
 export function initSidebar() {
@@ -15,14 +14,10 @@ export function initSidebar() {
 
   if (sidebarLogout) {
     sidebarLogout.addEventListener('click', () => {
-      // 清除全局用户状态
       clearUser();
-
-      // 清除 localStorage
       localStorage.removeItem('authToken');
       localStorage.removeItem('username');
 
-      // 显示登录弹窗
       const modalMask = document.getElementById('modal-mask');
       const loginModal = document.getElementById('login-modal');
       const registerModal = document.getElementById('register-modal');
