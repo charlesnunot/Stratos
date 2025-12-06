@@ -1,3 +1,5 @@
+import { initUser, setUser, getUser, updateUser, clearUser } from './userManager.js';
+
 function initAuth() {
   const modalMask = document.getElementById('modal-mask');
   const loginModal = document.getElementById('login-modal');
