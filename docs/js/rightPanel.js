@@ -1,3 +1,4 @@
+// js/rightPanel.js
 import { getUser, clearUser } from './userManager.js'
 import { getAppStatus } from './monitorService.js';
 
