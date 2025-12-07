@@ -41,5 +41,39 @@ export async function updateAppOnlineStatus(userId, appStatusEl) {
     if (dotEl) dotEl.style.backgroundColor = 'red';
     if (textEl) textEl.textContent = 'Offline';
   }
+
+  /**
+ * 订阅指定用户的 App 状态变化
+ * @param {string} userId 用户 ID
+ * @param {(newData: object) => void} callback 回调函数
+ * @returns {object} channel 实例，可调用 unsubscribe() 取消订阅
+ */
+export function subscribeAppStatus(userId, callback) {
+  const channel = supabase
+    .channel(`app_monitor-${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',        // 监听 insert / update / delete
+        schema: 'public',
+        table: 'app_monitor',
+        filter: `uid=eq.${userId}`, // 只监听当前用户
+      },
+      (payload) => {
+        // payload.new = 新数据（insert 或 update）
+        // payload.old = 旧数据（update 或 delete）
+        if (payload.eventType === 'DELETE') {
+          callback({ online: false, page: null });
+        } else {
+          const lastSeen = new Date(payload.new.last_seen).getTime();
+          const online = (Date.now() - lastSeen) < 20000; // 20 秒判断在线
+          callback({ online, page: payload.new.current_page });
+        }
+      }
+    )
+    .subscribe();
+
+  return channel;
+}
 }
 
