@@ -1,6 +1,6 @@
 // js/rightPanel.js
 import { getUser, clearUser } from './userManager.js'
-import { updateAppOnlineStatus } from './monitorService.js';
+import { subscribeAppStatus } from './monitorService.js';
 
 export function initRightPanel() {
   const userInfoEl = document.getElementById('user-info');
@@ -17,10 +17,17 @@ export function initRightPanel() {
     if (usernameEl) usernameEl.textContent = user.nickname;
     if (avatarEl) avatarEl.src = user.avatarUrl || avatarEl.src;
     if (userInfoEl) userInfoEl.style.display = 'flex';
-    // 获取并显示 App 在线状态
-    updateAppOnlineStatus(user.uid, appStatusEl);
-    // 可选：定时刷新 App 状态，每 10 秒更新一次
-    setInterval(() => updateAppOnlineStatus(user.uid, appStatusEl), 10000);
+    // 订阅实时 App 状态
+    appStatusChannel = subscribeAppStatus(user.uid, (status) => {
+      if (!appStatusEl) return;
+      if (status.online) {
+        appStatusEl.textContent = `Online (${status.page || 'Unknown page'})`;
+        appStatusEl.style.color = 'green';
+      } else {
+        appStatusEl.textContent = 'Offline';
+        appStatusEl.style.color = 'red';
+      }
+    });
   } else if (userInfoEl) {
     userInfoEl.style.display = 'none';
   }
