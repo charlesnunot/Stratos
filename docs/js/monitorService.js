@@ -34,6 +34,10 @@ export async function updateAppOnlineStatus(userId, appStatusEl) {
 
   const status = await getAppStatus(userId);
 
+  if (!status) {
+    status = { online: false, page: null };
+  }
+
   if (status.online) {
     if (dotEl) dotEl.style.backgroundColor = 'green';
     if (textEl) textEl.textContent = `Online (${status.page || 'Unknown page'})`;
