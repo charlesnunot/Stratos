@@ -70,6 +70,15 @@
   text-align: center;
 }
 
+/* App 在线状态 */
+.app-status {
+  font-size: 14px;
+  color: var(--text-color);
+  margin-top: 6px;
+  text-align: center;
+}
+
+
 /* 消息通知 */
 .user-info .notifications {
   width: 100%;
