@@ -1,6 +1,7 @@
 // js/auth.js
 import { setUser, getUser } from './userManager.js';
 import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './userService.js';
+import { getAppStatus } from './monitorService.js';
 
 function generateDefaultNickname(email) {
   const prefix = email.split('@')[0] || 'User';
@@ -54,6 +55,7 @@ export async function initAuth() {
 
     setUser({ uid: sessionData.user.id, email, nickname, avatarUrl, accessToken: sessionData?.access_token });
     updateUI(getUser());
+    await updateAppOnlineStatus(uid);
   });
 
   // 注册
