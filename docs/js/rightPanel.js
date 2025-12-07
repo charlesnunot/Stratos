@@ -1,6 +1,7 @@
 // js/rightPanel.js
 import { getUser, clearUser } from './userManager.js';
 import { subscribeAppStatus } from './monitorService.js';
+import { supabase } from './userService.js';
 
 let appStatusChannel = null; // 订阅通道
 
@@ -16,16 +17,24 @@ export function initRightPanel() {
 
   const user = getUser();
 
-  // 更新 App 在线状态 UI
-  function updateAppStatusUI(status) {
+  // 更新 App 状态 UI —— 直接显示表中数据
+  function updateAppStatusUI(data) {
     if (!appStatusEl) return;
-    if (status.online) {
-      appStatusEl.textContent = `App online (${status.page || 'Unknown page'})`;
-      appStatusEl.style.color = 'green';
-    } else {
-      appStatusEl.textContent = 'Offline';
-      appStatusEl.style.color = 'red';
+
+    if (!data) {
+      // 表被删除或无数据
+      appStatusEl.textContent = 'No data';
+      appStatusEl.style.color = '#888';
+      return;
     }
+
+    // 直接展示字段
+    const page = data.current_page ?? 'Unknown page';
+    const lastSeen = data.last_seen ?? '';
+    const extra = data.extra ? JSON.stringify(data.extra) : '';
+
+    appStatusEl.textContent = `Page: ${page} | Last Seen: ${lastSeen} | Extra: ${extra}`;
+    appStatusEl.style.color = 'black';
   }
 
   if (user && user.uid) {
