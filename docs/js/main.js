@@ -2,6 +2,7 @@
 import { initSidebar } from './sidebar.js';
 import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
+import { updateWebMonitor } from './webMonitor.js';
 
 async function loadSidebarAndRightPanel() {
   try {
@@ -16,6 +17,12 @@ async function loadSidebarAndRightPanel() {
     initSidebar();
     initRightPanel();
     await initAuth();
+
+    // 记录用户行为
+    updateWebMonitor({
+      current_page: 'home',
+      extra: { from: 'web' }
+    });
   } catch (err) {
     console.error('加载 Sidebar 或 Right Panel 出错:', err);
   }
