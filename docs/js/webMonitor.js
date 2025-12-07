@@ -1,5 +1,5 @@
 // js/webMonitor.js
-import { supabase } from './supabaseClient.js';
+import { supabase } from './userService.js';
 
 export async function updateWebMonitor(payload) {
   const { data: session } = await supabase.auth.getSession();
