@@ -20,7 +20,7 @@ export function initRightPanel() {
   function updateAppStatusUI(status) {
     if (!appStatusEl) return;
     if (status.online) {
-      appStatusEl.textContent = `Online (${status.page || 'Unknown page'})`;
+      appStatusEl.textContent = `App online (${status.page || 'Unknown page'})`;
       appStatusEl.style.color = 'green';
     } else {
       appStatusEl.textContent = 'Offline';
