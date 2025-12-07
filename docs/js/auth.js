@@ -55,7 +55,8 @@ export async function initAuth() {
 
     setUser({ uid: sessionData.user.id, email, nickname, avatarUrl, accessToken: sessionData?.access_token });
     updateUI(getUser());
-    await updateAppOnlineStatus(uid);
+    const appStatusEl = document.getElementById('app-status');
+    if (appStatusEl) await updateAppOnlineStatus(sessionData.user.id, appStatusEl);
   });
 
   // 注册
