@@ -3,44 +3,58 @@ import { initSidebar } from './sidebar.js';
 import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
 import { updateWebMonitor } from './webMonitor.js';
+import { getUser } from './userManager.js';
 
-async function loadSidebarAndRightPanel() {
+async function loadApp() {
   try {
-    // 加载 components
-    const sidebarResp = await fetch('components/sidebar.html');
-    document.getElementById('sidebar-container').innerHTML = await sidebarResp.text();
+    // 1️⃣ 加载 HTML 组件
+    const [sidebarResp, rightResp] = await Promise.all([
+      fetch('components/sidebar.html'),
+      fetch('components/right-panel.html')
+    ]);
 
-    const rightResp = await fetch('components/right-panel.html');
+    document.getElementById('sidebar-container').innerHTML = await sidebarResp.text();
     document.getElementById('right-panel-container').innerHTML = await rightResp.text();
 
-    // 初始化 UI 模块
-    initSidebar();
-    initRightPanel();
-
-    // 初始化 Auth
+    // 2️⃣ 初始化 Auth（确保用户状态已知）
     await initAuth();
 
-    // ---- ① 首次记录用户行为 ----
-    updateWebMonitor({
-      current_page: window.location.pathname || 'home',
-      extra: { from: 'web_init' }
-    });
+    // 3️⃣ 初始化右侧面板（依赖用户状态）
+    initRightPanel();
 
-    // ---- ② 启动心跳（每15秒更新一次 last_seen）----
-    startHeartbeat();
+    // 4️⃣ 初始化侧边栏
+    initSidebar();
+
+    // 5️⃣ 首次记录 Web 用户行为
+    const user = getUser();
+    if (user) {
+      updateWebMonitor({
+        current_page: window.location.pathname || 'home',
+        extra: { from: 'web_init' }
+      });
+
+      // 6️⃣ 启动心跳（每 15 秒更新 last_seen）
+      startHeartbeat();
+    }
 
   } catch (err) {
     console.error('加载 Sidebar 或 Right Panel 出错:', err);
   }
 }
 
+/**
+ * 启动 Web 心跳，每 15 秒更新一次 last_seen
+ */
 function startHeartbeat() {
+  const user = getUser();
+  if (!user) return;
+
   setInterval(() => {
     updateWebMonitor({
       current_page: window.location.pathname || 'home',
       extra: { heartbeat: true }
     });
-  }, 15000); // 每 15 秒
+  }, 15000);
 }
 
-window.addEventListener('DOMContentLoaded', loadSidebarAndRightPanel);
+window.addEventListener('DOMContentLoaded', loadApp);
