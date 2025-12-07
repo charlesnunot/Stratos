@@ -77,6 +77,15 @@
   text-align: center;
 }
 
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background-color: gray; /* 初始状态 */
+  vertical-align: middle;
+}
 
 /* 消息通知 */
 .user-info .notifications {
