@@ -28,14 +28,18 @@ export async function getAppStatus(userId) {
  */
 export async function updateAppOnlineStatus(userId, appStatusEl) {
   if (!appStatusEl) return;
-  
+
+  const dotEl = document.getElementById('app-status-dot');
+  const textEl = document.getElementById('app-status-text');
+
   const status = await getAppStatus(userId);
 
   if (status.online) {
-    appStatusEl.textContent = `App 状态：在线 (${status.page || '未知页面'})`;
-    appStatusEl.style.color = 'green';
+    if (dotEl) dotEl.style.backgroundColor = 'green';
+    if (textEl) textEl.textContent = `Online (${status.page || 'Unknown page'})`;
   } else {
-    appStatusEl.textContent = 'App 状态：离线';
-    appStatusEl.style.color = 'red';
+    if (dotEl) dotEl.style.backgroundColor = 'red';
+    if (textEl) textEl.textContent = 'Offline';
   }
 }
+
