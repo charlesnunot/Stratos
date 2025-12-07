@@ -1,6 +1,6 @@
 // js/rightPanel.js
 import { getUser, clearUser } from './userManager.js'
-import { getAppStatus } from './monitorService.js';
+import { updateAppOnlineStatus } from './monitorService.js';
 
 export function initRightPanel() {
   const userInfoEl = document.getElementById('user-info');
