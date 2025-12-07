@@ -2,7 +2,7 @@
 import { getUser, clearUser } from './userManager.js';
 import { subscribeAppStatus } from './monitorService.js';
 
-let appStatusChannel = null; // 声明订阅通道
+let appStatusChannel = null; // 订阅通道
 
 export function initRightPanel() {
   const userInfoEl = document.getElementById('user-info');
@@ -12,11 +12,11 @@ export function initRightPanel() {
   const modalMask = document.getElementById('modal-mask');
   const loginModal = document.getElementById('login-modal');
   const registerModal = document.getElementById('register-modal');
-  const appStatusEl = document.getElementById('app-status'); 
+  const appStatusEl = document.getElementById('app-status');
 
   const user = getUser();
 
-  // 更新 App 在线状态的 UI
+  // 更新 App 在线状态 UI
   function updateAppStatusUI(status) {
     if (!appStatusEl) return;
     if (status.online) {
@@ -28,8 +28,8 @@ export function initRightPanel() {
     }
   }
 
-  if (user && user.nickname) {
-    if (usernameEl) usernameEl.textContent = user.nickname;
+  if (user && user.uid) {
+    if (usernameEl) usernameEl.textContent = user.nickname || 'Anonymous';
     if (avatarEl) avatarEl.src = user.avatarUrl || avatarEl.src;
     if (userInfoEl) userInfoEl.style.display = 'flex';
 
