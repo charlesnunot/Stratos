@@ -1,5 +1,5 @@
 // js/monitorService.js
-import { supabase } from './supabaseClient.js';
+import { supabase } from './userService.js';
 
 /**
  * 获取指定用户 App 端在线状态
