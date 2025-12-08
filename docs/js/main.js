@@ -2,7 +2,7 @@
 import { initSidebar } from './sidebar.js';
 import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
-import { updateWebMonitor } from './webMonitor.js';
+import { updateWebMonitor, clearWebMonitor } from './webMonitor.js';
 import { getUser } from './userManager.js';
 import { registerTab, getTabCount } from './webTabTracker.js';
 
@@ -13,7 +13,6 @@ async function loadApp() {
       fetch('components/sidebar.html'),
       fetch('components/right-panel.html')
     ]);
-    registerTab();
 
     document.getElementById('sidebar-container').innerHTML = await sidebarResp.text();
     document.getElementById('right-panel-container').innerHTML = await rightResp.text();
@@ -27,16 +26,17 @@ async function loadApp() {
     // 4️⃣ 初始化侧边栏
     initSidebar();
 
-    // 5️⃣ 首次记录 Web 用户行为
+    // 5️⃣ 注册标签页并同步登录状态
+    registerTab();
+
     const user = getUser();
-    if (user) {
+    if (user && getTabCount() > 0) {
+      // 用户已登录且至少有一个标签页，更新 web_monitor 为在线
       updateWebMonitor({
         current_page: window.location.pathname || 'home',
+        status: 'online',
         extra: { from: 'web_init' }
       });
-
-      // 6️⃣ 启动心跳（每 15 秒更新 last_seen）
-      startHeartbeat();
     }
 
   } catch (err) {
@@ -44,5 +44,18 @@ async function loadApp() {
   }
 }
 
-
+// 页面 DOM 加载完成后执行
 window.addEventListener('DOMContentLoaded', loadApp);
+
+// 当最后一个标签页关闭时，清理 web_monitor
+window.addEventListener('beforeunload', async () => {
+  const user = getUser();
+  if (!user) return;
+
+  // 计算剩余标签页数量（当前标签页即将关闭，所以减1）
+  const remainingTabs = getTabCount() - 1;
+  if (remainingTabs <= 0) {
+    // 最后一个标签页关闭，清理 web_monitor
+    await clearWebMonitor();
+  }
+});
