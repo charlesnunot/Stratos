@@ -2,7 +2,7 @@
 import { initSidebar } from './sidebar.js';
 import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
-import { updateWebMonitor } from './webMonitor.js';
+
 
 async function loadApp() {
   try {
