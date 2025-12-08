@@ -4,7 +4,6 @@ import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
 import { updateWebMonitor, setWebStatus } from './webMonitor.js';
 import { getUser } from './userManager.js';
-import { registerTab, getTabCount } from './webTabTracker.js';
 
 async function loadApp() {
   try {
