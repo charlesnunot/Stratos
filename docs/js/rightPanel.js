@@ -1,4 +1,3 @@
-// js/rightPanel.js
 import { getUser, clearUser } from './userManager.js';
 import { subscribeAppStatus, subscribeWebConfirm } from './monitorService.js';
 import { supabase } from './userService.js';
@@ -18,8 +17,6 @@ export function initRightPanel() {
   const statusText = document.getElementById('app-status-text');
   const statusDot = document.getElementById('app-status-dot');
 
-  const user = getUser();
-
   function debugLog(...args) {
     if (window && window.console) console.log('[rightPanel]', ...args);
   }
@@ -36,13 +33,14 @@ export function initRightPanel() {
     statusDot.style.backgroundColor = status === 'online' ? '#2ecc71' : '#888';
   }
 
+  const user = getUser();
   if (user && user.uid) {
     debugLog('User present, uid=', user.uid);
     if (usernameEl) usernameEl.textContent = user.nickname || 'Anonymous';
     if (avatarEl) avatarEl.src = user.avatarUrl || avatarEl.src;
     if (userInfoEl) userInfoEl.style.display = 'flex';
 
-    // ✅ 启动 Web 心跳
+    // ✅ 启动 Web 心跳，自动更新 web_monitor
     WebMonitor.start();
 
     // 先 fetch 最新 App 状态
@@ -53,15 +51,8 @@ export function initRightPanel() {
           .select('*')
           .eq('uid', user.uid)
           .single();
-        if (error) {
-          debugLog('fetch app_monitor error:', error);
-          updateAppStatusUI(null);
-        } else {
-          updateAppStatusUI(data);
-        }
-      } catch {
-        updateAppStatusUI(null);
-      }
+        if (!error) updateAppStatusUI(data);
+      } catch {}
     })();
 
     // 订阅实时 App 状态
@@ -82,41 +73,25 @@ export function initRightPanel() {
   // 登出操作
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
-      const user = getUser();
-      const uid = user?.uid;
-    
-      // 停止心跳
-      WebMonitor.stop();
-    
-      // 设置 offline 并等待完成
-      if (uid) {
-        try {
-          await supabase.from('web_monitor').upsert({
-            uid,
-            status: 'offline',
-            last_seen: new Date()
-          });
-          console.log('User set offline on logout');
-        } catch (err) {
-          console.error('Error setting offline on logout:', err);
-        }
-      }
-    
-      // 清理用户信息
+      debugLog('logout clicked');
+
+      // 1️⃣ 设置 offline 并停止心跳
+      await WebMonitor.setOffline();
+
+      // 2️⃣ 清理用户
       clearUser();
       localStorage.removeItem('authToken');
       localStorage.removeItem('username');
-    
-      // 隐藏 UI
-      userInfoEl.style.display = 'none';
-      modalMask.style.display = 'flex';
-      loginModal.style.display = 'flex';
-      registerModal.style.display = 'none';
-    
-      // 取消订阅
+
+      // 3️⃣ UI 处理
+      if (userInfoEl) userInfoEl.style.display = 'none';
+      if (modalMask) modalMask.style.display = 'flex';
+      if (loginModal) loginModal.style.display = 'flex';
+      if (registerModal) registerModal.style.display = 'none';
+
+      // 4️⃣ 取消订阅
       if (appStatusChannel) { try { supabase.removeChannel(appStatusChannel); } catch{} appStatusChannel = null; }
       if (webConfirmChannel) { try { supabase.removeChannel(webConfirmChannel); } catch{} webConfirmChannel = null; }
     });
-
   }
 }
