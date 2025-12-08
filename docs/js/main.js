@@ -9,8 +9,8 @@ async function loadApp() {
   try {
     // 1️⃣ 加载 HTML 组件
     const [sidebarResp, rightResp] = await Promise.all([
-      fetch('components/sidebar.html'),
-      fetch('components/right-panel.html')
+      fetch('docs/components/sidebar.html'),
+      fetch('docs/components/right-panel.html')
     ]);
 
     document.getElementById('sidebar-container').innerHTML = await sidebarResp.text();
