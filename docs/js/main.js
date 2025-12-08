@@ -1,10 +1,14 @@
+// main.js
 import { initSidebar } from './sidebar.js';
 import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
-import { updateWebMonitor, setWebStatus } from './webMonitor.js';
+import { updateWebMonitor } from './webMonitor.js';
 import { getUser } from './userManager.js';
 import { registerTab, getTabCount } from './webTabTracker.js';
 
+/**
+ * 初始化应用
+ */
 async function loadApp() {
   try {
     // 1️⃣ 加载 HTML 组件
@@ -28,9 +32,9 @@ async function loadApp() {
     // 5️⃣ 注册标签页
     registerTab();
 
+    // 6️⃣ 用户已登录且至少有一个标签页，更新 web_monitor 为在线
     const user = getUser();
     if (user && getTabCount() > 0) {
-      // 用户已登录且至少有一个标签页，更新 web_monitor 为在线
       updateWebMonitor({
         current_page: window.location.pathname || 'home',
         status: 'online',
@@ -46,7 +50,10 @@ async function loadApp() {
 // 页面 DOM 加载完成后执行
 window.addEventListener('DOMContentLoaded', loadApp);
 
-// 当最后一个标签页关闭时，更新 status 为 offline
+/**
+ * 最后一个标签页关闭时，更新状态为 offline
+ * ⚠️ 注意：beforeunload 是同步事件，异步请求可能不会完成
+ */
 window.addEventListener('beforeunload', () => {
   const user = getUser();
   if (!user) return;
@@ -54,6 +61,10 @@ window.addEventListener('beforeunload', () => {
   const remainingTabs = getTabCount() - 1; // 当前标签页即将关闭
   if (remainingTabs <= 0) {
     // 最后一个标签页关闭，更新状态为 offline
-    setWebStatus('offline');
+    updateWebMonitor({
+      status: 'offline',
+      current_page: window.location.pathname || 'home',
+      extra: { from: 'beforeunload' }
+    });
   }
 });
