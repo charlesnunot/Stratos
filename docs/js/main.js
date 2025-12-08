@@ -1,4 +1,7 @@
 import { subscribeWebConfirm } from './webConfirmService.js';
+import { initAuth, getUser, updateWebMonitor } from './auth.js';
+import { initRightPanel } from './rightPanel.js';
+import { initSidebar } from './sidebar.js';
 
 async function loadApp() {
   try {
