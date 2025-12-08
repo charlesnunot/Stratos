@@ -34,7 +34,7 @@ export function initRightPanel() {
     const extra = data.extra ? JSON.stringify(data.extra) : '';
 
     statusText.textContent = `Page: ${page} | Last Seen: ${lastSeen} | Extra: ${extra}`;
-    appStatusEl.style.color = 'black';
+    statusDot.style.backgroundColor = 'green';
   }
 
   if (user && user.uid) {
