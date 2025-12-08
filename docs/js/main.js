@@ -12,6 +12,9 @@ async function loadApp() {
       fetch('components/right-panel.html')
     ]);
 
+    console.log('sidebar-container:', document.getElementById('sidebar-container'));
+    console.log('more-button:', document.getElementById('more-button'));
+
     document.getElementById('sidebar-container').innerHTML = await sidebarResp.text();
     document.getElementById('right-panel-container').innerHTML = await rightResp.text();
 
