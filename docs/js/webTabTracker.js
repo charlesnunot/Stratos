@@ -38,10 +38,8 @@ function unregisterTab() {
  */
 function handleStorageChange(event) {
   if (event.key !== TAB_KEY) return;
-
   const tabs = JSON.parse(event.newValue || '[]');
   console.log('当前标签页总数:', tabs.length);
-  // 可以在这里触发自定义回调，例如判断用户是否还有在线标签页
 }
 
 /**
@@ -51,4 +49,3 @@ export function getTabCount() {
   const tabs = JSON.parse(localStorage.getItem(TAB_KEY) || '[]');
   return tabs.length;
 }
-
