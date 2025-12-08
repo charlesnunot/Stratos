@@ -82,14 +82,13 @@ export function initRightPanel() {
   // 登出操作
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
-      debugLog('logout clicked');
-
-      const uid = user?.uid; // 先保存 uid
-
+      const user = getUser();
+      const uid = user?.uid;
+    
       // 停止心跳
       WebMonitor.stop();
-
-      // 更新状态为 offline
+    
+      // 设置 offline 并等待完成
       if (uid) {
         try {
           await supabase.from('web_monitor').upsert({
@@ -97,26 +96,27 @@ export function initRightPanel() {
             status: 'offline',
             last_seen: new Date()
           });
-          debugLog('Set user offline on logout');
+          console.log('User set offline on logout');
         } catch (err) {
-          debugLog('Error setting offline on logout:', err);
+          console.error('Error setting offline on logout:', err);
         }
       }
-
+    
       // 清理用户信息
       clearUser();
-      localStorage.removeItem('currentUser');
       localStorage.removeItem('authToken');
       localStorage.removeItem('username');
-
-      if (userInfoEl) userInfoEl.style.display = 'none';
-      if (modalMask) modalMask.style.display = 'flex';
-      if (loginModal) loginModal.style.display = 'flex';
-      if (registerModal) registerModal.style.display = 'none';
-
+    
+      // 隐藏 UI
+      userInfoEl.style.display = 'none';
+      modalMask.style.display = 'flex';
+      loginModal.style.display = 'flex';
+      registerModal.style.display = 'none';
+    
       // 取消订阅
       if (appStatusChannel) { try { supabase.removeChannel(appStatusChannel); } catch{} appStatusChannel = null; }
       if (webConfirmChannel) { try { supabase.removeChannel(webConfirmChannel); } catch{} webConfirmChannel = null; }
     });
+
   }
 }
