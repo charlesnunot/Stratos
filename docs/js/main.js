@@ -4,6 +4,7 @@ import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
 import { updateWebMonitor } from './webMonitor.js';
 import { getUser } from './userManager.js';
+import { registerTab, getTabCount } from './webTabTracker.js';
 
 async function loadApp() {
   try {
@@ -12,6 +13,7 @@ async function loadApp() {
       fetch('components/sidebar.html'),
       fetch('components/right-panel.html')
     ]);
+    registerTab();
 
     document.getElementById('sidebar-container').innerHTML = await sidebarResp.text();
     document.getElementById('right-panel-container').innerHTML = await rightResp.text();
@@ -42,19 +44,5 @@ async function loadApp() {
   }
 }
 
-/**
- * 启动 Web 心跳，每 15 秒更新一次 last_seen
- */
-function startHeartbeat() {
-  const user = getUser();
-  if (!user) return;
-
-  setInterval(() => {
-    updateWebMonitor({
-      current_page: window.location.pathname || 'home',
-      extra: { heartbeat: true }
-    });
-  }, 15000);
-}
 
 window.addEventListener('DOMContentLoaded', loadApp);
