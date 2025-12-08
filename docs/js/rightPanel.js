@@ -33,7 +33,7 @@ export function initRightPanel() {
     const lastSeen = data.last_seen ?? '';
     const extra = data.extra ? JSON.stringify(data.extra) : '';
 
-    appStatusEl.textContent = `Page: ${page} | Last Seen: ${lastSeen} | Extra: ${extra}`;
+    statusText.textContent = `Page: ${page} | Last Seen: ${lastSeen} | Extra: ${extra}`;
     appStatusEl.style.color = 'black';
   }
 
