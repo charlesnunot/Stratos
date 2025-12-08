@@ -31,8 +31,6 @@ async function loadApp() {
         extra: { from: 'web_init' }
       });
 
-      // 6️⃣ 订阅 web_confirm 表，自动响应 pending
-      subscribeWebConfirm(user.uid);
     }
 
   } catch (err) {
