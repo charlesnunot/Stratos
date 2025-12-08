@@ -58,13 +58,26 @@ window.addEventListener('beforeunload', () => {
   const user = getUser();
   if (!user) return;
 
-  const remainingTabs = getTabCount() - 1; // 当前标签页即将关闭
+  const remainingTabs = getTabCount() - 1;
   if (remainingTabs <= 0) {
-    // 最后一个标签页关闭，更新状态为 offline
-    updateWebMonitor({
+    const payload = {
+      uid: user.id,
       status: 'offline',
       current_page: window.location.pathname || 'home',
-      extra: { from: 'beforeunload' }
-    });
+      extra: { from: 'beforeunload' },
+      device: 'web'
+    };
+
+    // 这里直接调用 Supabase REST API 的 endpoint 或你的服务器接口
+    // sendBeacon 发送 JSON
+    const url = 'https://YOUR_SUPABASE_PROJECT_URL/rest/v1/web_monitor';
+    const headers = {
+      'apikey': 'YOUR_SUPABASE_ANON_KEY',
+      'Authorization': `Bearer ${user.access_token}`, // 如果需要认证
+      'Content-Type': 'application/json'
+    };
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    navigator.sendBeacon(url, blob);
   }
 });
+
