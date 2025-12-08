@@ -25,37 +25,11 @@ async function loadApp() {
 
     // 4️⃣ 初始化侧边栏
     initSidebar();
-
-    // 5️⃣ 注册标签页
-    registerTab();
-
-    const user = getUser();
-    if (user && getTabCount() > 0) {
-      // 用户已登录且至少有一个标签页，更新 web_monitor 为在线
-      updateWebMonitor({
-        current_page: window.location.pathname || 'home',
-        status: 'online',
-        extra: { from: 'web_init' }
-      });
-    }
   } catch (err) {
     console.error('加载 Sidebar 或 Right Panel 出错:', err);
   }
 }
 
-// 页面 DOM 加载完成后执行
-window.addEventListener('DOMContentLoaded', loadApp);
 
-// 当最后一个标签页关闭时，更新 status 为 offline
-window.addEventListener('beforeunload', () => {
-  const user = getUser();
-  if (!user) return;
-
-  const remainingTabs = getTabCount() - 1; // 当前标签页即将关闭
-  if (remainingTabs <= 0) {
-    // 最后一个标签页关闭，更新状态为 offline
-    setWebStatus('offline');
-  }
-});
 
 
