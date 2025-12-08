@@ -1,5 +1,4 @@
 import { supabase } from './userService.js';
-import { getUser } from './userManager.js';
 
 /**
  * 更新 web_monitor（含 status 与 actions）
@@ -16,8 +15,7 @@ export async function updateWebMonitor(payload = {}) {
     status: payload.status ?? 'online',
     actions: payload.actions ?? null,
     extra: payload.extra ?? null,
-    device: "web",
-    last_seen: new Date().toISOString()
+    device: "web"
   };
 
   const { error } = await supabase
@@ -40,7 +38,7 @@ export async function setWebStatus(status = 'offline') {
 
   const { error } = await supabase
     .from('web_monitor')
-    .update({ status, last_seen: new Date().toISOString() })
+    .update({ status })
     .eq('uid', user.id);
 
   if (error) console.error('setWebStatus error:', error);
