@@ -4,7 +4,7 @@ import { subscribeAppStatus, subscribeWebConfirm } from './monitorService.js';
 import { supabase } from './userService.js';
 import { WebMonitor } from './webMonitor.js';
 
-let appStatusChannel = null; // 订阅通道
+let appStatusChannel = null; 
 let webConfirmChannel = null;
 
 export function initRightPanel() {
@@ -16,20 +16,16 @@ export function initRightPanel() {
   const loginModal = document.getElementById('login-modal');
   const registerModal = document.getElementById('register-modal');
 
-  // App 状态显示元素
   const statusText = document.getElementById('app-status-text');
   const statusDot = document.getElementById('app-status-dot');
 
   const user = getUser();
 
-  // 调试用：打印 helper
   function debugLog(...args) {
-    if (window && window.console) {
-      console.log('[rightPanel]', ...args);
-    }
+    if (window && window.console) console.log('[rightPanel]', ...args);
   }
 
-  /** 更新 App 状态 UI —— 仅展示 current_page 和 status */
+  /** 更新 App 状态 UI */
   function updateAppStatusUI(data) {
     if (!statusText || !statusDot) return;
 
@@ -39,24 +35,22 @@ export function initRightPanel() {
       return;
     }
 
-    const page = data.current_page ?? 'Unknown';
-    const status = data.status ?? 'Unknown';
-
+    const status = data.status ?? 'unknown';
     statusText.textContent = `App: ${status}`;
     statusDot.style.backgroundColor = status === 'online' ? '#2ecc71' : '#888';
   }
 
-  // 用户存在时初始化面板和订阅
   if (user && user.uid) {
     debugLog('User present, uid=', user.uid);
+
     if (usernameEl) usernameEl.textContent = user.nickname || 'Anonymous';
     if (avatarEl) avatarEl.src = user.avatarUrl || avatarEl.src;
     if (userInfoEl) userInfoEl.style.display = 'flex';
 
-    // ✅ 启动 Web 心跳，自动更新 web_monitor
+    // ✅ 启动心跳
     WebMonitor.start();
 
-    // ① 先 fetch 一次最新 App 状态
+    // 先 fetch 最新 App 状态
     (async () => {
       try {
         debugLog('Fetching current app_monitor row for uid=', user.uid);
@@ -79,32 +73,30 @@ export function initRightPanel() {
       }
     })();
 
-    // ② 订阅实时 App 状态
+    // 订阅实时 App 状态
     appStatusChannel = subscribeAppStatus(user.uid, (payloadNew) => {
       debugLog('Realtime callback payloadNew:', payloadNew);
       updateAppStatusUI(payloadNew);
     });
 
-    // ③ 订阅 web_confirm（内部已处理状态更新）
+    // 订阅 web_confirm
     webConfirmChannel = subscribeWebConfirm(user.uid, (payloadNew) => {
       debugLog('web_confirm 回调触发:', payloadNew);
     });
 
-    debugLog('appStatusChannel initialized:', appStatusChannel);
   } else {
     debugLog('No user found in rightPanel init');
     if (userInfoEl) userInfoEl.style.display = 'none';
   }
 
-  // 登出操作：清理用户、停止心跳、取消订阅
+  // 登出操作
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
-      debugLog('logout clicked - clearing user and unsubscribing channel');
+      debugLog('logout clicked - clearing user and unsubscribing');
 
-      // 停止心跳
       WebMonitor.stop();
-
       clearUser();
+      localStorage.removeItem('currentUser');
       localStorage.removeItem('authToken');
       localStorage.removeItem('username');
 
@@ -115,24 +107,24 @@ export function initRightPanel() {
 
       // 取消 App 状态订阅
       if (appStatusChannel) {
-        try {
-          supabase.removeChannel(appStatusChannel);
-          debugLog('Removed appStatusChannel');
-        } catch (err) {
-          debugLog('Error removing appStatusChannel:', err);
-        }
+        try { supabase.removeChannel(appStatusChannel); } catch {}
         appStatusChannel = null;
       }
 
       // 取消 web_confirm 订阅
       if (webConfirmChannel) {
-        try {
-          supabase.removeChannel(webConfirmChannel);
-          debugLog('Removed webConfirmChannel');
-        } catch (err) {
-          debugLog('Error removing webConfirmChannel:', err);
-        }
+        try { supabase.removeChannel(webConfirmChannel); } catch {}
         webConfirmChannel = null;
+      }
+
+      // 立即更新状态为 offline
+      const uid = user?.uid;
+      if (uid) {
+        await supabase.from('web_monitor').upsert({
+          uid,
+          status: 'offline',
+          last_seen: new Date()
+        });
       }
     });
   }
