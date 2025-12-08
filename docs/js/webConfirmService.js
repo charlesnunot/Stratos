@@ -1,6 +1,6 @@
 // js/webConfirmService.js
 import { supabase } from './userService.js';
-import { replyWebConfirm } from './api/webConfirm.js';
+import { replyWebConfirm } from './webConfirm.js';
 
 /**
  * 监听 web_confirm 表
