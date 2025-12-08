@@ -1,6 +1,6 @@
 // js/rightPanel.js
 import { getUser, clearUser } from './userManager.js';
-import { subscribeAppStatus } from './monitorService.js';
+import { subscribeAppStatus, subscribeWebConfirm } from './monitorService.js';
 import { supabase } from './userService.js';
 import { WebMonitor } from './webMonitor.js';
 
