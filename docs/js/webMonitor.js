@@ -1,5 +1,6 @@
 // js/webMonitor.js
 import { supabase } from './userService.js';
+import { getUser } from './userManager.js';
 
 /**
  * 更新 web_monitor（含 status 与 actions）
