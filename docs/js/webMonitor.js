@@ -1,31 +1,21 @@
 // js/webMonitor.js
+import { getUser } from './userManager.js';
 import { supabase } from './userService.js';
 
-/**
- * Web 在线状态管理模块
- */
 export const WebMonitor = (() => {
-  const HEARTBEAT_INTERVAL = 10000; // 心跳间隔 10 秒
-  const OFFLINE_THRESHOLD = 15000;  // 超过 15 秒未更新视为离线
+  const HEARTBEAT_INTERVAL = 10000; // 10 秒
   let heartbeatTimer = null;
-
-  function getCurrentUid() {
-    const currentUser = localStorage.getItem('currentUser');
-    if (!currentUser) return null;
-    try {
-      return JSON.parse(currentUser).uid;
-    } catch {
-      return null;
-    }
-  }
+  let stopped = false;
 
   async function sendHeartbeat(currentPage = null, actions = null, extra = null) {
-    const uid = getCurrentUid();
-    if (!uid) return;
+    if (stopped) return;
+
+    const user = getUser();
+    if (!user?.uid) return;
 
     const now = new Date();
     const updateData = {
-      uid,
+      uid: user.uid,
       current_page: currentPage,
       actions: actions ?? null,
       extra: extra ?? null,
@@ -39,51 +29,47 @@ export const WebMonitor = (() => {
   }
 
   function start(options = {}) {
+    stopped = false;
     const interval = options.interval ?? HEARTBEAT_INTERVAL;
 
-    // ✅ 立即发送一次心跳
+    // 立即发送一次心跳
     sendHeartbeat(window.location.pathname);
 
-    // 定时心跳
+    // 定时发送心跳
     heartbeatTimer = setInterval(() => {
       sendHeartbeat(window.location.pathname);
     }, interval);
 
-    // 页面关闭或刷新时标记离线
+    // 页面刷新或关闭时标记 offline
     window.addEventListener('beforeunload', async () => {
-      clearInterval(heartbeatTimer);
+      stopped = true;
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = null;
 
-      const uid = getCurrentUid();
-      if (!uid) return;
+      const user = getUser();
+      if (!user?.uid) return;
 
       try {
         await supabase.from('web_monitor').upsert({
-          uid,
+          uid: user.uid,
           status: 'offline',
           last_seen: new Date()
         });
       } catch (err) {
-        console.error('[WebMonitor] beforeunload offline error:', err);
+        console.error('[WebMonitor] beforeunload set offline error:', err);
       }
     });
   }
 
   function stop() {
+    stopped = true; // 阻止后续心跳
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     heartbeatTimer = null;
-  }
-
-  function checkStatus(lastSeen) {
-    const now = new Date();
-    const last = new Date(lastSeen);
-    return now - last <= OFFLINE_THRESHOLD ? 'online' : 'offline';
   }
 
   return {
     start,
     stop,
-    sendHeartbeat,
-    checkStatus
+    sendHeartbeat
   };
 })();
