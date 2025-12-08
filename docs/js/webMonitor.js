@@ -10,20 +10,28 @@ export const WebMonitor = (() => {
   let heartbeatTimer = null;
 
   /**
+   * 获取当前用户 uid
+   */
+  function getCurrentUid() {
+    const currentUser = localStorage.getItem('currentUser');
+    if (!currentUser) return null;
+    try {
+      return JSON.parse(currentUser).uid;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * 发送一次心跳，更新 web_monitor 表
-   * @param {string} currentPage - 当前页面路径
-   * @param {object|null} actions - 当前用户操作
-   * @param {object|null} extra - 额外信息
    */
   async function sendHeartbeat(currentPage = null, actions = null, extra = null) {
-    const { data: session } = await supabase.auth.getSession();
-    if (!session?.session?.user) return;
+    const uid = getCurrentUid();
+    if (!uid) return;
 
-    const user = session.session.user;
     const now = new Date();
-
     const updateData = {
-      uid: user.id,
+      uid,
       current_page: currentPage,
       actions: actions ?? null,
       extra: extra ?? null,
@@ -33,18 +41,19 @@ export const WebMonitor = (() => {
     };
 
     const { error } = await supabase.from('web_monitor').upsert(updateData);
-    if (error) console.error('WebMonitor heartbeat error:', error);
+    if (error) console.error('[WebMonitor] heartbeat error:', error);
   }
 
   /**
    * 启动心跳
-   * @param {object} options 可选参数
-   *  - interval: 心跳间隔 ms
    */
   function start(options = {}) {
     const interval = options.interval ?? HEARTBEAT_INTERVAL;
 
-    // 每隔 interval 发送心跳
+    // ✅ 立即发送一次心跳
+    sendHeartbeat(window.location.pathname);
+
+    // 定时心跳
     heartbeatTimer = setInterval(() => {
       sendHeartbeat(window.location.pathname);
     }, interval);
@@ -52,10 +61,13 @@ export const WebMonitor = (() => {
     // 页面关闭或刷新时标记离线
     window.addEventListener('beforeunload', async () => {
       clearInterval(heartbeatTimer);
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.user) return;
+      heartbeatTimer = null;
+
+      const uid = getCurrentUid();
+      if (!uid) return;
+
       await supabase.from('web_monitor').upsert({
-        uid: session.session.user.id,
+        uid,
         status: 'offline',
         last_seen: new Date()
       });
@@ -72,8 +84,6 @@ export const WebMonitor = (() => {
 
   /**
    * 判断在线状态
-   * @param {string|Date} lastSeen - 数据库 last_seen 时间
-   * @returns 'online' | 'offline'
    */
   function checkStatus(lastSeen) {
     const now = new Date();
