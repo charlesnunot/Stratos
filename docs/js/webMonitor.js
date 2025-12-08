@@ -1,12 +1,19 @@
-// js/webMonitor.js
 import { getUser } from './userManager.js';
 import { supabase } from './userService.js';
 
+/**
+ * Web 在线状态管理模块
+ * 功能：
+ *  - 心跳更新 online 状态
+ *  - stop 心跳阻止更新
+ *  - 登出或关闭页面自动标记 offline
+ */
 export const WebMonitor = (() => {
-  const HEARTBEAT_INTERVAL = 10000; // 10 秒
+  const HEARTBEAT_INTERVAL = 10000; // 心跳间隔 10 秒
   let heartbeatTimer = null;
   let stopped = false;
 
+  /** 发送一次心跳 */
   async function sendHeartbeat(currentPage = null, actions = null, extra = null) {
     if (stopped) return;
 
@@ -24,10 +31,15 @@ export const WebMonitor = (() => {
       status: 'online'
     };
 
-    const { error } = await supabase.from('web_monitor').upsert(updateData);
-    if (error) console.error('[WebMonitor] heartbeat error:', error);
+    try {
+      const { error } = await supabase.from('web_monitor').upsert(updateData);
+      if (error) console.error('[WebMonitor] heartbeat error:', error);
+    } catch (err) {
+      console.error('[WebMonitor] heartbeat exception:', err);
+    }
   }
 
+  /** 启动心跳 */
   function start(options = {}) {
     stopped = false;
     const interval = options.interval ?? HEARTBEAT_INTERVAL;
@@ -40,36 +52,41 @@ export const WebMonitor = (() => {
       sendHeartbeat(window.location.pathname);
     }, interval);
 
-    // 页面刷新或关闭时标记 offline
+    // 页面关闭或刷新时标记 offline
     window.addEventListener('beforeunload', async () => {
-      stopped = true;
-      if (heartbeatTimer) clearInterval(heartbeatTimer);
-      heartbeatTimer = null;
-
-      const user = getUser();
-      if (!user?.uid) return;
-
-      try {
-        await supabase.from('web_monitor').upsert({
-          uid: user.uid,
-          status: 'offline',
-          last_seen: new Date()
-        });
-      } catch (err) {
-        console.error('[WebMonitor] beforeunload set offline error:', err);
-      }
+      await setOffline();
     });
   }
 
+  /** 停止心跳，不再发送 online */
   function stop() {
-    stopped = true; // 阻止后续心跳
+    stopped = true;
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     heartbeatTimer = null;
+  }
+
+  /** 设置当前用户为 offline */
+  async function setOffline() {
+    stop();
+    const user = getUser();
+    if (!user?.uid) return;
+
+    try {
+      await supabase.from('web_monitor').upsert({
+        uid: user.uid,
+        status: 'offline',
+        last_seen: new Date()
+      });
+      console.log('[WebMonitor] user set offline:', user.uid);
+    } catch (err) {
+      console.error('[WebMonitor] setOffline error:', err);
+    }
   }
 
   return {
     start,
     stop,
-    sendHeartbeat
+    sendHeartbeat,
+    setOffline
   };
 })();
