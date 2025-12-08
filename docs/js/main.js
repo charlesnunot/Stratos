@@ -1,4 +1,4 @@
-/ js/main.js
+// js/main.js
 import { initSidebar } from './sidebar.js';
 import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
