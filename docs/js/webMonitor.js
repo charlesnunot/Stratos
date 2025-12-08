@@ -9,9 +9,6 @@ export const WebMonitor = (() => {
   const OFFLINE_THRESHOLD = 15000;  // 超过 15 秒未更新视为离线
   let heartbeatTimer = null;
 
-  /**
-   * 获取当前用户 uid
-   */
   function getCurrentUid() {
     const currentUser = localStorage.getItem('currentUser');
     if (!currentUser) return null;
@@ -22,9 +19,6 @@ export const WebMonitor = (() => {
     }
   }
 
-  /**
-   * 发送一次心跳，更新 web_monitor 表
-   */
   async function sendHeartbeat(currentPage = null, actions = null, extra = null) {
     const uid = getCurrentUid();
     if (!uid) return;
@@ -44,9 +38,6 @@ export const WebMonitor = (() => {
     if (error) console.error('[WebMonitor] heartbeat error:', error);
   }
 
-  /**
-   * 启动心跳
-   */
   function start(options = {}) {
     const interval = options.interval ?? HEARTBEAT_INTERVAL;
 
@@ -66,25 +57,23 @@ export const WebMonitor = (() => {
       const uid = getCurrentUid();
       if (!uid) return;
 
-      await supabase.from('web_monitor').upsert({
-        uid,
-        status: 'offline',
-        last_seen: new Date()
-      });
+      try {
+        await supabase.from('web_monitor').upsert({
+          uid,
+          status: 'offline',
+          last_seen: new Date()
+        });
+      } catch (err) {
+        console.error('[WebMonitor] beforeunload offline error:', err);
+      }
     });
   }
 
-  /**
-   * 停止心跳
-   */
   function stop() {
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     heartbeatTimer = null;
   }
 
-  /**
-   * 判断在线状态
-   */
   function checkStatus(lastSeen) {
     const now = new Date();
     const last = new Date(lastSeen);
