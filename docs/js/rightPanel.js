@@ -40,7 +40,7 @@ export function initRightPanel() {
     const page = data.current_page ?? 'Unknown';
     const status = data.status ?? 'Unknown';
 
-    statusText.textContent = `Page: ${page} | Status: ${status}`;
+    statusText.textContent = `App: ${status}`;
     statusDot.style.backgroundColor = '#2ecc71';
   }
 
