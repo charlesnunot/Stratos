@@ -1,8 +1,8 @@
-// js/main.js
+/ js/main.js
 import { initSidebar } from './sidebar.js';
 import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
-import { updateWebMonitor, setWebStatus } from './webMonitor.js';
+import { updateWebMonitor } from './webMonitor.js';
 import { getUser } from './userManager.js';
 
 async function loadApp() {
