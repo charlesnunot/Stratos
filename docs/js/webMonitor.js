@@ -16,7 +16,6 @@ export const WebMonitor = (() => {
   /** 发送一次心跳 */
   async function sendHeartbeat(currentPage = null, actions = null, extra = null) {
     if (stopped) return;
-
     const user = getUser();
     if (!user?.uid) return;
 
@@ -44,10 +43,7 @@ export const WebMonitor = (() => {
     stopped = false;
     const interval = options.interval ?? HEARTBEAT_INTERVAL;
 
-    // 立即发送一次心跳
     sendHeartbeat(window.location.pathname);
-
-    // 定时发送心跳
     heartbeatTimer = setInterval(() => {
       sendHeartbeat(window.location.pathname);
     }, interval);
@@ -58,7 +54,7 @@ export const WebMonitor = (() => {
     });
   }
 
-  /** 停止心跳，不再发送 online */
+  /** 停止心跳 */
   function stop() {
     stopped = true;
     if (heartbeatTimer) clearInterval(heartbeatTimer);
