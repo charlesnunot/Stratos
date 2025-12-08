@@ -27,14 +27,9 @@ export function initRightPanel() {
     }
   }
 
-  /** 更新 App 状态 UI —— 直接展示传入的数据（或显示无数据） */
+  /** 更新 App 状态 UI —— 仅展示 current_page 和 status */
   function updateAppStatusUI(data) {
-    debugLog('updateAppStatusUI called with:', data);
-
-    if (!statusText || !statusDot) {
-      debugLog('statusText/statusDot elements not found');
-      return;
-    }
+    if (!statusText || !statusDot) return;
 
     if (!data) {
       statusText.textContent = 'No data';
@@ -42,29 +37,10 @@ export function initRightPanel() {
       return;
     }
 
-    // 如果后端存 extra 是字符串形式（eg. '"{\"heartbeat\": true}"'），尽量解析
-    let extraStr = '';
-    try {
-      if (data.extra == null) {
-        extraStr = '';
-      } else if (typeof data.extra === 'string') {
-        // 尝试 JSON.parse，如果失败就直接使用原字符串
-        try {
-          const parsed = JSON.parse(data.extra);
-          extraStr = JSON.stringify(parsed);
-        } catch (e) {
-          extraStr = data.extra;
-        }
-      } else {
-        extraStr = JSON.stringify(data.extra);
-      }
-    } catch (e) {
-      extraStr = String(data.extra);
-    }
+    const page = data.current_page ?? 'Unknown';
+    const status = data.status ?? 'Unknown';
 
-    const page = data.current_page ?? 'Unknown page';
-    const lastSeen = data.last_seen ?? '';
-    statusText.textContent = `Page: ${page} | Last Seen: ${lastSeen} | Extra: ${extraStr}`;
+    statusText.textContent = `Page: ${page} | Status: ${status}`;
     statusDot.style.backgroundColor = '#2ecc71';
   }
 
@@ -75,7 +51,7 @@ export function initRightPanel() {
     if (avatarEl) avatarEl.src = user.avatarUrl || avatarEl.src;
     if (userInfoEl) userInfoEl.style.display = 'flex';
 
-    // ① 先 fetch 一次最新数据（确保初始状态不是 Checking...）
+    // ① 先 fetch 一次最新数据
     (async () => {
       try {
         debugLog('Fetching current app_monitor row for uid=', user.uid);
@@ -87,7 +63,6 @@ export function initRightPanel() {
 
         if (error) {
           debugLog('fetch app_monitor error:', error);
-          // 显示无数据
           updateAppStatusUI(null);
         } else {
           debugLog('fetch app_monitor data:', data);
@@ -99,13 +74,12 @@ export function initRightPanel() {
       }
     })();
 
-    // ② 订阅实时 App 状态（payload 会被回调直接显示）
+    // ② 订阅实时 App 状态
     appStatusChannel = subscribeAppStatus(user.uid, (payloadNew) => {
       debugLog('Realtime callback payloadNew:', payloadNew);
       updateAppStatusUI(payloadNew);
     });
 
-    // 订阅返回值也打印（以便调试）
     debugLog('appStatusChannel:', appStatusChannel);
   } else {
     debugLog('No user found in rightPanel init');
