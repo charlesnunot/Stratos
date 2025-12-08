@@ -1,8 +1,7 @@
-// js/main.js
 import { initSidebar } from './sidebar.js';
 import { initRightPanel } from './rightPanel.js';
 import { initAuth } from './auth.js';
-import { updateWebMonitor, clearWebMonitor } from './webMonitor.js';
+import { updateWebMonitor, setWebStatus } from './webMonitor.js';
 import { getUser } from './userManager.js';
 import { registerTab, getTabCount } from './webTabTracker.js';
 
@@ -26,7 +25,7 @@ async function loadApp() {
     // 4️⃣ 初始化侧边栏
     initSidebar();
 
-    // 5️⃣ 注册标签页并同步登录状态
+    // 5️⃣ 注册标签页
     registerTab();
 
     const user = getUser();
@@ -47,15 +46,14 @@ async function loadApp() {
 // 页面 DOM 加载完成后执行
 window.addEventListener('DOMContentLoaded', loadApp);
 
-// 当最后一个标签页关闭时，清理 web_monitor
-window.addEventListener('beforeunload', async () => {
+// 当最后一个标签页关闭时，更新 status 为 offline
+window.addEventListener('beforeunload', () => {
   const user = getUser();
   if (!user) return;
 
-  // 计算剩余标签页数量（当前标签页即将关闭，所以减1）
-  const remainingTabs = getTabCount() - 1;
+  const remainingTabs = getTabCount() - 1; // 当前标签页即将关闭
   if (remainingTabs <= 0) {
-    // 最后一个标签页关闭，清理 web_monitor
-    await clearWebMonitor();
+    // 最后一个标签页关闭，更新状态为 offline
+    setWebStatus('offline');
   }
 });
