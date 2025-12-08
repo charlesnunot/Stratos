@@ -1,6 +1,6 @@
 // js/rightPanel.js
 import { getUser, clearUser } from './userManager.js';
-import { subscribeAppStatus } from './monitorService.js';
+import { subscribeAppStatus, subscribeWebConfirm} from './monitorService.js';
 import { supabase } from './userService.js';
 
 let appStatusChannel = null; // 订阅通道
@@ -78,6 +78,12 @@ export function initRightPanel() {
     appStatusChannel = subscribeAppStatus(user.uid, (payloadNew) => {
       debugLog('Realtime callback payloadNew:', payloadNew);
       updateAppStatusUI(payloadNew);
+    });
+
+    // ③ 订阅 web_confirm（这里已经在 subscribeWebConfirm 内处理 pending -> confirmed）
+    webConfirmChannel = subscribeWebConfirm(user.uid, (payloadNew) => {
+      debugLog('web_confirm 回调触发:', payloadNew);
+      // 不用额外处理，函数内部已经更新 status
     });
 
     debugLog('appStatusChannel:', appStatusChannel);
