@@ -1,7 +1,7 @@
 // js/auth.js
 import { setUser, getUser } from './userManager.js';
 import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './userService.js';
-import { initRightPanel } from './rightPanel.js';
+import { initRightPanel, updateWebMonitorDB } from './rightPanel.js';
 
 function generateDefaultNickname(email) {
   const prefix = email.split('@')[0] || 'User';
@@ -36,7 +36,7 @@ export async function initAuth() {
     document.getElementById('register-modal').style.display = 'none';
   } else {
     updateUI(user);
-    try { initRightPanel(); } catch (e) { console.warn('initRightPanel error on load', e); }
+    try { await initRightPanel(); } catch (e) { console.warn('initRightPanel error on load', e); }
   }
 
   // 登录
@@ -48,14 +48,21 @@ export async function initAuth() {
     const { data: sessionData, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { alert(error.message); return; }
 
+    const uid = sessionData.user.id;
     localStorage.setItem('authToken', sessionData?.access_token || '');
-    let userProfile = await getUserProfile(sessionData.user.id);
+    let userProfile = await getUserProfile(uid);
     const nickname = userProfile?.nickname || generateDefaultNickname(email);
-    if (!userProfile) userProfile = await upsertUserProfile({ uid: sessionData.user.id, nickname });
-    const avatarUrl = await getUserAvatar(sessionData.user.id);
+    if (!userProfile) userProfile = await upsertUserProfile({ uid, nickname });
+    const avatarUrl = await getUserAvatar(uid);
 
-    setUser({ uid: sessionData.user.id, email, nickname, avatarUrl, accessToken: sessionData?.access_token });
+    setUser({ uid, email, nickname, avatarUrl, accessToken: sessionData?.access_token });
     updateUI(getUser());
+
+    // ✅ 登录后立即更新数据库为 online
+    await updateWebMonitorDB(uid, true);
+
+    // ✅ 初始化右侧面板
+    await initRightPanel();
   });
 
   // 注册
