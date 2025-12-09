@@ -395,27 +395,36 @@ export async function initRightPanel() {
   }
 
   // ------------------- 6️⃣ 远程登出订阅 -------------------
-  webLogoutChannel = supabase
-    .channel(`web_monitor_remote-${user.uid}`, { config: { broadcast: { self: true } } })
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.web` // ✅ 注意不要加额外引号
-      },
-      (payload) => {
-        const newData = payload.new;
-        if (!newData) return;
+  // ------------------- 6️⃣ 远程登出订阅（Debug模式） -------------------
+webLogoutChannel = supabase
+  .channel(`web_monitor_remote-${user.uid}`, { config: { broadcast: { self: true } } })
+  .on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: 'web_monitor',
+      filter: `uid=eq.${user.uid},device=eq.web`
+    },
+    (payload) => {
+      console.log('✅ Remote logout payload received:', payload); // debug: 打印 payload
+      const newData = payload.new;
+      if (!newData) return;
 
-        if (newData.status === 'offline') {
-          console.log('Web is remotely logged out!');
-          performLogout(); // 直接登出，无需按钮点击
-        }
+      if (newData.status === 'offline') {
+        console.log('🔴 Web is remotely logged out! Performing local logout...');
+        performLogout(); // 直接登出
       }
-    )
-    .subscribe();
+    }
+  )
+  .subscribe()
+  .then((channel) => {
+    console.log('🔔 Remote logout channel subscribed successfully:', channel);
+  })
+  .catch((err) => {
+    console.error('❌ Remote logout channel subscription failed:', err);
+  });
+
 }
 
 
