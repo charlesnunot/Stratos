@@ -1,3 +1,4 @@
+// js/rightPanel.js
 import { getUser, clearUser } from './userManager.js';
 import { supabase } from './userService.js';
 
