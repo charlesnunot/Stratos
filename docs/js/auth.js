@@ -3,12 +3,14 @@ import { setUser, getUser } from './userManager.js';
 import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './userService.js';
 import { initRightPanel } from './rightPanel.js';
 
+// 生成默认昵称
 function generateDefaultNickname(email) {
   const prefix = email.split('@')[0] || 'User';
   const randomNum = Math.floor(1000 + Math.random() * 9000);
   return `${prefix.slice(0,5)}${randomNum}${prefix.slice(-1)}`;
 }
 
+// 更新页面 UI
 function updateUI(user) {
   const modalMask = document.getElementById('modal-mask');
   const loginModal = document.getElementById('login-modal');
@@ -30,56 +32,82 @@ export async function initAuth() {
   const token = localStorage.getItem('authToken');
   const user = getUser();
 
+  // 如果未登录，显示登录弹窗
   if (!token || !user) {
     document.getElementById('modal-mask').style.display = 'flex';
     document.getElementById('login-modal').style.display = 'flex';
     document.getElementById('register-modal').style.display = 'none';
   } else {
+    // 已登录，更新 UI 并初始化右侧面板
     updateUI(user);
-    try { await initRightPanel(); } catch (e) { console.warn('initRightPanel error on load', e); }
+    try { 
+      await initRightPanel(); 
+    } catch (e) { 
+      console.warn('initRightPanel error on load', e); 
+    }
   }
 
-  // 登录
+  // -------------------- 登录 --------------------
   document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-  
+
     const { data: sessionData, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { alert(error.message); return; }
-  
+    if (error) { 
+      alert(error.message); 
+      return; 
+    }
+
     const uid = sessionData.user.id;
     localStorage.setItem('authToken', sessionData?.access_token || '');
-  
+
+    // 获取用户信息
     let userProfile = await getUserProfile(uid);
     const nickname = userProfile?.nickname || generateDefaultNickname(email);
     if (!userProfile) userProfile = await upsertUserProfile({ uid, nickname });
-  
+
     const avatarUrl = await getUserAvatar(uid);
-    setUser({ uid, email, nickname, avatarUrl, accessToken: sessionData?.access_token });
-    updateUI(getUser());
-  
-    // 登录后初始化右侧面板（包含 Web 在线状态和 APP 状态订阅）
-    await initRightPanel();
+    const newUser = { uid, email, nickname, avatarUrl, accessToken: sessionData?.access_token };
+
+    // 更新全局用户
+    setUser(newUser);
+    updateUI(newUser);
+
+    // ✅ 登录后立即初始化右侧面板（会写入 Web 在线状态）
+    try {
+      await initRightPanel();
+    } catch (err) {
+      console.warn('initRightPanel error after login', err);
+    }
   });
 
-
-  // 注册
+  // -------------------- 注册 --------------------
   document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
     const messageEl = document.getElementById('register-message');
-    if (messageEl) { messageEl.style.display='none'; messageEl.textContent=''; }
+    if (messageEl) { 
+      messageEl.style.display = 'none'; 
+      messageEl.textContent = ''; 
+    }
 
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
-      if (messageEl) { messageEl.style.color='red'; messageEl.textContent=error.message; messageEl.style.display='block'; }
+      if (messageEl) { 
+        messageEl.style.color = 'red';
+        messageEl.textContent = error.message;
+        messageEl.style.display = 'block'; 
+      }
       return;
     }
 
-    document.getElementById('email-verification-modal').style.display='flex';
-    document.getElementById('modal-mask').style.display='flex';
-    document.getElementById('register-modal').style.display='none';
+    // 显示邮箱验证提示
+    document.getElementById('email-verification-modal').style.display = 'flex';
+    document.getElementById('modal-mask').style.display = 'flex';
+    document.getElementById('register-modal').style.display = 'none';
   });
 }
