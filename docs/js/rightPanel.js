@@ -440,6 +440,7 @@
 
 
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
@@ -447,7 +448,6 @@ let presenceChannel = null;
 let webMonitorChannel = null;
 let webLogoutChannel = null;
 
-// 为每个 Tab 生成唯一 ID（同用户多个 Tab 可区分）
 function getTabId() {
   let id = sessionStorage.getItem("web_tab_id");
   if (!id) {
@@ -457,7 +457,6 @@ function getTabId() {
   return id;
 }
 
-// 更新 Web 在线状态到数据库（用于 Presence）
 async function updateWebMonitorDB(uid, online) {
   try {
     const { error } = await supabase
@@ -466,35 +465,30 @@ async function updateWebMonitorDB(uid, online) {
         { uid, device: 'web', status: online ? "online" : "offline", last_seen: new Date().toISOString() },
         { onConflict: ['uid', 'device'] }
       );
-
     if (error) console.error("web_monitor 更新失败:", error);
   } catch (err) {
     console.error("web_monitor 更新异常:", err);
   }
 }
 
-// ✅ 执行本地或远程登出（统一处理）
-export function performLogout() {
-  // 清理本地用户状态
+// 本地登出逻辑，不跳转，直接隐藏右侧面板 + 弹窗
+function performLogoutUIOnly() {
   clearUser();
   localStorage.removeItem('authToken');
   localStorage.removeItem('username');
 
-  // 隐藏右侧用户信息
   const userInfoEl = document.getElementById('user-info');
-  if (userInfoEl) userInfoEl.style.setProperty('display', 'none', 'important');
+  if (userInfoEl) userInfoEl.style.display = 'none';
 
-  // 显示登录弹窗
   const modalMask = document.getElementById('modal-mask');
   const loginModal = document.getElementById('login-modal');
   const registerModal = document.getElementById('register-modal');
 
-  if (modalMask) modalMask.style.setProperty('display', 'flex', 'important');
-  if (loginModal) loginModal.style.setProperty('display', 'flex', 'important');
-  if (registerModal) registerModal.style.setProperty('display', 'none', 'important');
+  if (modalMask) modalMask.style.display = 'flex';
+  if (loginModal) loginModal.style.display = 'flex';
+  if (registerModal) registerModal.style.display = 'none';
 }
 
-// -------------------- 初始化右侧面板 --------------------
 export async function initRightPanel() {
   const user = getUser();
   if (!user || !user.uid) return;
@@ -505,10 +499,10 @@ export async function initRightPanel() {
   const appStatusText = document.getElementById('app-status-text');
   const appStatusDot = document.getElementById('app-status-dot');
 
-  // ------------------- 登录后立即更新 Web 状态 -------------------
+  // 1️⃣ 登录后立即更新 Web 状态为 online
   await updateWebMonitorDB(user.uid, true);
 
-  // ------------------- 获取 APP 当前状态 -------------------
+  // 2️⃣ 获取 APP 当前状态
   try {
     const { data: appData, error: appError } = await supabase
       .from('web_monitor')
@@ -530,7 +524,7 @@ export async function initRightPanel() {
     appStatusDot.style.backgroundColor = '#888';
   }
 
-  // ------------------- 订阅 APP 状态变化 -------------------
+  // 3️⃣ 订阅 APP 状态变化
   webMonitorChannel = supabase
     .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
     .on(
@@ -546,16 +540,14 @@ export async function initRightPanel() {
     )
     .subscribe();
 
-  // ------------------- Web Presence -------------------
+  // 4️⃣ Web Presence 订阅
   presenceChannel = supabase.channel("web-presence", { config: { presence: { key: user.uid } } });
-
   await presenceChannel.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
       await presenceChannel.track({ tab_id: tabId, at: new Date().toISOString() });
       console.log("Presence subscribed for tab:", tabId);
     }
   });
-
   presenceChannel.on("presence", { event: "sync" }, async () => {
     const state = presenceChannel.presenceState();
     const userEntries = state[user.uid] ?? [];
@@ -563,7 +555,7 @@ export async function initRightPanel() {
     await updateWebMonitorDB(user.uid, online);
   });
 
-  // ------------------- 卸载 / 登出 -------------------
+  // 5️⃣ 卸载 / 登出
   window.addEventListener('beforeunload', async () => {
     if (presenceChannel) supabase.removeChannel(presenceChannel);
     if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
@@ -571,6 +563,7 @@ export async function initRightPanel() {
     if (user && user.uid) await updateWebMonitorDB(user.uid, false);
   });
 
+  // Logout 按钮事件
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
@@ -579,11 +572,11 @@ export async function initRightPanel() {
       if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
       if (user && user.uid) await updateWebMonitorDB(user.uid, false);
 
-      performLogout();
+      performLogoutUIOnly();
     });
   }
 
-  // ------------------- 远程登出订阅 -------------------
+  // 6️⃣ 远程登出订阅（模拟点击 Logout 按钮）
   if (!webLogoutChannel) {
     webLogoutChannel = supabase
       .channel(`web_monitor_remote-${user.uid}`, { config: { broadcast: { self: true } } })
@@ -596,8 +589,9 @@ export async function initRightPanel() {
           if (!newData) return;
 
           if (newData.status === 'offline') {
-            console.log('🔴 Web is remotely logged out! Performing local logout...');
-            performLogout();
+            console.log('🔴 Remote logout: triggering Logout button...');
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) logoutBtn.click(); // 🔑 模拟点击
           }
         }
       )
@@ -606,6 +600,3 @@ export async function initRightPanel() {
     console.log('🔔 Remote logout channel initialized.');
   }
 }
-
-
-
