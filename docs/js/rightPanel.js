@@ -443,6 +443,7 @@
 // js/rightPanel.js
 // js/rightPanel.js
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
@@ -481,28 +482,12 @@ async function updateWebMonitorDB(uid, online) {
   }
 }
 
-/** 完整登出 Web，包括 UI、状态和订阅 */
-async function performFullLogout(user) {
-  if (!user?.uid) return;
-
-  // 1️⃣ 移除所有订阅
-  if (presenceChannel) supabase.removeChannel(presenceChannel);
-  if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
-  if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
-
-  presenceChannel = null;
-  webMonitorChannel = null;
-  webLogoutChannel = null;
-
-  // 2️⃣ 更新 Web 状态为 offline
-  await updateWebMonitorDB(user.uid, false);
-
-  // 3️⃣ 清理本地用户信息
+/** 仅前端登出，不请求后端 */
+function performLogoutUIOnly() {
   clearUser();
   localStorage.removeItem("authToken");
   localStorage.removeItem("username");
 
-  // 4️⃣ 显示登录界面
   const userInfoEl = document.getElementById("user-info");
   if (userInfoEl) userInfoEl.style.display = "none";
 
@@ -515,13 +500,28 @@ async function performFullLogout(user) {
   if (registerModal) registerModal.style.display = "none";
 }
 
+/** 完整登出流程 */
+async function performFullLogout(user) {
+  // 1️⃣ 更新 web_monitor 为 offline
+  if (user && user.uid) await updateWebMonitorDB(user.uid, false);
+
+  // 2️⃣ 清理前端状态
+  performLogoutUIOnly();
+
+  // 3️⃣ 取消订阅
+  if (presenceChannel) supabase.removeChannel(presenceChannel);
+  if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
+  if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
+
+  console.log("✅ 用户已登出");
+}
+
 /** 初始化 RightPanel */
 export async function initRightPanel() {
   console.log("initRightPanel 被调用！");
   const user = getUser();
   console.log("user 对象:", user);
   console.log("user.uid:", user?.uid);
-
   if (!user || !user.uid) return;
 
   const tabId = getTabId();
@@ -558,9 +558,7 @@ export async function initRightPanel() {
 
   // 3️⃣ 订阅 APP 状态变化（展示用）
   webMonitorChannel = supabase
-    .channel(`web_monitor-${user.uid}`, {
-      config: { broadcast: { self: true } }
-    })
+    .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
     .on(
       "postgres_changes",
       {
@@ -579,17 +577,11 @@ export async function initRightPanel() {
     )
     .subscribe();
 
-  // 4️⃣ Presence 订阅
-  presenceChannel = supabase.channel("web-presence", {
-    config: { presence: { key: user.uid } }
-  });
-
+  // 4️⃣ Presence 订阅（多 Tab 在线状态）
+  presenceChannel = supabase.channel("web-presence", { config: { presence: { key: user.uid } } });
   await presenceChannel.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
-      await presenceChannel.track({
-        tab_id: tabId,
-        at: new Date().toISOString()
-      });
+      await presenceChannel.track({ tab_id: tabId, at: new Date().toISOString() });
       console.log("Presence subscribed for tab:", tabId);
     }
   });
@@ -613,14 +605,12 @@ export async function initRightPanel() {
     });
   }
 
-  // 6️⃣ 远程登出订阅（APP → Web）
+  // 6️⃣ 远程登出订阅（Web → Web）
   if (!webLogoutChannel) {
     console.log("🟡 初始化 remote logout channel ...");
 
     webLogoutChannel = supabase
-      .channel(`remote-logout-${user.uid}`, {
-        config: { broadcast: { self: true } }
-      })
+      .channel(`remote-logout-${user.uid}`, { config: { broadcast: { self: true } } })
       .on(
         "postgres_changes",
         {
@@ -632,13 +622,9 @@ export async function initRightPanel() {
           const row = payload.new;
           if (!row) return;
 
-          // 只处理我的 UID + APP 设备
-          if (row.uid !== user.uid) return;
-          if (row.device !== "app") return;
-
-          // APP → offline = 强制 web logout
-          if (row.status === "offline") {
-            console.log("🔴 APP offline detected → perform full logout web");
+          // 🔹 只处理我的 UID + Web 设备 + offline
+          if (row.uid === user.uid && row.device === "web" && row.status === "offline") {
+            console.log("🔴 Web offline detected → perform full logout");
             await performFullLogout(user);
           }
         }
