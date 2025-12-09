@@ -134,14 +134,13 @@
 
 
 
-// js/webMonitor.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
 let presenceChannel = null;
 let appStatusChannel = null;
 
-// 为每个 Tab 生成唯一 ID（同用户多个 Tab 也能区分）
+// 为每个 Tab 生成唯一 ID
 function getTabId() {
   let id = sessionStorage.getItem("web_tab_id");
   if (!id) {
@@ -154,39 +153,15 @@ function getTabId() {
 // 写入 web_monitor 表
 async function updateWebMonitorDB(uid, online, device = 'web') {
   const { error } = await supabase
-    .from("web_monitor")
+    .from('web_monitor')
     .upsert({
       uid,
       device,
-      status: online ? "online" : "offline",
+      status: online ? 'online' : 'offline',
       last_seen: new Date().toISOString(),
     }, { onConflict: ['uid', 'device'] });
 
-  if (error) console.error("web_monitor 更新失败:", error);
-}
-
-// 获取 APP 当前状态
-async function fetchAppStatus(uid) {
-  try {
-    const { data, error } = await supabase
-      .from('web_monitor')
-      .select('*')
-      .eq('uid', uid)
-      .eq('device', 'app')
-      .single();
-
-    if (!error && data) {
-      const status = data.status;
-      const appStatusText = document.getElementById('app-status-text');
-      const appStatusDot = document.getElementById('app-status-dot');
-      if (appStatusText && appStatusDot) {
-        appStatusText.textContent = `APP: ${status}`;
-        appStatusDot.style.backgroundColor = status === 'online' ? '#2ecc71' : '#888';
-      }
-    }
-  } catch (err) {
-    console.warn('获取 APP 初始状态失败', err);
-  }
+  if (error) console.error('web_monitor 更新失败:', error);
 }
 
 // 初始化右侧面板
@@ -195,34 +170,28 @@ export async function initRightPanel() {
   if (!user || !user.uid) return;
 
   const tabId = getTabId();
-  console.log("This tab id =", tabId);
+  console.log('This tab id =', tabId);
 
-  // ------------------- Web Presence -------------------
-  presenceChannel = supabase.channel("web-presence", {
+  // ------------------- Web Presence 订阅 -------------------
+  presenceChannel = supabase.channel('web-presence', {
     config: { presence: { key: user.uid } }
   });
 
   await presenceChannel.subscribe(async (status) => {
-    if (status === "SUBSCRIBED") {
+    if (status === 'SUBSCRIBED') {
       await presenceChannel.track({ tab_id: tabId, at: new Date().toISOString() });
-      console.log("Presence subscribed for tab:", tabId);
-
-      // 更新数据库 Web 在线状态
-      await updateWebMonitorDB(user.uid, true, 'web');
+      console.log('Presence subscribed for tab:', tabId);
     }
   });
 
-  // presence sync 监听
-  presenceChannel.on("presence", { event: "sync" }, async () => {
+  presenceChannel.on('presence', { event: 'sync' }, async () => {
     const state = presenceChannel.presenceState();
     const userEntries = state[user.uid] ?? [];
     const online = userEntries.length > 0;
 
+    // 更新 Web 自身状态到数据库
     await updateWebMonitorDB(user.uid, online, 'web');
   });
-
-  // ------------------- 初始化 APP 状态 -------------------
-  await fetchAppStatus(user.uid);
 
   // ------------------- APP 状态订阅 -------------------
   appStatusChannel = supabase
@@ -237,7 +206,7 @@ export async function initRightPanel() {
       },
       (payload) => {
         const status = payload.new?.status;
-        console.log("🔥 APP 状态更新:", status);
+        console.log('🔥 APP 状态更新:', status);
         const appStatusText = document.getElementById('app-status-text');
         const appStatusDot = document.getElementById('app-status-dot');
         if (appStatusText && appStatusDot) {
@@ -247,6 +216,9 @@ export async function initRightPanel() {
       }
     )
     .subscribe();
+
+  // ------------------- 初始化 Web 在线状态 -------------------
+  await updateWebMonitorDB(user.uid, true, 'web');
 
   // ------------------- 卸载 / 登出 -------------------
   window.addEventListener('beforeunload', async () => {
