@@ -443,6 +443,7 @@ i// // js/rightPanel.js
 // js/rightPanel.js
 // js/rightPanel.js
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
@@ -499,7 +500,6 @@ export async function initRightPanel() {
   const user = getUser();
   console.log("user 对象:", user);
   console.log("user.uid:", user?.uid);
-
   if (!user || !user.uid) return;
 
   const tabId = getTabId();
@@ -542,7 +542,6 @@ export async function initRightPanel() {
       (payload) => {
         const newData = payload.new;
         if (!newData) return;
-
         appStatusText.textContent = `APP: ${newData.status}`;
         appStatusDot.style.backgroundColor = newData.status === 'online' ? '#2ecc71' : '#888';
       }
@@ -581,7 +580,6 @@ export async function initRightPanel() {
       if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
       if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
       if (user && user.uid) await updateWebMonitorDB(user.uid, false);
-
       performLogoutUIOnly();
     });
   }
