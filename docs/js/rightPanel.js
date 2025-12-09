@@ -394,7 +394,6 @@ export async function initRightPanel() {
     });
   }
 
-  // ------------------- 6️⃣ 远程登出订阅 -------------------
   // ------------------- 6️⃣ 远程登出订阅（Debug模式） -------------------
 webLogoutChannel = supabase
   .channel(`web_monitor_remote-${user.uid}`, { config: { broadcast: { self: true } } })
