@@ -40,28 +40,60 @@ export async function initAuth() {
   }
 
   // 登录
-  document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+  // 登录
+document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-
+  
     const { data: sessionData, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { alert(error.message); return; }
-
+  
     const uid = sessionData.user.id;
     localStorage.setItem('authToken', sessionData?.access_token || '');
-
+  
+    // 获取个人资料
     let userProfile = await getUserProfile(uid);
     const nickname = userProfile?.nickname || generateDefaultNickname(email);
     if (!userProfile) userProfile = await upsertUserProfile({ uid, nickname });
-
+  
     const avatarUrl = await getUserAvatar(uid);
+  
     setUser({ uid, email, nickname, avatarUrl, accessToken: sessionData?.access_token });
+  
+    // 更新 UI（头像/昵称/隐藏登录框等）
     updateUI(getUser());
-
-    // ✅ 登录后初始化右侧面板（包含 Web 在线状态和订阅 APP 状态）
+  
+    // 初始化右侧面板
     await initRightPanel();
+  
+    // -------------------- ⭐ 获取 APP 状态 --------------------
+    const appStatusText = document.getElementById('app-status-text');
+    const appStatusDot = document.getElementById('app-status-dot');
+  
+    try {
+      const { data, error } = await supabase
+        .from("web_monitor")
+        .select("*")
+        .eq("uid", uid)
+        .eq("device", "app")
+        .single();
+  
+      if (!error && data) {
+        appStatusText.textContent = `APP: ${data.status}`;
+        appStatusDot.style.backgroundColor = data.status === "online" ? "#2ecc71" : "#888";
+      } else {
+        appStatusText.textContent = `APP: offline`;
+        appStatusDot.style.backgroundColor = "#888";
+      }
+    } catch (e) {
+      console.warn("获取 APP 状态失败:", e);
+      appStatusText.textContent = `APP: offline`;
+      appStatusDot.style.backgroundColor = "#888";
+    }
+    // ---------------------------------------------------------
   });
+
 
   // 注册
   document.getElementById('register-form')?.addEventListener('submit', async (e) => {
