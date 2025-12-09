@@ -579,15 +579,16 @@ export async function initRightPanel() {
   // ------------------- 6️⃣ 远程登出订阅 -------------------
 if (!webLogoutChannel) {
   webLogoutChannel = supabase
-    .channel(`web_monitor-${uid}`, { config: { broadcast: { self: true } } })
+    .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
     .on(
       'postgres_changes',
       {
-        event: '*',               // insert / update / delete
+        event: '*',              
         schema: 'public',
         table: 'web_monitor',
-        filter: `uid=eq.${uid}`,
+        filter: `uid=eq.${user.uid},device=eq.web`,
       },
+      console.log('-------------------------------------------------------------');
       (payload) => {
         console.log('✅ Remote logout payload received:', payload);
         const newData = payload.new;
