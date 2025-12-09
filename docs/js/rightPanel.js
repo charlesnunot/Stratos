@@ -588,8 +588,9 @@ if (!webLogoutChannel) {
         table: 'web_monitor',
         filter: `uid=eq.${user.uid},device=eq.web`,
       },
-      console.log('-------------------------------------------------------------');
+      
       (payload) => {
+        console.log('-------------------------------------------------------------');
         console.log('✅ Remote logout payload received:', payload);
         const newData = payload.new;
         console.log('🔍 newData:', newData); // 🔑 这里打印 newData
