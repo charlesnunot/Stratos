@@ -1,10 +1,17 @@
 import { getUser, clearUser } from './userManager.js';
-import { subscribeAppStatus, subscribeWebConfirm } from './monitorService.js';
 import { supabase } from './userService.js';
-import { WebMonitor } from './webMonitor.js';
 
-let appStatusChannel = null;
-let webConfirmChannel = null;
+let presenceChannel = null;
+
+// 为每个 Tab 生成唯一 ID（同用户多个 Tab 也能区分）
+function getTabId() {
+  let id = sessionStorage.getItem("web_tab_id");
+  if (!id) {
+    id = "tab-" + Math.random().toString(36).slice(2);
+    sessionStorage.setItem("web_tab_id", id);
+  }
+  return id;
+}
 
 export function initRightPanel() {
   const userInfoEl = document.getElementById('user-info');
@@ -21,77 +28,70 @@ export function initRightPanel() {
     if (window && window.console) console.log('[rightPanel]', ...args);
   }
 
-  function updateAppStatusUI(data) {
+  function updateWebStatus(isOnline) {
     if (!statusText || !statusDot) return;
-    if (!data) {
-      statusText.textContent = 'No data';
-      statusDot.style.backgroundColor = '#888';
-      return;
-    }
-    const status = data.status ?? 'unknown';
-    statusText.textContent = `App: ${status}`;
-    statusDot.style.backgroundColor = status === 'online' ? '#2ecc71' : '#888';
+    statusText.textContent = `Web: ${isOnline ? 'online' : 'offline'}`;
+    statusDot.style.backgroundColor = isOnline ? '#2ecc71' : '#888';
   }
 
   const user = getUser();
   if (user && user.uid) {
-    debugLog('User present, uid=', user.uid);
     if (usernameEl) usernameEl.textContent = user.nickname || 'Anonymous';
     if (avatarEl) avatarEl.src = user.avatarUrl || avatarEl.src;
     if (userInfoEl) userInfoEl.style.display = 'flex';
 
-    // ✅ 启动 Web 心跳，自动更新 web_monitor
-    WebMonitor.start();
+    const tabId = getTabId();
+    debugLog("This tab id =", tabId);
 
-    // 先 fetch 最新 App 状态
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('app_monitor')
-          .select('*')
-          .eq('uid', user.uid)
-          .single();
-        if (!error) updateAppStatusUI(data);
-      } catch {}
-    })();
-
-    // 订阅实时 App 状态
-    appStatusChannel = subscribeAppStatus(user.uid, (payloadNew) => {
-      updateAppStatusUI(payloadNew);
+    // ---------- Presence 订阅 ----------
+    presenceChannel = supabase.channel("web-presence", {
+      config: { presence: { key: user.uid } }
     });
 
-    // 订阅 web_confirm
-    webConfirmChannel = subscribeWebConfirm(user.uid, (payloadNew) => {
-      debugLog('web_confirm callback:', payloadNew);
+    presenceChannel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        // track 时写入 tabId，多个 tab 会各自注册
+        await presenceChannel.track({
+          tab_id: tabId,
+          at: new Date().toISOString()
+        });
+
+        debugLog("Presence subscribed for tab:", tabId);
+        updateWebStatus(true);
+      }
     });
+
+    // 每次 presence 更新（有人上线/下线）
+    presenceChannel.on("presence", { event: "sync" }, () => {
+      const state = presenceChannel.presenceState();
+
+      const userEntries = state[user.uid] ?? [];
+      const online = userEntries.length > 0;
+
+      updateWebStatus(online);
+      debugLog("Presence sync:", state);
+    });
+    // ---------- Presence 订阅结束 ----------
 
   } else {
-    debugLog('No user found in rightPanel init');
     if (userInfoEl) userInfoEl.style.display = 'none';
   }
 
-  // 登出操作
+  // 登出
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
-      debugLog('logout clicked');
+      try {
+        if (presenceChannel) supabase.removeChannel(presenceChannel);
+      } catch {}
 
-      // 1️⃣ 设置 offline 并停止心跳
-      await WebMonitor.setOffline();
-
-      // 2️⃣ 清理用户
       clearUser();
       localStorage.removeItem('authToken');
       localStorage.removeItem('username');
 
-      // 3️⃣ UI 处理
       if (userInfoEl) userInfoEl.style.display = 'none';
       if (modalMask) modalMask.style.display = 'flex';
       if (loginModal) loginModal.style.display = 'flex';
       if (registerModal) registerModal.style.display = 'none';
-
-      // 4️⃣ 取消订阅
-      if (appStatusChannel) { try { supabase.removeChannel(appStatusChannel); } catch{} appStatusChannel = null; }
-      if (webConfirmChannel) { try { supabase.removeChannel(webConfirmChannel); } catch{} webConfirmChannel = null; }
     });
   }
 }
