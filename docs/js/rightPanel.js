@@ -136,12 +136,14 @@
 
 
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
 let presenceChannel = null;
 let appStatusChannel = null;
 
+// 为每个 Tab 生成唯一 ID（同用户多个 Tab 也能区分）
 function getTabId() {
   let id = sessionStorage.getItem("web_tab_id");
   if (!id) {
@@ -151,17 +153,23 @@ function getTabId() {
   return id;
 }
 
+// 写入 web_monitor 表
 async function updateWebMonitorDB(uid, online, device = 'web') {
   const { error } = await supabase
     .from("web_monitor")
     .upsert(
-      { uid, device, status: online ? "online" : "offline", last_seen: new Date().toISOString() },
+      {
+        uid,
+        device,
+        status: online ? "online" : "offline",
+        last_seen: new Date().toISOString(),
+      },
       { onConflict: ['uid', 'device'] }
     );
-
   if (error) console.error("web_monitor 更新失败:", error);
 }
 
+// 初始化右侧面板
 export async function initRightPanel() {
   const user = getUser();
   if (!user || !user.uid) return;
@@ -220,7 +228,7 @@ export async function initRightPanel() {
         event: '*',
         schema: 'public',
         table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.app`,
+        filter: `uid=eq.'${user.uid}',device=eq.'app'`,
       },
       (payload) => {
         const status = payload.new?.status;
