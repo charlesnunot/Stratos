@@ -496,6 +496,8 @@ function performLogoutUIOnly() {
 
 export async function initRightPanel() {
   const user = getUser();
+  console.log("user 对象:", user);        // 🔑 打印整个 user
+  console.log("user.uid:", user?.uid);   // 🔑 打印 uid
   if (!user || !user.uid) return;
 
   const tabId = getTabId();
@@ -590,14 +592,14 @@ export async function initRightPanel() {
   // 6️⃣ 远程登出订阅id
   if (!webLogoutChannel) {
     webLogoutChannel = supabase
-      .channel(`web_monitor-${user.id}`, { config: { broadcast: { self: true } } })
+      .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
       .on(id
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'web_monitor',
-          filter: `uid=eq.${user.id},device=eq.web`
+          filter: `uid=eq.${user.uid},device=eq.web`
         },
         (payload) => {
           console.log('-------------------------------------------------------------');
