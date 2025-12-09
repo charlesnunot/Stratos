@@ -1,88 +1,32 @@
-import { getUser } from './userManager.js';
 import { supabase } from './userService.js';
 
 /**
- * Web 在线状态管理模块
- * 功能：
- *  - 心跳更新 online 状态
- *  - stop 心跳阻止更新
- *  - 登出或关闭页面自动标记 offline
+ * 订阅 web_monitor 表变化
+ * @param {string} uid 用户ID
+ * @param {(data: any) => void} callback 回调函数
+ * @returns {() => void} 返回取消订阅函数
  */
-export const WebMonitor = (() => {
-  const HEARTBEAT_INTERVAL = 10000; // 心跳间隔 10 秒
-  let heartbeatTimer = null;
-  let stopped = false;
-
-  /** 发送一次心跳 */
-  async function sendHeartbeat(currentPage = null, actions = null, extra = null) {
-    if (stopped) return;
-    const user = getUser();
-    if (!user?.uid) return;
-
-    const now = new Date();
-    const updateData = {
-      uid: user.uid,
-      current_page: currentPage,
-      actions: actions ?? null,
-      extra: extra ?? null,
-      device: 'web',
-      last_seen: now,
-      status: 'online'
-    };
-
-    try {
-      const { error } = await supabase.from('web_monitor').upsert(updateData);
-      if (error) console.error('[WebMonitor] heartbeat error:', error);
-    } catch (err) {
-      console.error('[WebMonitor] heartbeat exception:', err);
-    }
-  }
-
-  /** 启动心跳 */
-  function start(options = {}) {
-    stopped = false;
-    const interval = options.interval ?? HEARTBEAT_INTERVAL;
-
-    sendHeartbeat(window.location.pathname);
-    heartbeatTimer = setInterval(() => {
-      sendHeartbeat(window.location.pathname);
-    }, interval);
-
-    // 页面关闭或刷新时标记 offline
-    window.addEventListener('beforeunload', async () => {
-      await setOffline();
+export function subscribeWebMonitor(uid, callback) {
+  const channel = supabase
+    .channel(`web_monitor-${uid}`, { config: { broadcast: { self: true } } })
+    .on(
+      'postgres_changes',
+      {
+        event: '*',        // insert / update / delete
+        schema: 'public',
+        table: 'web_monitor',
+        filter: `uid=eq.'${uid}'`,  // 字符串要加单引号
+      },
+      (payload) => {
+        callback(payload.new); // payload.new 包含最新数据
+      }
+    )
+    .subscribe((status) => {
+      console.log(`web_monitor-${uid} 订阅状态:`, status);
     });
-  }
 
-  /** 停止心跳 */
-  function stop() {
-    stopped = true;
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
-    heartbeatTimer = null;
-  }
-
-  /** 设置当前用户为 offline */
-  async function setOffline() {
-    stop();
-    const user = getUser();
-    if (!user?.uid) return;
-
-    try {
-      await supabase.from('web_monitor').upsert({
-        uid: user.uid,
-        status: 'offline',
-        last_seen: new Date()
-      });
-      console.log('[WebMonitor] user set offline:', user.uid);
-    } catch (err) {
-      console.error('[WebMonitor] setOffline error:', err);
-    }
-  }
-
-  return {
-    start,
-    stop,
-    sendHeartbeat,
-    setOffline
+  return () => {
+    supabase.removeChannel(channel);
+    console.log(`web_monitor-${uid} 取消订阅`);
   };
-})();
+}
