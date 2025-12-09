@@ -45,21 +45,15 @@ export async function initRightPanel() {
     if (window && window.console) console.log('[rightPanel]', ...args);
   }
 
-  function updateWebStatus(isOnline) {
-    if (!webStatusText || !webStatusDot) return;
-    webStatusText.textContent = `Web: ${isOnline ? 'online' : 'offline'}`;
-    webStatusDot.style.backgroundColor = isOnline ? '#2ecc71' : '#888';
-  }
-
   async function updateAppStatus() {
-    if (!appStatusContainer) return;
+    if (!webStatusText) return;
     const uid = getUser()?.uid;
     if (!uid) return;
 
     const statusMap = await getUserDeviceStatus(uid);
     const appStatus = statusMap['app'] || 'offline';
-    appStatusContainer.textContent = `APP: ${appStatus}`;
-    appStatusContainer.style.color = appStatus === 'online' ? '#2ecc71' : '#888';
+    webStatusText.textContent = `APP: ${appStatus}`;
+    webStatusDot.style.backgroundColor = isOnline ? '#2ecc71' : '#888';
   }
 
   const user = getUser();
