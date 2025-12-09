@@ -500,6 +500,7 @@ function performLogoutUIOnly() {
 
 /** 初始化 RightPanel */
 export async function initRightPanel() {
+  console.log("initRightPanel 被调用！");
   const user = getUser();
   console.log("user 对象:", user);
   console.log("user.uid:", user?.uid);
