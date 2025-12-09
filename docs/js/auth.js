@@ -1,4 +1,3 @@
-// js/auth.js
 import { setUser, getUser } from './userManager.js';
 import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './userService.js';
 import { initRightPanel, updateWebMonitorDB } from './rightPanel.js';
@@ -58,8 +57,8 @@ export async function initAuth() {
     setUser({ uid, email, nickname, avatarUrl, accessToken: sessionData?.access_token });
     updateUI(getUser());
 
-    // ✅ 登录后立即更新数据库为 online
-    await updateWebMonitorDB(uid, true);
+    // ✅ 登录后立即更新数据库为 online（Web 设备）
+    await updateWebMonitorDB(uid, true, 'web');
 
     // ✅ 初始化右侧面板
     await initRightPanel();
