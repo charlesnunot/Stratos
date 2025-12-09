@@ -442,6 +442,7 @@ i// // js/rightPanel.js
 // js/rightPanel.js
 // js/rightPanel.js
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
@@ -592,3 +593,27 @@ export async function initRightPanel() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'web_monitor', filter: `uid=eq.${user.uid}` },
+        (payload) => {
+          console.log('-------------------------------------------------------------');
+          console.log('✅ Remote logout payload received:', payload);
+          const newData = payload.new;
+          console.log('🔍 newData:', newData);
+
+          if (!newData) {
+            console.log('⚠️ newData is null, skipping logout');
+            return;
+          }
+
+          if (newData.status === 'offline') {
+            console.log('🔴 Remote logout: triggering Logout button...');
+            const logoutBtn = document.getElementById('logout-btn');
+            console.log('Logout button:', logoutBtn);
+            if (logoutBtn) logoutBtn.click();
+          }
+        }
+      )
+      .subscribe();
+
+    console.log('🔔 Remote logout channel initialized.');
+  }
+}
