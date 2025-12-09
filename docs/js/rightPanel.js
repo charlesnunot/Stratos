@@ -1,4 +1,3 @@
-// js/rightPanel.js
 import { getUser, clearUser } from './userManager.js';
 import { supabase } from './userService.js';
 
@@ -14,20 +13,21 @@ function getTabId() {
   return id;
 }
 
-// 写入 web_monitor 表
-export async function updateWebMonitorDB(uid, online) {
+// 写入 web_monitor 表，支持多设备
+export async function updateWebMonitorDB(uid, online, device = 'web') {
   const { error } = await supabase
     .from("web_monitor")
     .upsert({
       uid,
+      device,
       status: online ? "online" : "offline",
-      device: "web",
       last_seen: new Date().toISOString(),
-    }, { onConflict: "uid" });
+    }, { onConflict: ['uid', 'device'] }); // 复合主键
 
   if (error) console.error("web_monitor 更新失败:", error);
 }
 
+// 初始化右侧面板
 export async function initRightPanel() {
   const userInfoEl = document.getElementById('user-info');
   const usernameEl = document.getElementById('username');
@@ -63,8 +63,8 @@ export async function initRightPanel() {
   const tabId = getTabId();
   debugLog("This tab id =", tabId);
 
-  // 登录成功，立即更新数据库为 online
-  await updateWebMonitorDB(user.uid, true);
+  // 登录成功，立即更新数据库为 online（Web 设备）
+  await updateWebMonitorDB(user.uid, true, 'web');
   updateWebStatus(true);
 
   // ---------- Presence 订阅 ----------
@@ -83,7 +83,6 @@ export async function initRightPanel() {
     }
   });
 
-  // 每次 presence 更新（有人上线/下线）
   presenceChannel.on("presence", { event: "sync" }, async () => {
     const state = presenceChannel.presenceState();
     const userEntries = state[user.uid] ?? [];
@@ -93,8 +92,8 @@ export async function initRightPanel() {
     updateWebStatus(online);
     debugLog("Presence sync:", state);
 
-    // 更新数据库状态
-    await updateWebMonitorDB(user.uid, online);
+    // 更新数据库状态（Web 设备）
+    await updateWebMonitorDB(user.uid, online, 'web');
   });
   // ---------- Presence 订阅结束 ----------
 
@@ -105,8 +104,8 @@ export async function initRightPanel() {
         if (presenceChannel) supabase.removeChannel(presenceChannel);
       } catch {}
 
-      // 更新数据库为 offline
-      if (user && user.uid) await updateWebMonitorDB(user.uid, false);
+      // 更新数据库为 offline（Web 设备）
+      if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
 
       clearUser();
       localStorage.removeItem('authToken');
@@ -119,8 +118,8 @@ export async function initRightPanel() {
     });
   }
 
-  // 页面关闭或刷新时，也自动 offline
+  // 页面关闭或刷新时，也自动 offline（Web 设备）
   window.addEventListener('beforeunload', async () => {
-    if (user && user.uid) await updateWebMonitorDB(user.uid, false);
+    if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
   });
 }
