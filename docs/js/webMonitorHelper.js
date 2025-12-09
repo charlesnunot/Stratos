@@ -1,3 +1,4 @@
+// js/webMonitorHelper.js
 import { supabase } from './userService.js';
 
 /**
