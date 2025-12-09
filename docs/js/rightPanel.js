@@ -250,36 +250,5 @@ export async function initRightPanel() {
       if (userInfoEl) userInfoEl.style.display = 'none';
     });
   }
-
-  // ------------------- 6️⃣ 远程登出订阅 -------------------
-  const webLogoutChannel = supabase
-    .channel(`web_monitor_remote-${user.uid}`, { config: { broadcast: { self: true } } })
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.'web'`
-      },
-      (payload) => {
-        const newData = payload.new;
-        if (!newData) return;
-  
-        if (newData.status === 'offline') {
-          console.log('Web is remotely logged out!');
-          
-          // ✅ 自动点击 logout 按钮
-          const logoutBtn = document.getElementById('logout-btn');
-          if (logoutBtn) {
-            logoutBtn.click();
-          } else {
-            console.warn('Logout button not found, cannot auto-logout.');
-          }
-        }
-      }
-    )
-    .subscribe();
-
 }
 
