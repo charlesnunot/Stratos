@@ -582,7 +582,7 @@ export async function initRightPanel() {
       .channel(`web_monitor_remote-${user.uid}`, { config: { broadcast: { self: true } } })
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'web_monitor', filter: `uid=eq.${user.uid},device=eq.web` },
+        { event: '*', schema: 'public', table: 'web_monitor', filter: `uid=eq.${user.uid},device=eq.'web'` },
         (payload) => {
           console.log('✅ Remote logout payload received:', payload);
           const newData = payload.new;
