@@ -584,31 +584,31 @@ export async function initRightPanel() {
   // 6️⃣ 远程登出订阅
   if (!webLogoutChannel) {
     webLogoutChannel = supabase
-      .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
+      .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: false } } })
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'web_monitor', filter: `uid=eq.'${user.uid}'`  },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'web_monitor',
+          filter: `uid=eq.'${user.uid}'`
+        },
         (payload) => {
           console.log('-------------------------------------------------------------');
           console.log('✅ Remote logout payload received:', payload);
           const newData = payload.new;
-          console.log('🔍 newData:', newData);
-
-          if (!newData) {
-            console.log('⚠️ newData is null, skipping logout');
-            return;
-          }
-
+          if (!newData) return;
+  
           if (newData.status === 'offline') {
-            console.log('🔴 Remote logout: triggering Logout button...');
             const logoutBtn = document.getElementById('logout-btn');
-            console.log('Logout button:', logoutBtn);
+            console.log('🔴 Trigger logout button:', logoutBtn);
             if (logoutBtn) logoutBtn.click();
           }
         }
       )
       .subscribe();
-
+  
     console.log('🔔 Remote logout channel initialized.');
   }
+
 }
