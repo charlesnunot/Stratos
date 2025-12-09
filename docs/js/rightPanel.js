@@ -134,6 +134,7 @@
 
 
 
+
 // js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
@@ -176,7 +177,15 @@ export async function initRightPanel() {
   const appStatusText = document.getElementById('app-status-text');
   const appStatusDot = document.getElementById('app-status-dot');
 
-  // ------------------- 1️⃣ 读取 APP 当前状态 -------------------
+  // ------------------- 1️⃣ 确保 APP 设备记录存在 -------------------
+  await supabase.from('web_monitor').upsert({
+    uid: user.uid,
+    device: 'app',
+    status: 'offline',
+    last_seen: new Date().toISOString()
+  }, { onConflict: ['uid', 'device'] });
+
+  // ------------------- 2️⃣ 读取 APP 当前状态 -------------------
   const { data: appData, error: appError } = await supabase
     .from('web_monitor')
     .select('status')
@@ -184,17 +193,18 @@ export async function initRightPanel() {
     .eq('device', 'app')
     .single();
 
+  let currentAppStatus = 'offline';
   if (appError) {
     console.warn("获取 APP 状态失败:", appError);
     if (appStatusText) appStatusText.textContent = "APP: unknown";
     if (appStatusDot) appStatusDot.style.backgroundColor = '#888';
   } else if (appData && appStatusText && appStatusDot) {
-    const status = appData.status || 'offline';
-    appStatusText.textContent = `APP: ${status}`;
-    appStatusDot.style.backgroundColor = status === 'online' ? '#2ecc71' : '#888';
+    currentAppStatus = appData.status || 'offline';
+    appStatusText.textContent = `APP: ${currentAppStatus}`;
+    appStatusDot.style.backgroundColor = currentAppStatus === 'online' ? '#2ecc71' : '#888';
   }
 
-  // ------------------- 2️⃣ Web Presence 订阅 -------------------
+  // ------------------- 3️⃣ Web Presence 订阅 -------------------
   presenceChannel = supabase.channel("web-presence", {
     config: { presence: { key: user.uid } }
   });
@@ -210,12 +220,10 @@ export async function initRightPanel() {
     const state = presenceChannel.presenceState();
     const userEntries = state[user.uid] ?? [];
     const online = userEntries.length > 0;
-
-    // 更新 Web 自身状态到数据库
     await updateWebMonitorDB(user.uid, online, 'web');
   });
 
-  // ------------------- 3️⃣ APP 状态订阅 -------------------
+  // ------------------- 4️⃣ APP 状态订阅 -------------------
   appStatusChannel = supabase
     .channel(`app_status-${user.uid}`)
     .on(
@@ -228,7 +236,9 @@ export async function initRightPanel() {
       },
       (payload) => {
         const status = payload.new?.status;
+        if (!status || status === currentAppStatus) return; // 避免重复覆盖
         console.log("🔥 APP 状态更新:", status);
+        currentAppStatus = status;
         if (appStatusText && appStatusDot) {
           appStatusText.textContent = `APP: ${status}`;
           appStatusDot.style.backgroundColor = status === 'online' ? '#2ecc71' : '#888';
@@ -237,10 +247,10 @@ export async function initRightPanel() {
     )
     .subscribe();
 
-  // ------------------- 4️⃣ 初始化 Web 在线状态 -------------------
+  // ------------------- 5️⃣ 初始化 Web 在线状态 -------------------
   await updateWebMonitorDB(user.uid, true, 'web');
 
-  // ------------------- 5️⃣ 卸载 / 登出 -------------------
+  // ------------------- 6️⃣ 卸载 / 登出 -------------------
   window.addEventListener('beforeunload', async () => {
     if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
   });
