@@ -250,5 +250,36 @@ export async function initRightPanel() {
       if (userInfoEl) userInfoEl.style.display = 'none';
     });
   }
+
+  const webLogoutChannel = supabase
+  .channel(`web_monitor_remote-${user.uid}`, { config: { broadcast: { self: true } } })
+  .on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: 'web_monitor',
+      filter: `uid=eq.${user.uid},device=eq.web`, // 监听 web 端行
+    },
+    (payload) => {
+      const newData = payload.new;
+      if (!newData) return;
+
+      if (newData.status === 'offline') {
+        console.log('Web is remotely logged out!');
+        // 清理本地登录状态
+        clearUser();
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('username');
+
+        const userInfoEl = document.getElementById('user-info');
+        if (userInfoEl) userInfoEl.style.display = 'none';
+
+        // 可选：跳转到登录页
+        window.location.href = '/login';
+      }
+    }
+  )
+  .subscribe();
 }
 
