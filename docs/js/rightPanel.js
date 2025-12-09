@@ -1,4 +1,4 @@
-// // js/rightPanel.js
+i// // js/rightPanel.js
 // import { getUser, clearUser } from './userManager.js';
 // import { supabase } from './userService.js';
 // import { getUserDeviceStatus } from './webMonitorHelper.js';
@@ -21,7 +21,7 @@
 //     .from("web_monitor")
 //     .upsert(
 //       { uid, device, status: online ? "online" : "offline", last_seen: new Date().toISOString() },
-//       { onConflict: ['uid', 'device'] } // 复合主键
+//       { onConflict: ['uid', 'device'] } // 复合主键i
 //     );
 //   if (error) console.error("web_monitor 更新失败:", error);
 // }
@@ -587,17 +587,17 @@ export async function initRightPanel() {
     });
   }
 
-  // 6️⃣ 远程登出订阅
+  // 6️⃣ 远程登出订阅id
   if (!webLogoutChannel) {
     webLogoutChannel = supabase
-      .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
-      .on(
+      .channel(`web_monitor-${user.id}`, { config: { broadcast: { self: true } } })
+      .on(id
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'web_monitor',
-          filter: `uid=eq.${user.uid},device=eq.web`
+          filter: `uid=eq.${user.id},device=eq.web`
         },
         (payload) => {
           console.log('-------------------------------------------------------------');
