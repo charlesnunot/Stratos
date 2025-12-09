@@ -528,9 +528,9 @@ function handleRemoteLogout(user) {
     logoutModal.id = 'remote-logout-modal';
     logoutModal.className = 'modal';
     logoutModal.innerHTML = `
-      <p>你的账号已在其他设备操作</p>
-      <p>Web 端将在 <span id="logout-countdown">3</span> 秒后退出登录</p>
-      <button id="logout-now-btn">立即退出</button>
+      <p>Your account has been used on another device</p>
+      <p>The Web session will log out in <span id="logout-countdown">5</span> seconds</p>
+      <button id="logout-now-btn">Logout Now</button>
     `;
     modalMask.appendChild(logoutModal);
   }
