@@ -1,3 +1,4 @@
+// js/rightPanel.js
 import { getUser, clearUser } from './userManager.js';
 import { supabase } from './userService.js';
 
@@ -14,7 +15,7 @@ function getTabId() {
 }
 
 // 写入 web_monitor 表
-async function updateWebMonitorDB(uid, online) {
+export async function updateWebMonitorDB(uid, online) {
   const { error } = await supabase
     .from("web_monitor")
     .upsert({
@@ -27,7 +28,7 @@ async function updateWebMonitorDB(uid, online) {
   if (error) console.error("web_monitor 更新失败:", error);
 }
 
-export function initRightPanel() {
+export async function initRightPanel() {
   const userInfoEl = document.getElementById('user-info');
   const usernameEl = document.getElementById('username');
   const avatarEl = document.getElementById('user-avatar');
@@ -49,56 +50,53 @@ export function initRightPanel() {
   }
 
   const user = getUser();
-  if (user && user.uid) {
-    if (usernameEl) usernameEl.textContent = user.nickname || 'Anonymous';
-    if (avatarEl) avatarEl.src = user.avatarUrl || avatarEl.src;
-    if (userInfoEl) userInfoEl.style.display = 'flex';
-
-    const tabId = getTabId();
-    debugLog("This tab id =", tabId);
-
-    // ---------- Presence 订阅 ----------
-    presenceChannel = supabase.channel("web-presence", {
-      config: { presence: { key: user.uid } }
-    });
-
-    presenceChannel.subscribe(async (status) => {
-      if (status === "SUBSCRIBED") {
-
-        // track 时写入 tabId
-        await presenceChannel.track({
-          tab_id: tabId,
-          at: new Date().toISOString()
-        });
-
-        debugLog("Presence subscribed for tab:", tabId);
-
-        // 该 Tab 上线 → 立刻更新数据库
-        updateWebMonitorDB(user.uid, true);
-        updateWebStatus(true);
-      }
-    });
-
-    // 每次 presence 更新（有人上线/下线）
-    presenceChannel.on("presence", { event: "sync" }, async () => {
-      const state = presenceChannel.presenceState();
-
-      const userEntries = state[user.uid] ?? [];
-      const online = userEntries.length > 0;
-
-      // UI 更新
-      updateWebStatus(online);
-      debugLog("Presence sync:", state);
-
-      // 🟢 写入 web_monitor
-      await updateWebMonitorDB(user.uid, online);
-    });
-
-    // ---------- Presence 订阅结束 ----------
-
-  } else {
+  if (!user || !user.uid) {
     if (userInfoEl) userInfoEl.style.display = 'none';
+    return;
   }
+
+  // 显示用户信息
+  if (usernameEl) usernameEl.textContent = user.nickname || 'Anonymous';
+  if (avatarEl) avatarEl.src = user.avatarUrl || avatarEl.src;
+  if (userInfoEl) userInfoEl.style.display = 'flex';
+
+  const tabId = getTabId();
+  debugLog("This tab id =", tabId);
+
+  // 登录成功，立即更新数据库为 online
+  await updateWebMonitorDB(user.uid, true);
+  updateWebStatus(true);
+
+  // ---------- Presence 订阅 ----------
+  presenceChannel = supabase.channel("web-presence", {
+    config: { presence: { key: user.uid } }
+  });
+
+  presenceChannel.subscribe(async (status) => {
+    if (status === "SUBSCRIBED") {
+      // track 时写入 tabId
+      await presenceChannel.track({
+        tab_id: tabId,
+        at: new Date().toISOString()
+      });
+      debugLog("Presence subscribed for tab:", tabId);
+    }
+  });
+
+  // 每次 presence 更新（有人上线/下线）
+  presenceChannel.on("presence", { event: "sync" }, async () => {
+    const state = presenceChannel.presenceState();
+    const userEntries = state[user.uid] ?? [];
+    const online = userEntries.length > 0;
+
+    // UI 更新
+    updateWebStatus(online);
+    debugLog("Presence sync:", state);
+
+    // 更新数据库状态
+    await updateWebMonitorDB(user.uid, online);
+  });
+  // ---------- Presence 订阅结束 ----------
 
   // 登出
   if (logoutBtn) {
@@ -106,6 +104,9 @@ export function initRightPanel() {
       try {
         if (presenceChannel) supabase.removeChannel(presenceChannel);
       } catch {}
+
+      // 更新数据库为 offline
+      if (user && user.uid) await updateWebMonitorDB(user.uid, false);
 
       clearUser();
       localStorage.removeItem('authToken');
@@ -115,11 +116,11 @@ export function initRightPanel() {
       if (modalMask) modalMask.style.display = 'flex';
       if (loginModal) loginModal.style.display = 'flex';
       if (registerModal) registerModal.style.display = 'none';
-
-      // 退出时写入 offline
-      if (user && user.uid) {
-        await updateWebMonitorDB(user.uid, false);
-      }
     });
   }
+
+  // 页面关闭或刷新时，也自动 offline
+  window.addEventListener('beforeunload', async () => {
+    if (user && user.uid) await updateWebMonitorDB(user.uid, false);
+  });
 }
