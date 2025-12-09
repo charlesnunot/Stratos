@@ -134,18 +134,19 @@
 
 
 
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
 let presenceChannel = null;
 let appStatusChannel = null;
 
-// 为每个 Tab 生成唯一 ID
+// 为每个 Tab 生成唯一 ID（同用户多个 Tab 也能区分）
 function getTabId() {
   let id = sessionStorage.getItem("web_tab_id");
   if (!id) {
     id = "tab-" + Math.random().toString(36).slice(2);
-    sessionStorage.setItem('web_tab_id', id);
+    sessionStorage.setItem("web_tab_id", id);
   }
   return id;
 }
@@ -153,15 +154,15 @@ function getTabId() {
 // 写入 web_monitor 表
 async function updateWebMonitorDB(uid, online, device = 'web') {
   const { error } = await supabase
-    .from('web_monitor')
+    .from("web_monitor")
     .upsert({
       uid,
       device,
-      status: online ? 'online' : 'offline',
+      status: online ? "online" : "offline",
       last_seen: new Date().toISOString(),
     }, { onConflict: ['uid', 'device'] });
 
-  if (error) console.error('web_monitor 更新失败:', error);
+  if (error) console.error("web_monitor 更新失败:", error);
 }
 
 // 初始化右侧面板
@@ -170,21 +171,21 @@ export async function initRightPanel() {
   if (!user || !user.uid) return;
 
   const tabId = getTabId();
-  console.log('This tab id =', tabId);
+  console.log("This tab id =", tabId);
 
   // ------------------- Web Presence 订阅 -------------------
-  presenceChannel = supabase.channel('web-presence', {
+  presenceChannel = supabase.channel("web-presence", {
     config: { presence: { key: user.uid } }
   });
 
   await presenceChannel.subscribe(async (status) => {
-    if (status === 'SUBSCRIBED') {
+    if (status === "SUBSCRIBED") {
       await presenceChannel.track({ tab_id: tabId, at: new Date().toISOString() });
-      console.log('Presence subscribed for tab:', tabId);
+      console.log("Presence subscribed for tab:", tabId);
     }
   });
 
-  presenceChannel.on('presence', { event: 'sync' }, async () => {
+  presenceChannel.on("presence", { event: "sync" }, async () => {
     const state = presenceChannel.presenceState();
     const userEntries = state[user.uid] ?? [];
     const online = userEntries.length > 0;
@@ -206,7 +207,7 @@ export async function initRightPanel() {
       },
       (payload) => {
         const status = payload.new?.status;
-        console.log('🔥 APP 状态更新:', status);
+        console.log("🔥 APP 状态更新:", status);
         const appStatusText = document.getElementById('app-status-text');
         const appStatusDot = document.getElementById('app-status-dot');
         if (appStatusText && appStatusDot) {
