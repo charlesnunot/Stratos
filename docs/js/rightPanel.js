@@ -459,6 +459,7 @@ function getTabId() {
 
 async function updateWebMonitorDB(uid, online) {
   try {
+    console.log("调用 updateWebMonitorDB:", uid, online); 
     const { error } = await supabase
       .from("web_monitor")
       .upsert(
