@@ -146,13 +146,13 @@ function getTabId() {
   let id = sessionStorage.getItem("web_tab_id");
   if (!id) {
     id = "tab-" + Math.random().toString(36).slice(2);
-    sessionStorage.setItem("web_tab_id", id);
+    sessionStorage.setItem('web_tab_id', id);
   }
   return id;
 }
 
 // 写入 web_monitor 表
-export async function updateWebMonitorDB(uid, online, device = 'web') {
+async function updateWebMonitorDB(uid, online, device = 'web') {
   const { error } = await supabase
     .from("web_monitor")
     .upsert({
@@ -165,6 +165,30 @@ export async function updateWebMonitorDB(uid, online, device = 'web') {
   if (error) console.error("web_monitor 更新失败:", error);
 }
 
+// 获取 APP 当前状态
+async function fetchAppStatus(uid) {
+  try {
+    const { data, error } = await supabase
+      .from('web_monitor')
+      .select('*')
+      .eq('uid', uid)
+      .eq('device', 'app')
+      .single();
+
+    if (!error && data) {
+      const status = data.status;
+      const appStatusText = document.getElementById('app-status-text');
+      const appStatusDot = document.getElementById('app-status-dot');
+      if (appStatusText && appStatusDot) {
+        appStatusText.textContent = `APP: ${status}`;
+        appStatusDot.style.backgroundColor = status === 'online' ? '#2ecc71' : '#888';
+      }
+    }
+  } catch (err) {
+    console.warn('获取 APP 初始状态失败', err);
+  }
+}
+
 // 初始化右侧面板
 export async function initRightPanel() {
   const user = getUser();
@@ -173,7 +197,7 @@ export async function initRightPanel() {
   const tabId = getTabId();
   console.log("This tab id =", tabId);
 
-  // ------------------- Web Presence 订阅 -------------------
+  // ------------------- Web Presence -------------------
   presenceChannel = supabase.channel("web-presence", {
     config: { presence: { key: user.uid } }
   });
@@ -182,17 +206,23 @@ export async function initRightPanel() {
     if (status === "SUBSCRIBED") {
       await presenceChannel.track({ tab_id: tabId, at: new Date().toISOString() });
       console.log("Presence subscribed for tab:", tabId);
+
+      // 更新数据库 Web 在线状态
+      await updateWebMonitorDB(user.uid, true, 'web');
     }
   });
 
+  // presence sync 监听
   presenceChannel.on("presence", { event: "sync" }, async () => {
     const state = presenceChannel.presenceState();
     const userEntries = state[user.uid] ?? [];
     const online = userEntries.length > 0;
 
-    // 更新 Web 自身状态到数据库
     await updateWebMonitorDB(user.uid, online, 'web');
   });
+
+  // ------------------- 初始化 APP 状态 -------------------
+  await fetchAppStatus(user.uid);
 
   // ------------------- APP 状态订阅 -------------------
   appStatusChannel = supabase
@@ -218,9 +248,6 @@ export async function initRightPanel() {
     )
     .subscribe();
 
-  // ------------------- 初始化 Web 在线状态 -------------------
-  await updateWebMonitorDB(user.uid, true, 'web');
-
   // ------------------- 卸载 / 登出 -------------------
   window.addEventListener('beforeunload', async () => {
     if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
@@ -242,4 +269,3 @@ export async function initRightPanel() {
     });
   }
 }
-
