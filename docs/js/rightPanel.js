@@ -462,7 +462,12 @@ async function updateWebMonitorDB(uid, online) {
     const { error } = await supabase
       .from("web_monitor")
       .upsert(
-        { uid, device: 'web', status: online ? "online" : "offline", last_seen: new Date().toISOString() },
+        {
+          uid,
+          device: 'web',
+          status: online ? "online" : "offline",
+          last_seen: new Date().toISOString()
+        },
         { onConflict: ['uid', 'device'] }
       );
     if (error) console.error("web_monitor 更新失败:", error);
@@ -529,7 +534,12 @@ export async function initRightPanel() {
     .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
     .on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'web_monitor', filter: `uid=eq.${user.uid},device=eq.app` },
+      {
+        event: '*',
+        schema: 'public',
+        table: 'web_monitor',
+        filter: `uid=eq.${user.uid},device=eq.app`
+      },
       (payload) => {
         const newData = payload.new;
         if (!newData) return;
@@ -548,6 +558,7 @@ export async function initRightPanel() {
       console.log("Presence subscribed for tab:", tabId);
     }
   });
+
   presenceChannel.on("presence", { event: "sync" }, async () => {
     const state = presenceChannel.presenceState();
     const userEntries = state[user.uid] ?? [];
@@ -576,7 +587,7 @@ export async function initRightPanel() {
     });
   }
 
-  // 6️⃣ 远程登出订阅（修正语法错误 & filter 闭合）
+  // 6️⃣ 远程登出订阅
   if (!webLogoutChannel) {
     webLogoutChannel = supabase
       .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
@@ -586,7 +597,7 @@ export async function initRightPanel() {
           event: '*',
           schema: 'public',
           table: 'web_monitor',
-          filter: `uid=eq.${user.uid},device=eq.web` // ✅ 完整闭合
+          filter: `uid=eq.${user.uid},device=eq.web`
         },
         (payload) => {
           console.log('-------------------------------------------------------------');
@@ -600,8 +611,10 @@ export async function initRightPanel() {
           }
 
           if (newData.status === 'offline') {
-            console.log('🔴 Remote logout: performing UI logout...');
-            performLogoutUIOnly();
+            console.log('🔴 Remote logout: triggering Logout button...');
+            const logoutBtn = document.getElementById('logout-btn');
+            console.log('Logout button:', logoutBtn);
+            if (logoutBtn) logoutBtn.click(); // 模拟点击
           }
         }
       )
