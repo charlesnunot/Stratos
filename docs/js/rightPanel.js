@@ -584,7 +584,7 @@ export async function initRightPanel() {
   // 6️⃣ 远程登出订阅
   if (!webLogoutChannel) {
     webLogoutChannel = supabase
-      .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: false } } })
+      .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
       .on(
         'postgres_changes',
         {
