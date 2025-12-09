@@ -292,15 +292,23 @@ async function updateWebMonitorDB(uid, online) {
 
 // ✅ 执行本地登出（页面状态 + 清理 localStorage）
 function performLogout() {
+  // 清理本地用户状态
   clearUser();
   localStorage.removeItem('authToken');
   localStorage.removeItem('username');
 
+  // 隐藏右侧用户信息
   const userInfoEl = document.getElementById('user-info');
   if (userInfoEl) userInfoEl.style.display = 'none';
 
-  // 跳转到登录页
-  window.location.href = '/login';
+  // 显示登录弹窗
+  const modalMask = document.getElementById('modal-mask');
+  const loginModal = document.getElementById('login-modal');
+  const registerModal = document.getElementById('register-modal');
+
+  if (modalMask) modalMask.style.display = 'flex';
+  if (loginModal) loginModal.style.display = 'flex';
+  if (registerModal) registerModal.style.display = 'none';
 }
 
 export async function initRightPanel() {
