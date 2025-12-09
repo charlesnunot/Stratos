@@ -1,6 +1,6 @@
-// js/rightPanel.js
 import { getUser, clearUser } from './userManager.js';
 import { supabase } from './userService.js';
+import { getUserDeviceStatus } from './webMonitorHelper.js';
 
 let presenceChannel = null;
 
@@ -37,17 +37,29 @@ export async function initRightPanel() {
   const modalMask = document.getElementById('modal-mask');
   const loginModal = document.getElementById('login-modal');
   const registerModal = document.getElementById('register-modal');
-  const statusText = document.getElementById('app-status-text');
-  const statusDot = document.getElementById('app-status-dot');
+  const webStatusText = document.getElementById('app-status-text');  // Web 状态
+  const webStatusDot = document.getElementById('app-status-dot');    // Web 状态
+  const appStatusContainer = document.getElementById('app-device-status'); // 新增：显示 APP 状态
 
   function debugLog(...args) {
     if (window && window.console) console.log('[rightPanel]', ...args);
   }
 
   function updateWebStatus(isOnline) {
-    if (!statusText || !statusDot) return;
-    statusText.textContent = `Web: ${isOnline ? 'online' : 'offline'}`;
-    statusDot.style.backgroundColor = isOnline ? '#2ecc71' : '#888';
+    if (!webStatusText || !webStatusDot) return;
+    webStatusText.textContent = `Web: ${isOnline ? 'online' : 'offline'}`;
+    webStatusDot.style.backgroundColor = isOnline ? '#2ecc71' : '#888';
+  }
+
+  async function updateAppStatus() {
+    if (!appStatusContainer) return;
+    const uid = getUser()?.uid;
+    if (!uid) return;
+
+    const statusMap = await getUserDeviceStatus(uid);
+    const appStatus = statusMap['app'] || 'offline';
+    appStatusContainer.textContent = `APP: ${appStatus}`;
+    appStatusContainer.style.color = appStatus === 'online' ? '#2ecc71' : '#888';
   }
 
   const user = getUser();
@@ -68,7 +80,13 @@ export async function initRightPanel() {
   await updateWebMonitorDB(user.uid, true, 'web');
   updateWebStatus(true);
 
-  // ---------- Presence 订阅 ----------
+  // 初次刷新 APP 状态
+  await updateAppStatus();
+
+  // 定时刷新 APP 状态（每 5 秒）
+  const appStatusInterval = setInterval(updateAppStatus, 5000);
+
+  // ---------- Presence 订阅（Web 在线状态） ----------
   presenceChannel = supabase.channel("web-presence", {
     config: { presence: { key: user.uid } }
   });
@@ -116,11 +134,14 @@ export async function initRightPanel() {
       if (modalMask) modalMask.style.display = 'flex';
       if (loginModal) loginModal.style.display = 'flex';
       if (registerModal) registerModal.style.display = 'none';
+
+      clearInterval(appStatusInterval); // 停止刷新 APP 状态
     });
   }
 
   // 页面关闭或刷新时，也自动 offline（Web 设备）
   window.addEventListener('beforeunload', async () => {
     if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
+    clearInterval(appStatusInterval);
   });
 }
