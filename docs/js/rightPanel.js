@@ -255,6 +255,7 @@
 
 
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
@@ -272,7 +273,7 @@ function getTabId() {
   return id;
 }
 
-// 更新 Web 在线状态到数据库（用于 Presence）
+// 更新 Web 在线状态到数据库
 async function updateWebMonitorDB(uid, online) {
   try {
     const { error } = await supabase
@@ -281,14 +282,13 @@ async function updateWebMonitorDB(uid, online) {
         { uid, device: 'web', status: online ? "online" : "offline", last_seen: new Date().toISOString() },
         { onConflict: ['uid', 'device'] }
       );
-
     if (error) console.error("web_monitor 更新失败:", error);
   } catch (err) {
     console.error("web_monitor 更新异常:", err);
   }
 }
 
-// ✅ 执行本地登出（页面状态 + 清理 localStorage）
+// 本地登出逻辑
 function performLogout() {
   clearUser();
   localStorage.removeItem('authToken');
@@ -297,7 +297,6 @@ function performLogout() {
   const userInfoEl = document.getElementById('user-info');
   if (userInfoEl) userInfoEl.style.display = 'none';
 
-  // 跳转到登录页
   window.location.href = '/login';
 }
 
@@ -311,10 +310,10 @@ export async function initRightPanel() {
   const appStatusText = document.getElementById('app-status-text');
   const appStatusDot = document.getElementById('app-status-dot');
 
-  // ------------------- 1️⃣ 登录后立即更新 Web 状态为 online -------------------
+  // 1️⃣ 登录后更新 Web 状态为 online
   await updateWebMonitorDB(user.uid, true);
 
-  // ------------------- 2️⃣ 获取 APP 当前状态 -------------------
+  // 2️⃣ 获取 APP 当前状态
   try {
     const { data: appData, error: appError } = await supabase
       .from('web_monitor')
@@ -336,7 +335,7 @@ export async function initRightPanel() {
     appStatusDot.style.backgroundColor = '#888';
   }
 
-  // ------------------- 3️⃣ 订阅 APP 状态变化 -------------------
+  // 3️⃣ 订阅 APP 状态变化
   webMonitorChannel = supabase
     .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
     .on(
@@ -345,7 +344,7 @@ export async function initRightPanel() {
         event: '*',
         schema: 'public',
         table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.app`, // 只监听 APP
+        filter: `uid=eq.${user.uid},device=eq.app`,
       },
       (payload) => {
         const newData = payload.new;
@@ -354,12 +353,11 @@ export async function initRightPanel() {
         appStatusText.textContent = `APP: ${newData.status}`;
         appStatusDot.style.backgroundColor = newData.status === 'online' ? '#2ecc71' : '#888';
       }
-    )
-    .subscribe();
+    );
+  webMonitorChannel.subscribe();
 
-  // ------------------- 4️⃣ Web Presence 订阅 -------------------
+  // 4️⃣ Web Presence 订阅
   presenceChannel = supabase.channel("web-presence", { config: { presence: { key: user.uid } } });
-
   await presenceChannel.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
       await presenceChannel.track({ tab_id: tabId, at: new Date().toISOString() });
@@ -374,7 +372,7 @@ export async function initRightPanel() {
     await updateWebMonitorDB(user.uid, online);
   });
 
-  // ------------------- 5️⃣ 卸载 / 登出 -------------------
+  // 5️⃣ 卸载 / 登出
   window.addEventListener('beforeunload', async () => {
     if (presenceChannel) supabase.removeChannel(presenceChannel);
     if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
@@ -394,35 +392,27 @@ export async function initRightPanel() {
     });
   }
 
-  // ------------------- 6️⃣ 远程登出订阅（Debug模式） -------------------
+  // 6️⃣ 远程登出订阅（正确写法，Supabase v2）
   webLogoutChannel = supabase
-    .channel(`web_monitor_remote-${user.uid}`)
+    .channel(`web_monitor_remote-${user.uid}`, { config: { broadcast: { self: true } } })
     .on(
       'postgres_changes',
       {
-        event: 'UPDATE',               // 只监听更新操作
+        event: 'UPDATE',
         schema: 'public',
         table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.web` // 监听 web 端行
+        filter: `uid=eq.${user.uid},device=eq.web`,
       },
       (payload) => {
-        console.log('✅ Remote logout payload received:', payload); // debug: 打印 payload
-        const newData = payload.new;
-        if (!newData) return;
-  
-        if (newData.status === 'offline') {
-          console.log('🔴 Web is remotely logged out! Performing local logout...');
-          performLogout(); // 调用统一登出函数
+        console.log('Remote logout payload received:', payload);
+        if (payload.new?.status === 'offline') {
+          console.log('Web is remotely logged out! Performing local logout...');
+          performLogout();
         }
       }
     );
-  
-  // 订阅 channel（v2 直接调用，不返回 Promise）
-  webLogoutChannel.subscribe();
-  
-  // 打印确认订阅
-  console.log('🔔 Remote logout channel subscribed successfully:', webLogoutChannel);
-  
-  }
 
+  webLogoutChannel.subscribe();
+  console.log('Remote logout channel subscribed:', webLogoutChannel);
+}
 
