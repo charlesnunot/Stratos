@@ -1,4 +1,4 @@
-i// // js/rightPanel.js
+// // js/rightPanel.js
 // import { getUser, clearUser } from './userManager.js';
 // import { supabase } from './userService.js';
 // import { getUserDeviceStatus } from './webMonitorHelper.js';
@@ -439,10 +439,7 @@ i// // js/rightPanel.js
 
 
 
-// js/rightPanel.js
-// js/rightPanel.js
-// js/rightPanel.js
-// js/rightPanel.js
+
 // js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
