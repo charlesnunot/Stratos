@@ -260,7 +260,7 @@ export async function initRightPanel() {
         event: '*',
         schema: 'public',
         table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.web`, // 监听 web 端行
+        filter: `uid=eq.${user.uid},device=eq.'web'`
       },
       (payload) => {
         const newData = payload.new;
