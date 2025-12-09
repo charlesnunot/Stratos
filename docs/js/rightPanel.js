@@ -447,6 +447,7 @@
 // js/rightPanel.js
 // js/rightPanel.js
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
@@ -487,28 +488,30 @@ async function updateWebMonitorDB(uid, online) {
 
 /** 完整登出逻辑 */
 async function performFullLogout(user) {
-  // 1️⃣ 隐藏所有弹窗
   const modalMask = document.getElementById('modal-mask');
   if (modalMask) modalMask.style.display = 'none';
+
   const remoteLogoutModal = document.getElementById('remote-logout-modal');
   if (remoteLogoutModal) remoteLogoutModal.style.display = 'none';
 
-  // 2️⃣ 删除本地用户信息
+  // 删除本地用户信息
   clearUser();
   localStorage.removeItem('authToken');
   localStorage.removeItem('username');
 
-  // 3️⃣ 移除订阅通道
+  // 移除订阅通道
   if (presenceChannel) supabase.removeChannel(presenceChannel);
   if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
   if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
+  webLogoutChannel = null;
 
-  // 4️⃣ 更新数据库状态
+  // 更新数据库状态
   if (user && user.uid) await updateWebMonitorDB(user.uid, false);
 
-  // 5️⃣ 显示登录 modal
+  // 显示登录 modal
   const userInfoEl = document.getElementById("user-info");
   if (userInfoEl) userInfoEl.style.display = "none";
+
   const loginModal = document.getElementById("login-modal");
   const registerModal = document.getElementById("register-modal");
   if (modalMask) modalMask.style.display = "flex";
@@ -521,7 +524,6 @@ function handleRemoteLogout(user) {
   const modalMask = document.getElementById('modal-mask');
   if (!modalMask) return performFullLogout(user);
 
-  // 创建远程登出 modal
   let logoutModal = document.getElementById('remote-logout-modal');
   if (!logoutModal) {
     logoutModal = document.createElement('div');
@@ -535,7 +537,6 @@ function handleRemoteLogout(user) {
     modalMask.appendChild(logoutModal);
   }
 
-  // 显示遮罩和弹窗
   modalMask.style.display = 'flex';
   logoutModal.style.display = 'flex';
 
@@ -579,10 +580,10 @@ export async function initRightPanel() {
   const appStatusText = document.getElementById("app-status-text");
   const appStatusDot = document.getElementById("app-status-dot");
 
-  // 1️⃣ 启动时更新 Web 状态为 online
+  // 启动时更新 Web 状态为 online
   await updateWebMonitorDB(user.uid, true);
 
-  // 2️⃣ 获取 APP 状态
+  // 获取 APP 状态
   try {
     const { data: appData, error: appError } = await supabase
       .from("web_monitor")
@@ -605,7 +606,8 @@ export async function initRightPanel() {
     appStatusDot.style.backgroundColor = "#888";
   }
 
-  // 3️⃣ 订阅 APP 状态变化
+  // 订阅 APP 状态变化
+  if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
   webMonitorChannel = supabase
     .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
     .on(
@@ -626,7 +628,8 @@ export async function initRightPanel() {
     )
     .subscribe();
 
-  // 4️⃣ Presence 订阅
+  // Presence 订阅
+  if (presenceChannel) supabase.removeChannel(presenceChannel);
   presenceChannel = supabase.channel("web-presence", {
     config: { presence: { key: user.uid } }
   });
@@ -648,7 +651,7 @@ export async function initRightPanel() {
     await updateWebMonitorDB(user.uid, online);
   });
 
-  // 5️⃣ 页面卸载 / 手动登出
+  // 页面卸载 / 手动登出
   window.addEventListener("beforeunload", async () => {
     if (presenceChannel) supabase.removeChannel(presenceChannel);
     if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
@@ -667,27 +670,25 @@ export async function initRightPanel() {
     });
   }
 
-  // 6️⃣ 远程登出订阅（APP → Web）
-  if (!webLogoutChannel) {
-    console.log("🟡 初始化 remote logout channel ...");
+  // 远程登出订阅（App → Web）
+  if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
+  webLogoutChannel = supabase
+    .channel(`remote-logout-${user.uid}`, { config: { broadcast: { self: true } } })
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "web_monitor" },
+      (payload) => {
+        const row = payload.new;
+        if (!row) return;
 
-    webLogoutChannel = supabase
-      .channel(`remote-logout-${user.uid}`, { config: { broadcast: { self: true } } })
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "web_monitor" },
-        (payload) => {
-          const row = payload.new;
-          if (!row) return;
-
-          // 仅 Web 设备的 offline 状态触发登出
-          if (row.uid === user.uid && row.device === "web" && row.status === "offline") {
-            handleRemoteLogout(user);
-          }
+        // 仅 Web 设备的 offline 状态触发登出
+        if (row.uid === user.uid && row.device === "web" && row.status === "offline") {
+          handleRemoteLogout(user);
         }
-      )
-      .subscribe((s) => {
-        console.log("📡 Remote logout channel 状态:", s);
-      });
-  }
+      }
+    )
+    .subscribe((s) => {
+      console.log("📡 Remote logout channel 状态:", s);
+    });
 }
+
