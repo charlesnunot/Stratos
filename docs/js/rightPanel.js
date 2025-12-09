@@ -579,14 +579,14 @@ export async function initRightPanel() {
   // ------------------- 6️⃣ 远程登出订阅 -------------------
 if (!webLogoutChannel) {
   webLogoutChannel = supabase
-    .channel(`web_monitor_remote-${user.uid}`, { config: { broadcast: { self: true } } })
+    .channel(`web_monitor-${uid}`, { config: { broadcast: { self: true } } })
     .on(
       'postgres_changes',
       {
         event: '*',               // insert / update / delete
         schema: 'public',
         table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.web` // 注意这里不要加多余的引号
+        filter: `uid=eq.${uid}`,
       },
       (payload) => {
         console.log('✅ Remote logout payload received:', payload);
