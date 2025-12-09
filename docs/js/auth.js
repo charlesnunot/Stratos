@@ -1,3 +1,4 @@
+// js/auth.js
 import { setUser, getUser } from './userManager.js';
 import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './userService.js';
 import { initRightPanel, updateWebMonitorDB } from './rightPanel.js';
