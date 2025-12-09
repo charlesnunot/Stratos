@@ -576,41 +576,37 @@ export async function initRightPanel() {
     });
   }
 
-  // ------------------- 6️⃣ 远程登出订阅 -------------------
-if (!webLogoutChannel) {
-  webLogoutChannel = supabase
-    .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
-    .on(
-      'postgres_changes',
-      {
-        event: '*',              
-        schema: 'public',
-        table: 'web_monitor',
-        filter: `uid=eq.${user.uid},
-      },
-      
-      (payload) => {
-        console.log('-------------------------------------------------------------');
-        console.log('✅ Remote logout payload received:', payload);
-        const newData = payload.new;
-        console.log('🔍 newData:', newData); // 🔑 这里打印 newData
+  // 6️⃣ 远程登出订阅（修正语法错误 & filter 闭合）
+  if (!webLogoutChannel) {
+    webLogoutChannel = supabase
+      .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'web_monitor',
+          filter: `uid=eq.${user.uid},device=eq.web` // ✅ 完整闭合
+        },
+        (payload) => {
+          console.log('-------------------------------------------------------------');
+          console.log('✅ Remote logout payload received:', payload);
+          const newData = payload.new;
+          console.log('🔍 newData:', newData);
 
-        if (!newData) {
-          console.log('⚠️ newData is null, skipping logout');
-          return;
+          if (!newData) {
+            console.log('⚠️ newData is null, skipping logout');
+            return;
+          }
+
+          if (newData.status === 'offline') {
+            console.log('🔴 Remote logout: performing UI logout...');
+            performLogoutUIOnly();
+          }
         }
+      )
+      .subscribe();
 
-        if (newData.status === 'offline') {
-          console.log('🔴 Remote logout: triggering Logout button...');
-          const logoutBtn = document.getElementById('logout-btn');
-          console.log('Logout button:', logoutBtn);
-          if (logoutBtn) logoutBtn.click(); // 模拟点击
-        }
-      }
-    )
-    .subscribe(); // 注意不要加 .then()
-
-  console.log('🔔 Remote logout channel initialized.');
-}
-
+    console.log('🔔 Remote logout channel initialized.');
+  }
 }
