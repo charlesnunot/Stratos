@@ -495,10 +495,9 @@ function performLogoutUIOnly() {
 }
 
 export async function initRightPanel() {
-  const user = getUser();
-  console.log("user 对象:", user);        // 🔑 打印整个 user
-  console.log("user.uid:", user?.uid);   // 🔑 打印 uid
+  const user = getUser(); 
   if (!user || !user.uid) return;
+  console.log("user 对象:", user);      
 
   const tabId = getTabId();
   console.log("This tab id =", tabId);
