@@ -1,10 +1,12 @@
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
-let webMonitorChannel = null;
 let presenceChannel = null;
+let webMonitorChannel = null;
 
+// 为每个 Tab 生成唯一 ID（同用户多个 Tab 可区分）
 function getTabId() {
   let id = sessionStorage.getItem("web_tab_id");
   if (!id) {
@@ -14,11 +16,12 @@ function getTabId() {
   return id;
 }
 
-async function updateWebMonitorDB(uid, online, device = 'web') {
+// 更新 Web 在线状态到数据库（用于 Presence）
+async function updateWebMonitorDB(uid, online) {
   const { error } = await supabase
     .from("web_monitor")
     .upsert(
-      { uid, device, status: online ? "online" : "offline", last_seen: new Date().toISOString() },
+      { uid, device: 'web', status: online ? "online" : "offline", last_seen: new Date().toISOString() },
       { onConflict: ['uid', 'device'] }
     );
   if (error) console.error("web_monitor 更新失败:", error);
@@ -34,36 +37,54 @@ export async function initRightPanel() {
   const appStatusText = document.getElementById('app-status-text');
   const appStatusDot = document.getElementById('app-status-dot');
 
-  // ------------------- 0️⃣ 获取当前 Web 状态 -------------------
+  // ------------------- 1️⃣ 获取 APP 当前状态 -------------------
   try {
-    const { data, error } = await supabase
+    const { data: appData, error: appError } = await supabase
       .from('web_monitor')
       .select('*')
       .eq('uid', user.uid)
-      .eq('device', 'web')
+      .eq('device', 'app')   // ✅ 只获取 APP
       .single();
 
-    if (!error && data) {
-      appStatusText.textContent = `Web: ${data.status}`;
-      appStatusDot.style.backgroundColor = data.status === 'online' ? '#2ecc71' : '#888';
+    if (!appError && appData) {
+      appStatusText.textContent = `APP: ${appData.status}`;
+      appStatusDot.style.backgroundColor = appData.status === 'online' ? '#2ecc71' : '#888';
     } else {
-      appStatusText.textContent = `Web: unknown`;
+      appStatusText.textContent = `APP: offline`;
       appStatusDot.style.backgroundColor = '#888';
     }
   } catch (e) {
-    console.warn("获取 Web 当前状态失败:", e);
-    appStatusText.textContent = `Web: unknown`;
+    console.warn("获取 APP 当前状态失败:", e);
+    appStatusText.textContent = `APP: offline`;
     appStatusDot.style.backgroundColor = '#888';
   }
 
-  // ------------------- 1️⃣ Web Presence 订阅 -------------------
-  presenceChannel = supabase.channel("web-presence", {
-    config: { presence: { key: user.uid } }
-  });
+  // ------------------- 2️⃣ 订阅 web_monitor 表变化（仅 APP） -------------------
+  webMonitorChannel = supabase
+    .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'web_monitor',
+        filter: `uid=eq.${user.uid},device=eq.app`, // 只监听 APP
+      },
+      (payload) => {
+        const newData = payload.new;
+        if (!newData) return;
+
+        appStatusText.textContent = `APP: ${newData.status}`;
+        appStatusDot.style.backgroundColor = newData.status === 'online' ? '#2ecc71' : '#888';
+      }
+    )
+    .subscribe();
+
+  // ------------------- 3️⃣ Web Presence 订阅（同步自己在线状态到数据库） -------------------
+  presenceChannel = supabase.channel("web-presence", { config: { presence: { key: user.uid } } });
 
   await presenceChannel.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
-      // 注册当前 Tab
       await presenceChannel.track({ tab_id: tabId, at: new Date().toISOString() });
       console.log("Presence subscribed for tab:", tabId);
     }
@@ -73,55 +94,14 @@ export async function initRightPanel() {
     const state = presenceChannel.presenceState();
     const userEntries = state[user.uid] ?? [];
     const online = userEntries.length > 0;
-    await updateWebMonitorDB(user.uid, online, 'web');
-
-    // 同步更新前端显示
-    appStatusText.textContent = `Web: ${online ? 'online' : 'offline'}`;
-    appStatusDot.style.backgroundColor = online ? '#2ecc71' : '#888';
+    await updateWebMonitorDB(user.uid, online);
   });
-
-  // ------------------- 2️⃣ 订阅 web_monitor 表变化 -------------------
-  webMonitorChannel = supabase
-    .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'web_monitor',
-        filter: `uid=eq.${user.uid}`,
-      },
-      (payload) => {
-        const newData = payload.new;
-        if (!newData) return;
-
-        // 更新 Web 状态
-        if (newData.device === 'web') {
-          appStatusText.textContent = `Web: ${newData.status}`;
-          appStatusDot.style.backgroundColor = newData.status === 'online' ? '#2ecc71' : '#888';
-        }
-
-        // 更新 APP 状态
-        if (newData.device === 'app') {
-          const appText = document.getElementById('app-status-text');
-          const appDot = document.getElementById('app-status-dot');
-          if (appText && appDot) {
-            appText.textContent = `APP: ${newData.status}`;
-            appDot.style.backgroundColor = newData.status === 'online' ? '#2ecc71' : '#888';
-          }
-        }
-      }
-    )
-    .subscribe();
-
-  // ------------------- 3️⃣ 初始化 Web 在线状态 -------------------
-  await updateWebMonitorDB(user.uid, true, 'web');
 
   // ------------------- 4️⃣ 卸载 / 登出 -------------------
   window.addEventListener('beforeunload', async () => {
     if (presenceChannel) supabase.removeChannel(presenceChannel);
     if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
-    if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
+    if (user && user.uid) await updateWebMonitorDB(user.uid, false);
   });
 
   const logoutBtn = document.getElementById('logout-btn');
@@ -129,7 +109,7 @@ export async function initRightPanel() {
     logoutBtn.addEventListener('click', async () => {
       if (presenceChannel) supabase.removeChannel(presenceChannel);
       if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
-      if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
+      if (user && user.uid) await updateWebMonitorDB(user.uid, false);
 
       clearUser();
       localStorage.removeItem('authToken');
