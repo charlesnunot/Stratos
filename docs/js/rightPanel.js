@@ -17,17 +17,13 @@ function getTabId() {
 
 // 更新 Web 在线状态到数据库（用于 Presence）
 async function updateWebMonitorDB(uid, online) {
-  try {
-    const { error } = await supabase
-      .from("web_monitor")
-      .upsert(
-        { uid, device: 'web', status: online ? "online" : "offline", last_seen: new Date().toISOString() },
-        { onConflict: ['uid', 'device'] }
-      );
-    if (error) console.error("web_monitor 更新失败:", error);
-  } catch (e) {
-    console.error("updateWebMonitorDB 异常:", e);
-  }
+  const { error } = await supabase
+    .from("web_monitor")
+    .upsert(
+      { uid, device: 'web', status: online ? "online" : "offline", last_seen: new Date().toISOString() },
+      { onConflict: ['uid', 'device'] }
+    );
+  if (error) console.error("web_monitor 更新失败:", error);
 }
 
 export async function initRightPanel() {
@@ -40,7 +36,7 @@ export async function initRightPanel() {
   const appStatusText = document.getElementById('app-status-text');
   const appStatusDot = document.getElementById('app-status-dot');
 
-  // ✅ 立即更新 Web 在线状态（首次登录 / 刷新页面）
+  // ---------- ✅ 登录后立即写入 Web 在线状态 ----------
   await updateWebMonitorDB(user.uid, true);
 
   // ------------------- 1️⃣ 获取 APP 当前状态 -------------------
@@ -49,7 +45,7 @@ export async function initRightPanel() {
       .from('web_monitor')
       .select('*')
       .eq('uid', user.uid)
-      .eq('device', 'app')   // 只获取 APP
+      .eq('device', 'app')   // ✅ 只获取 APP
       .single();
 
     if (!appError && appData) {
@@ -74,12 +70,11 @@ export async function initRightPanel() {
         event: '*',
         schema: 'public',
         table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.'app'`, // 只监听 APP
+        filter: `uid=eq.${user.uid},device=eq.'app'`, // ✅ 注意单引号
       },
       (payload) => {
         const newData = payload.new;
         if (!newData) return;
-
         appStatusText.textContent = `APP: ${newData.status}`;
         appStatusDot.style.backgroundColor = newData.status === 'online' ? '#2ecc71' : '#888';
       }
