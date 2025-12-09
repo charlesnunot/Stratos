@@ -50,15 +50,16 @@ export async function initAuth() {
 
     const uid = sessionData.user.id;
     localStorage.setItem('authToken', sessionData?.access_token || '');
+
     let userProfile = await getUserProfile(uid);
     const nickname = userProfile?.nickname || generateDefaultNickname(email);
     if (!userProfile) userProfile = await upsertUserProfile({ uid, nickname });
-    const avatarUrl = await getUserAvatar(uid);
 
+    const avatarUrl = await getUserAvatar(uid);
     setUser({ uid, email, nickname, avatarUrl, accessToken: sessionData?.access_token });
     updateUI(getUser());
 
-    // ✅ 登录后直接初始化右侧面板（包含更新 Web 在线状态）
+    // ✅ 登录后初始化右侧面板（包含 Web 在线状态和订阅 APP 状态）
     await initRightPanel();
   });
 
