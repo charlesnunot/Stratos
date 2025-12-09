@@ -137,13 +137,15 @@
 
 // js/rightPanel.js
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
+import { subscribeWebMonitor } from './webMonitor.js';
 
 let presenceChannel = null;
-let appStatusChannel = null;
+let unsubscribeWebMonitor = null;
 
-// 为每个 Tab 生成唯一 ID（同用户多个 Tab 也能区分）
+// 为每个 Tab 生成唯一 ID
 function getTabId() {
   let id = sessionStorage.getItem("web_tab_id");
   if (!id) {
@@ -158,14 +160,10 @@ async function updateWebMonitorDB(uid, online, device = 'web') {
   const { error } = await supabase
     .from("web_monitor")
     .upsert(
-      {
-        uid,
-        device,
-        status: online ? "online" : "offline",
-        last_seen: new Date().toISOString(),
-      },
+      { uid, device, status: online ? "online" : "offline", last_seen: new Date().toISOString() },
       { onConflict: ['uid', 'device'] }
     );
+
   if (error) console.error("web_monitor 更新失败:", error);
 }
 
@@ -180,7 +178,7 @@ export async function initRightPanel() {
   const appStatusText = document.getElementById('app-status-text');
   const appStatusDot = document.getElementById('app-status-dot');
 
-  // ------------------- 0️⃣ 读取当前 APP 状态 -------------------
+  // ------------------- 0️⃣ 获取 APP 初始状态 -------------------
   try {
     const { data: appData, error: appError } = await supabase
       .from('web_monitor')
@@ -220,26 +218,17 @@ export async function initRightPanel() {
   });
 
   // ------------------- 2️⃣ APP 状态订阅 -------------------
-  appStatusChannel = supabase
-    .channel(`app_status-${user.uid}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'web_monitor',
-        filter: `uid=eq.'${user.uid}',device=eq.'app'`,
-      },
-      (payload) => {
-        const status = payload.new?.status;
-        console.log("🔥 APP 状态更新:", status);
-        if (appStatusText && appStatusDot) {
-          appStatusText.textContent = `APP: ${status}`;
-          appStatusDot.style.backgroundColor = status === 'online' ? '#2ecc71' : '#888';
-        }
-      }
-    )
-    .subscribe();
+  unsubscribeWebMonitor = subscribeWebMonitor(user.uid, (data) => {
+    if (!data) return;
+
+    console.log("🔥 web_monitor 更新:", data);
+
+    if (appStatusText && appStatusDot && data.device === 'app') {
+      const status = data.status || 'offline';
+      appStatusText.textContent = `APP: ${status}`;
+      appStatusDot.style.backgroundColor = status === 'online' ? '#2ecc71' : '#888';
+    }
+  });
 
   // ------------------- 3️⃣ 初始化 Web 在线状态 -------------------
   await updateWebMonitorDB(user.uid, true, 'web');
@@ -247,13 +236,15 @@ export async function initRightPanel() {
   // ------------------- 4️⃣ 卸载 / 登出 -------------------
   window.addEventListener('beforeunload', async () => {
     if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
+    if (presenceChannel) supabase.removeChannel(presenceChannel);
+    if (unsubscribeWebMonitor) unsubscribeWebMonitor();
   });
 
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
       if (presenceChannel) supabase.removeChannel(presenceChannel);
-      if (appStatusChannel) supabase.removeChannel(appStatusChannel);
+      if (unsubscribeWebMonitor) unsubscribeWebMonitor();
       if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
 
       clearUser();
@@ -265,3 +256,4 @@ export async function initRightPanel() {
     });
   }
 }
+
