@@ -37,23 +37,25 @@ export async function initRightPanel() {
   const modalMask = document.getElementById('modal-mask');
   const loginModal = document.getElementById('login-modal');
   const registerModal = document.getElementById('register-modal');
-  const webStatusText = document.getElementById('app-status-text');  // Web 状态
-  const webStatusDot = document.getElementById('app-status-dot');    // Web 状态
-  const appStatusContainer = document.getElementById('app-device-status'); // 新增：显示 APP 状态
+
+  const appStatusText = document.getElementById('app-status-text'); // 显示 APP 状态
+  const appStatusDot = document.getElementById('app-status-dot');   // 显示 APP 状态
 
   function debugLog(...args) {
     if (window && window.console) console.log('[rightPanel]', ...args);
   }
 
+  // ---------- 更新 UI 显示 APP 在线状态 ----------
   async function updateAppStatus() {
-    if (!webStatusText) return;
+    if (!appStatusText || !appStatusDot) return;
     const uid = getUser()?.uid;
     if (!uid) return;
 
     const statusMap = await getUserDeviceStatus(uid);
     const appStatus = statusMap['app'] || 'offline';
-    webStatusText.textContent = `APP: ${appStatus}`;
-    webStatusDot.style.backgroundColor = isOnline ? '#2ecc71' : '#888';
+
+    appStatusText.textContent = `APP: ${appStatus}`;
+    appStatusDot.style.backgroundColor = appStatus === 'online' ? '#2ecc71' : '#888';
   }
 
   const user = getUser();
@@ -70,9 +72,8 @@ export async function initRightPanel() {
   const tabId = getTabId();
   debugLog("This tab id =", tabId);
 
-  // 登录成功，立即更新数据库为 online（Web 设备）
+  // 可选：Web 自己的 Presence 数据写入数据库（仅后台统计用）
   await updateWebMonitorDB(user.uid, true, 'web');
-  updateWebStatus(true);
 
   // 初次刷新 APP 状态
   await updateAppStatus();
@@ -80,14 +81,13 @@ export async function initRightPanel() {
   // 定时刷新 APP 状态（每 5 秒）
   const appStatusInterval = setInterval(updateAppStatus, 5000);
 
-  // ---------- Presence 订阅（Web 在线状态） ----------
+  // ---------- Web Presence 订阅（后台统计） ----------
   presenceChannel = supabase.channel("web-presence", {
     config: { presence: { key: user.uid } }
   });
 
   presenceChannel.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
-      // track 时写入 tabId
       await presenceChannel.track({
         tab_id: tabId,
         at: new Date().toISOString()
@@ -101,23 +101,15 @@ export async function initRightPanel() {
     const userEntries = state[user.uid] ?? [];
     const online = userEntries.length > 0;
 
-    // UI 更新
-    updateWebStatus(online);
-    debugLog("Presence sync:", state);
-
-    // 更新数据库状态（Web 设备）
+    // 后台统计：更新数据库（Web 设备状态）
     await updateWebMonitorDB(user.uid, online, 'web');
   });
-  // ---------- Presence 订阅结束 ----------
 
-  // 登出
+  // ---------- 登出 ----------
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
-      try {
-        if (presenceChannel) supabase.removeChannel(presenceChannel);
-      } catch {}
+      try { if (presenceChannel) supabase.removeChannel(presenceChannel); } catch {}
 
-      // 更新数据库为 offline（Web 设备）
       if (user && user.uid) await updateWebMonitorDB(user.uid, false, 'web');
 
       clearUser();
