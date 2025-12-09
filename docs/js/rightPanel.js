@@ -441,6 +441,7 @@ i// // js/rightPanel.js
 
 // js/rightPanel.js
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
@@ -476,7 +477,6 @@ async function updateWebMonitorDB(uid, online) {
   }
 }
 
-// 本地登出逻辑，不跳转，直接隐藏右侧面板 + 弹窗
 function performLogoutUIOnly() {
   clearUser();
   localStorage.removeItem('authToken');
@@ -495,9 +495,11 @@ function performLogoutUIOnly() {
 }
 
 export async function initRightPanel() {
-  const user = getUser(); 
+  const user = getUser();
+  console.log("user 对象:", user);
+  console.log("user.uid:", user?.uid);
+
   if (!user || !user.uid) return;
-  console.log("user 对象:", user);      
 
   const tabId = getTabId();
   console.log("This tab id =", tabId);
@@ -535,12 +537,7 @@ export async function initRightPanel() {
     .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
     .on(
       'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.app`
-      },
+      { event: '*', schema: 'public', table: 'web_monitor', filter: `uid=eq.${user.uid},device=eq.app` },
       (payload) => {
         const newData = payload.new;
         if (!newData) return;
@@ -588,40 +585,10 @@ export async function initRightPanel() {
     });
   }
 
-  // 6️⃣ 远程登出订阅id
+  // 6️⃣ 远程登出订阅
   if (!webLogoutChannel) {
     webLogoutChannel = supabase
       .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
-      .on(id
+      .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'web_monitor',
-          filter: `uid=eq.${user.uid},device=eq.web`
-        },
-        (payload) => {
-          console.log('-------------------------------------------------------------');
-          console.log('✅ Remote logout payload received:', payload);
-          const newData = payload.new;
-          console.log('🔍 newData:', newData);
-
-          if (!newData) {
-            console.log('⚠️ newData is null, skipping logout');
-            return;
-          }
-
-          if (newData.status === 'offline') {
-            console.log('🔴 Remote logout: triggering Logout button...');
-            const logoutBtn = document.getElementById('logout-btn');
-            console.log('Logout button:', logoutBtn);
-            if (logoutBtn) logoutBtn.click(); // 模拟点击
-          }
-        }
-      )
-      .subscribe();
-  }
-
-    console.log('🔔 Remote logout channel initialized.');
-  }
-}
+        { event: '*', schema: 'public', table: 'web_monitor', filter: `uid=eq.${user.uid}` },
