@@ -13,6 +13,20 @@ function getTabId() {
   return id;
 }
 
+// 写入 web_monitor 表
+async function updateWebMonitorDB(uid, online) {
+  const { error } = await supabase
+    .from("web_monitor")
+    .upsert({
+      uid,
+      status: online ? "online" : "offline",
+      device: "web",
+      last_seen: new Date().toISOString(),
+    }, { onConflict: "uid" });
+
+  if (error) console.error("web_monitor 更新失败:", error);
+}
+
 export function initRightPanel() {
   const userInfoEl = document.getElementById('user-info');
   const usernameEl = document.getElementById('username');
@@ -50,27 +64,36 @@ export function initRightPanel() {
 
     presenceChannel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
-        // track 时写入 tabId，多个 tab 会各自注册
+
+        // track 时写入 tabId
         await presenceChannel.track({
           tab_id: tabId,
           at: new Date().toISOString()
         });
 
         debugLog("Presence subscribed for tab:", tabId);
+
+        // 该 Tab 上线 → 立刻更新数据库
+        updateWebMonitorDB(user.uid, true);
         updateWebStatus(true);
       }
     });
 
     // 每次 presence 更新（有人上线/下线）
-    presenceChannel.on("presence", { event: "sync" }, () => {
+    presenceChannel.on("presence", { event: "sync" }, async () => {
       const state = presenceChannel.presenceState();
 
       const userEntries = state[user.uid] ?? [];
       const online = userEntries.length > 0;
 
+      // UI 更新
       updateWebStatus(online);
       debugLog("Presence sync:", state);
+
+      // 🟢 写入 web_monitor
+      await updateWebMonitorDB(user.uid, online);
     });
+
     // ---------- Presence 订阅结束 ----------
 
   } else {
@@ -92,6 +115,11 @@ export function initRightPanel() {
       if (modalMask) modalMask.style.display = 'flex';
       if (loginModal) loginModal.style.display = 'flex';
       if (registerModal) registerModal.style.display = 'none';
+
+      // 退出时写入 offline
+      if (user && user.uid) {
+        await updateWebMonitorDB(user.uid, false);
+      }
     });
   }
 }
