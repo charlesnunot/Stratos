@@ -1,6 +1,7 @@
 // js/auth.js
 import { setUser, getUser } from './userManager.js';
 import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './userService.js';
+import { initRightPanel } from './rightPanel.js';
 
 function generateDefaultNickname(email) {
   const prefix = email.split('@')[0] || 'User';
@@ -35,6 +36,7 @@ export async function initAuth() {
     document.getElementById('register-modal').style.display = 'none';
   } else {
     updateUI(user);
+    try { initRightPanel(); } catch (e) { console.warn('initRightPanel error on load', e); }
   }
 
   // 登录
