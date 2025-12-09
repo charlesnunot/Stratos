@@ -586,7 +586,7 @@ if (!webLogoutChannel) {
         event: '*',              
         schema: 'public',
         table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.web`,
+        filter: `uid=eq.${user.uid},
       },
       
       (payload) => {
