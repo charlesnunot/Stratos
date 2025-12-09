@@ -444,12 +444,14 @@
 // js/rightPanel.js
 // js/rightPanel.js
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
 let presenceChannel = null;
 let webMonitorChannel = null;
 let webLogoutChannel = null;
+let logoutTriggered = false; // 防止重复登出
 
 /** 生成 Tab ID */
 function getTabId() {
@@ -500,20 +502,25 @@ function performLogoutUIOnly() {
   if (registerModal) registerModal.style.display = "none";
 }
 
-/** 完整登出流程 */
+/** 完整登出 */
 async function performFullLogout(user) {
-  // 1️⃣ 更新 web_monitor 为 offline
+  if (logoutTriggered) return;
+  logoutTriggered = true;
+
+  console.log("🔴 执行完整登出流程...");
+
+  // 1️⃣ 更新 DB
   if (user && user.uid) await updateWebMonitorDB(user.uid, false);
 
-  // 2️⃣ 清理前端状态
+  // 2️⃣ 修改 UI
   performLogoutUIOnly();
 
-  // 3️⃣ 取消订阅
+  // 3️⃣ 移除订阅
   if (presenceChannel) supabase.removeChannel(presenceChannel);
   if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
   if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
 
-  console.log("✅ 用户已登出");
+  console.log("✅ 用户已登出，界面已显示登录");
 }
 
 /** 初始化 RightPanel */
@@ -522,6 +529,7 @@ export async function initRightPanel() {
   const user = getUser();
   console.log("user 对象:", user);
   console.log("user.uid:", user?.uid);
+
   if (!user || !user.uid) return;
 
   const tabId = getTabId();
@@ -556,7 +564,7 @@ export async function initRightPanel() {
     appStatusDot.style.backgroundColor = "#888";
   }
 
-  // 3️⃣ 订阅 APP 状态变化（展示用）
+  // 3️⃣ 订阅 APP 状态变化
   webMonitorChannel = supabase
     .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
     .on(
@@ -577,8 +585,11 @@ export async function initRightPanel() {
     )
     .subscribe();
 
-  // 4️⃣ Presence 订阅（多 Tab 在线状态）
-  presenceChannel = supabase.channel("web-presence", { config: { presence: { key: user.uid } } });
+  // 4️⃣ Presence 订阅
+  presenceChannel = supabase.channel("web-presence", {
+    config: { presence: { key: user.uid } }
+  });
+
   await presenceChannel.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
       await presenceChannel.track({ tab_id: tabId, at: new Date().toISOString() });
@@ -595,7 +606,10 @@ export async function initRightPanel() {
 
   // 5️⃣ 页面卸载 / 手动登出
   window.addEventListener("beforeunload", async () => {
-    await performFullLogout(user);
+    if (presenceChannel) supabase.removeChannel(presenceChannel);
+    if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
+    if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
+    if (user && user.uid) await updateWebMonitorDB(user.uid, false);
   });
 
   const logoutBtn = document.getElementById("logout-btn");
@@ -605,7 +619,7 @@ export async function initRightPanel() {
     });
   }
 
-  // 6️⃣ 远程登出订阅（Web → Web）
+  // 6️⃣ 远程登出订阅（Web offline）
   if (!webLogoutChannel) {
     console.log("🟡 初始化 remote logout channel ...");
 
@@ -613,18 +627,12 @@ export async function initRightPanel() {
       .channel(`remote-logout-${user.uid}`, { config: { broadcast: { self: true } } })
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "web_monitor"
-        },
+        { event: "*", schema: "public", table: "web_monitor" },
         async (payload) => {
           const row = payload.new;
           if (!row) return;
 
-          // 🔹 只处理我的 UID + Web 设备 + offline
           if (row.uid === user.uid && row.device === "web" && row.status === "offline") {
-            console.log("🔴 Web offline detected → perform full logout");
             await performFullLogout(user);
           }
         }
