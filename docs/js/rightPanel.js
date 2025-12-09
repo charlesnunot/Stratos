@@ -60,24 +60,25 @@ export async function initRightPanel() {
 
   // ------------------- 2️⃣ 订阅 web_monitor 表变化（仅 APP） -------------------
   webMonitorChannel = supabase
-    .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'web_monitor',
-        filter: `uid=eq.${user.uid},device=eq.app`, // 只监听 APP
-      },
-      (payload) => {
-        const newData = payload.new;
-        if (!newData) return;
+  .channel(`web_monitor-${user.uid}`, { config: { broadcast: { self: true } } })
+  .on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: 'web_monitor',
+      // ✅ 关键修改：device='app' 要加单引号
+      filter: `uid=eq.${user.uid},device=eq.'app'`,
+    },
+    (payload) => {
+      const newData = payload.new;
+      if (!newData) return;
 
-        appStatusText.textContent = `APP: ${newData.status}`;
-        appStatusDot.style.backgroundColor = newData.status === 'online' ? '#2ecc71' : '#888';
-      }
-    )
-    .subscribe();
+      appStatusText.textContent = `APP: ${newData.status}`;
+      appStatusDot.style.backgroundColor = newData.status === 'online' ? '#2ecc71' : '#888';
+    }
+  )
+  .subscribe();
 
   // ------------------- 3️⃣ Web Presence 订阅（同步自己在线状态到数据库） -------------------
   presenceChannel = supabase.channel("web-presence", { config: { presence: { key: user.uid } } });
