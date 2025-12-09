@@ -591,6 +591,7 @@ export async function initRightPanel() {
           if (newData.status === 'offline') {
             console.log('🔴 Remote logout: triggering Logout button...');
             const logoutBtn = document.getElementById('logout-btn');
+            console.log('Logout button:', document.getElementById('logout-btn'));
             if (logoutBtn) logoutBtn.click(); // 🔑 模拟点击
           }
         }
