@@ -620,6 +620,7 @@ export async function initRightPanel() {
         }
       )
       .subscribe();
+  }
 
     console.log('🔔 Remote logout channel initialized.');
   }
