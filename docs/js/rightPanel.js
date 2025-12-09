@@ -442,6 +442,7 @@
 
 // js/rightPanel.js
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
@@ -480,12 +481,28 @@ async function updateWebMonitorDB(uid, online) {
   }
 }
 
-/** 仅前端登出，不请求后端 */
-function performLogoutUIOnly() {
+/** 完整登出 Web，包括 UI、状态和订阅 */
+async function performFullLogout(user) {
+  if (!user?.uid) return;
+
+  // 1️⃣ 移除所有订阅
+  if (presenceChannel) supabase.removeChannel(presenceChannel);
+  if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
+  if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
+
+  presenceChannel = null;
+  webMonitorChannel = null;
+  webLogoutChannel = null;
+
+  // 2️⃣ 更新 Web 状态为 offline
+  await updateWebMonitorDB(user.uid, false);
+
+  // 3️⃣ 清理本地用户信息
   clearUser();
   localStorage.removeItem("authToken");
   localStorage.removeItem("username");
 
+  // 4️⃣ 显示登录界面
   const userInfoEl = document.getElementById("user-info");
   if (userInfoEl) userInfoEl.style.display = "none";
 
@@ -586,20 +603,13 @@ export async function initRightPanel() {
 
   // 5️⃣ 页面卸载 / 手动登出
   window.addEventListener("beforeunload", async () => {
-    if (presenceChannel) supabase.removeChannel(presenceChannel);
-    if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
-    if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
-    if (user && user.uid) await updateWebMonitorDB(user.uid, false);
+    await performFullLogout(user);
   });
 
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async () => {
-      if (presenceChannel) supabase.removeChannel(presenceChannel);
-      if (webMonitorChannel) supabase.removeChannel(webMonitorChannel);
-      if (webLogoutChannel) supabase.removeChannel(webLogoutChannel);
-      if (user && user.uid) await updateWebMonitorDB(user.uid, false);
-      performLogoutUIOnly();
+      await performFullLogout(user);
     });
   }
 
@@ -618,20 +628,18 @@ export async function initRightPanel() {
           schema: "public",
           table: "web_monitor"
         },
-        (payload) => {
-          console.log("🔥 Callback triggered:", payload);
-
+        async (payload) => {
           const row = payload.new;
           if (!row) return;
 
-          // 过滤：只处理我的 UID + APP 设备
+          // 只处理我的 UID + APP 设备
           if (row.uid !== user.uid) return;
           if (row.device !== "app") return;
 
           // APP → offline = 强制 web logout
           if (row.status === "offline") {
-            console.log("🔴 APP offline detected → logout web");
-            document.getElementById("logout-btn")?.click();
+            console.log("🔴 APP offline detected → perform full logout web");
+            await performFullLogout(user);
           }
         }
       )
