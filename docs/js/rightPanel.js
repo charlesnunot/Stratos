@@ -590,25 +590,25 @@ export async function initRightPanel() {
         {
           event: '*',
           schema: 'public',
-          table: 'web_monitor',
-          filter: `uid=eq.'${user.uid}',device=eq.'web'`
+          table: 'web_monitor'
         },
         (payload) => {
-          console.log('-------------------------------------------------------------');
-          console.log('✅ Remote logout payload received:', payload);
+          console.log("🔥 Callback triggered:", payload);
+    
           const newData = payload.new;
           if (!newData) return;
-  
+    
+          // 过滤：只处理我的 UID + APP 设备
+          if (newData.uid !== user.uid) return;
+          if (newData.device !== 'app') return;
+    
           if (newData.status === 'offline') {
-            const logoutBtn = document.getElementById('logout-btn');
-            console.log('🔴 Trigger logout button:', logoutBtn);
-            if (logoutBtn) logoutBtn.click();
+            console.log("🔴 APP offline detected → logout web");
+            document.getElementById('logout-btn')?.click();
           }
         }
       )
       .subscribe();
-  
-    console.log('🔔 Remote logout channel initialized.');
   }
 
 }
