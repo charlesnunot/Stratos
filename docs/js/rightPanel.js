@@ -542,7 +542,7 @@ function handleRemoteLogout(user) {
   const countdownEl = document.getElementById('logout-countdown');
   const logoutNowBtn = document.getElementById('logout-now-btn');
 
-  let countdown = 3;
+  let countdown = 5;
   countdownEl.textContent = countdown;
 
   const timer = setInterval(() => {
