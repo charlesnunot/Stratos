@@ -2,6 +2,7 @@
 import { setUser, getUser } from './userManager.js';
 import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './userService.js';
 import { initRightPanel } from './rightPanel.js';
+import { loginWithEmail } from './login.js';
 
 // 生成默认昵称
 function generateDefaultNickname(email) {
@@ -38,50 +39,24 @@ export async function initAuth() {
     document.getElementById('login-modal').style.display = 'flex';
     document.getElementById('register-modal').style.display = 'none';
   } else {
-    // 已登录，更新 UI 并初始化右侧面板
-    updateUI(user);
-    try { 
-      await initRightPanel(); 
-    } catch (e) { 
-      console.warn('initRightPanel error on load', e); 
-    }
+    // 已登录，初始化右侧面板
+    try { await initRightPanel(); } catch (e) { console.warn(e); }
   }
 
-  // -------------------- 登录 --------------------
   document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-
-    const { data: sessionData, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { 
-      alert(error.message); 
-      return; 
-    }
-
-    const uid = sessionData.user.id;
-    localStorage.setItem('authToken', sessionData?.access_token || '');
-
-    // 获取用户信息
-    let userProfile = await getUserProfile(uid);
-    const nickname = userProfile?.nickname || generateDefaultNickname(email);
-    if (!userProfile) userProfile = await upsertUserProfile({ uid, nickname });
-
-    const avatarUrl = await getUserAvatar(uid);
-    const newUser = { uid, email, nickname, avatarUrl, accessToken: sessionData?.access_token };
-
-    // 更新全局用户
-    setUser(newUser);
-    updateUI(newUser);
-
-    // ✅ 登录后立即初始化右侧面板（会写入 Web 在线状态）
     try {
-      await initRightPanel();
+      const user = await loginWithEmail(email, password);
+      // 更新 UI
+      updateUI(user);
     } catch (err) {
-      console.warn('initRightPanel error after login', err);
+      alert(err.message);
     }
   });
+
+  
 
   // -------------------- 注册 --------------------
   document.getElementById('register-form')?.addEventListener('submit', async (e) => {
