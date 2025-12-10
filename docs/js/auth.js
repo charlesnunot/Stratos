@@ -3,6 +3,7 @@ import { setUser, getUser } from './userManager.js';
 import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './userService.js';
 import { initRightPanel } from './rightPanel.js';
 import { loginWithEmail } from './login.js';
+import { registerWithEmail } from './register.js';
 
 // 生成默认昵称
 function generateDefaultNickname(email) {
@@ -56,33 +57,21 @@ export async function initAuth() {
     }
   });
 
-  
-
-  // -------------------- 注册 --------------------
   document.getElementById('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
-    const messageEl = document.getElementById('register-message');
-    if (messageEl) { 
-      messageEl.style.display = 'none'; 
-      messageEl.textContent = ''; 
-    }
-
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      if (messageEl) { 
+    try {
+      await registerWithEmail(email, password);
+      // 显示邮箱验证提示
+      document.getElementById('email-verification-modal').style.display = 'flex';
+    } catch (err) {
+      const messageEl = document.getElementById('register-message');
+      if (messageEl) {
         messageEl.style.color = 'red';
-        messageEl.textContent = error.message;
-        messageEl.style.display = 'block'; 
+        messageEl.textContent = err.message;
+        messageEl.style.display = 'block';
       }
-      return;
     }
-
-    // 显示邮箱验证提示
-    document.getElementById('email-verification-modal').style.display = 'flex';
-    document.getElementById('modal-mask').style.display = 'flex';
-    document.getElementById('register-modal').style.display = 'none';
   });
 }
