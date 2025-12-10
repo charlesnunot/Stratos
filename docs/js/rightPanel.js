@@ -1,4 +1,5 @@
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, clearUser } from './userManager.js';
 
@@ -37,28 +38,48 @@ async function updateWebMonitorDB(uid, online) {
   }
 }
 
-async function uploadAvatar(file, uid) {
-  const fileExt = file.name.split('.').pop();
-  const filePath = `avatars/${uid}.${fileExt}`;
+/* -------------------------------------------
+   新 Cloudinary 上传 (替换原来的 Supabase 上传)
+-------------------------------------------- */
+async function uploadAvatarWeb(file, onProgress) {
+  const cloudName = 'dpgkgtb5n';
+  const uploadPreset = 'rn_unsigned';
 
-  // 上传文件到 Storage
-  const { error: uploadError } = await supabase.storage
-    .from("avatars")
-    .upload(filePath, file, { upsert: true });
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", uploadPreset);
 
-  if (uploadError) {
-    console.error("头像上传失败:", uploadError);
-    return null;
-  }
+  return await new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/upload`);
 
-  // 获取可访问 URL
-  const { data: urlData } = supabase.storage
-    .from("avatars")
-    .getPublicUrl(filePath);
+    // 上传进度
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(event.loaded / event.total);
+      }
+    };
 
-  return urlData.publicUrl;
+    xhr.onload = () => {
+      const result = JSON.parse(xhr.responseText);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(result.secure_url);
+      } else {
+        console.error("Cloudinary 上传失败:", result);
+        resolve(null);
+      }
+    };
+
+    xhr.onerror = () => {
+      console.error("Cloudinary 上传错误");
+      resolve(null);
+    };
+
+    xhr.send(formData);
+  });
 }
 
+/** 更新用户头像 (Supabase users 表) */
 async function updateUserAvatar(uid, avatarUrl) {
   const { error } = await supabase
     .from("users")
@@ -69,8 +90,6 @@ async function updateUserAvatar(uid, avatarUrl) {
     console.error("用户头像更新失败:", error);
   }
 }
-
-
 
 /** 完整登出逻辑 */
 async function performFullLogout(user) {
@@ -94,7 +113,7 @@ async function performFullLogout(user) {
   // 更新数据库状态
   if (user && user.uid) await updateWebMonitorDB(user.uid, false);
 
-  // 显示登录 modal
+  // 显示登录 UI
   const userInfoEl = document.getElementById("user-info");
   if (userInfoEl) userInfoEl.style.display = "none";
 
@@ -157,6 +176,16 @@ export async function initRightPanel() {
   const avatarFile = document.getElementById("avatar-file");
   const avatarImg = document.getElementById("user-avatar");
 
+  console.log("initRightPanel 被调用！");
+  const user = getUser();
+  console.log("user 对象:", user);
+  console.log("user.uid:", user?.uid);
+
+  if (!user || !user.uid) return;
+
+  /* ----------------------------
+      头像上传功能 Web 版
+  ----------------------------- */
   avatarClick.addEventListener("click", () => {
     avatarFile.click();
   });
@@ -164,28 +193,30 @@ export async function initRightPanel() {
   avatarFile.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-  
+
     console.log("用户选中了头像文件:", file.name);
-  
-    // 上传头像
-    const avatarUrl = await uploadAvatar(file, user.uid);
-    if (!avatarUrl) return;
-  
-    // 更新数据库
+
+    // 本地预览
+    avatarImg.src = URL.createObjectURL(file);
+
+    // 上传到 Cloudinary
+    const avatarUrl = await uploadAvatarWeb(file, (p) => {
+      console.log("上传进度:", p);
+    });
+
+    if (!avatarUrl) {
+      alert("头像上传失败");
+      return;
+    }
+
+    // 更新 Supabase
     await updateUserAvatar(user.uid, avatarUrl);
-  
+
     // 更新前端显示
     avatarImg.src = avatarUrl;
-  
+
     console.log("头像上传与更新完成:", avatarUrl);
   });
-  
-  console.log("initRightPanel 被调用！");
-  const user = getUser();
-  console.log("user 对象:", user);
-  console.log("user.uid:", user?.uid);
-
-  if (!user || !user.uid) return;
 
   const tabId = getTabId();
   console.log("This tab id =", tabId);
@@ -304,4 +335,3 @@ export async function initRightPanel() {
       console.log("📡 Remote logout channel 状态:", s);
     });
 }
-
