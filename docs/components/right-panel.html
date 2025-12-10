@@ -20,6 +20,32 @@
       <span id="app-status-text">Checking App status...</span>
     </div>
     <div id="app-device-status"></div>
+    <!-- Profile Modal -->
+    <div class="profile-modal" id="profile-modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit Profile</h3>
+          <span id="profile-close" class="modal-close">&times;</span>
+        </div>
+    
+        <div class="modal-body">
+          <div class="profile-avatar-wrapper">
+            <img id="profile-avatar" src="https://via.placeholder.com/80" alt="Avatar">
+          </div>
+          <div class="profile-nickname-display" id="profile-nickname-display">Nickname</div>
+    
+          <input type="text" id="profile-nickname-input" placeholder="Enter your nickname">
+    
+          <p class="profile-hint">
+            Please avoid using unusual capitalization, punctuation, special characters, or random words in your nickname.
+          </p>
+        </div>
+    
+        <div class="modal-footer">
+          <button id="profile-save-btn">Save</button>
+        </div>
+      </div>
+    </div>
 
     <div class="notifications">
       <p>New message: User C commented on your post</p>
