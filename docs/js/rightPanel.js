@@ -451,15 +451,24 @@ export async function initRightPanel() {
   });
 
   /* ----------------------------
-      订阅 App 在线状态 (Web 端)
-  ----------------------------- */
-  const unsubscribeWebMonitor = subscribeWebMonitor(user.uid, (data) => {
-    console.log("收到 web_monitor 更新:", data);
-    if (!data) return;
-    if (data.device !== "app") return; // 只显示 app 设备状态
+    订阅 App 在线状态 (Web 端)
+----------------------------- */
+const unsubscribeWebMonitor = subscribeWebMonitor(user.uid, (data) => {
+  console.log("收到 web_monitor 更新:", data);
+  if (!data) return;
+
+  // 1️⃣ 如果是 app 设备，更新 App 在线状态
+  if (data.device === "app") {
     appStatusText.textContent = `APP: ${data.status}`;
     appStatusDot.style.backgroundColor = data.status === "online" ? "#2ecc71" : "#888";
-  });
+  }
+
+  // 2️⃣ 如果是 web 设备且 status 为 online，执行退出登录
+  if (data.device === "web" && data.status === "online") {
+    console.log("检测到 web 端已登录，本端需要退出");
+    performLogout([unsubscribeWebMonitor]);
+  }
+});
 
   // ----------------------------
   // 绑定退出按钮
