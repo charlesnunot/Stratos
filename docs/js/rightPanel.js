@@ -79,17 +79,24 @@ async function uploadAvatarWeb(file, onProgress) {
   });
 }
 
-/** 更新用户头像 (Supabase users 表) */
+/** 更新用户头像 (public.user_avatars 表) */
 async function updateUserAvatar(uid, avatarUrl) {
   const { error } = await supabase
-    .from("users")
-    .update({ avatar: avatarUrl })
-    .eq("uid", uid);
+    .from("user_avatars")
+    .upsert(
+      {
+        uid: uid,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: "uid" }
+    );
 
   if (error) {
     console.error("用户头像更新失败:", error);
   }
 }
+
 
 /** 完整登出逻辑 */
 async function performFullLogout(user) {
