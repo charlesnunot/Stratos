@@ -18,31 +18,39 @@ export async function initRightPanel() {
   if (!user || !user.uid) return;
 
   /* ----------------------------
-      头像上传
+    头像上传
   ----------------------------- */
   avatarClick?.addEventListener("click", () => {
-    avatarFile.value = "";
+    // 直接触发文件选择弹窗，不在此清空 value
     avatarFile.click();
   });
-
+  
   avatarFile?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
+  
+    // 本地预览
     avatarImg.src = URL.createObjectURL(file);
-
+  
+    // 上传到 Cloudinary
     const avatarUrl = await uploadAvatarWeb(file, (p) => {
       console.log("上传进度:", p);
     });
-
+  
     if (!avatarUrl) {
       alert("头像上传失败");
+      // 上传失败也清空 value，方便下次选择同一文件
+      avatarFile.value = "";
       return;
     }
-
+  
+    // 更新数据库头像
     await updateUserAvatar(user.uid, avatarUrl);
     avatarImg.src = avatarUrl;
     console.log("头像上传完成:", avatarUrl);
+  
+    // 上传完成后清空 value，以便下次选择同一文件
+    avatarFile.value = "";
   });
 
   /* ----------------------------
