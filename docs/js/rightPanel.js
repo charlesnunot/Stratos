@@ -194,6 +194,7 @@ export async function initRightPanel() {
       头像上传功能 Web 版
   ----------------------------- */
   avatarClick.addEventListener("click", () => {
+    avatarFile.value = "";
     avatarFile.click();
   });
 
