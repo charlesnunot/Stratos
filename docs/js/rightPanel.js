@@ -351,6 +351,7 @@
 // js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser } from './userManager.js';
+import { subscribeWebMonitor } from './subscribeWebMonitor.js';
 
 /* ----------------------------
    Cloudinary 上传头像
@@ -432,6 +433,7 @@ export async function initRightPanel() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // 本地预览
     avatarImg.src = URL.createObjectURL(file);
 
     const avatarUrl = await uploadAvatarWeb(file, (p) => {
@@ -449,27 +451,17 @@ export async function initRightPanel() {
   });
 
   /* ----------------------------
-      订阅 App 在线状态
+      订阅 App 在线状态 (Web 端)
   ----------------------------- */
-  const webMonitorChannel = supabase
-    .channel(`web_monitor-${user.uid}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "web_monitor",
-        // filter: `uid=eq.${user.uid},device=eq.app`
-        filter: `uid=eq.${user.uid}&device=eq.app`
-      },
-      (payload) => {
-        const row = payload.new;
-        if (!row) return;
-        appStatusText.textContent = `APP: ${row.status}`;
-        appStatusDot.style.backgroundColor =
-          row.status === "online" ? "#2ecc71" : "#888";
-      }
-    )
-    .subscribe();
-}
+  const unsubscribe = subscribeWebMonitor(user.uid, (data) => {
+    if (!data) return;
+    if (data.device !== "app") return;
+    appStatusText.textContent = `APP: ${data.status}`;
+    appStatusDot.style.backgroundColor = data.status === "online" ? "#2ecc71" : "#888";
+  });
 
+  // 页面卸载时取消订阅
+  window.addEventListener("beforeunload", () => {
+    unsubscribe();
+  });
+}
