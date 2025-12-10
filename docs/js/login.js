@@ -25,6 +25,23 @@ export async function loginWithEmail(email, password) {
 
   setUser(newUser);
 
+  // 登录成功后更新 web_monitor
+  try {
+    await supabase
+      .from('web_monitor')
+      .upsert(
+        {
+          uid: uid,
+          device: 'web',
+          status: 'online',
+          last_seen: new Date().toISOString()
+        },
+        { onConflict: ['uid', 'device'] }
+      );
+  } catch (e) {
+    console.error('更新 web_monitor 状态失败:', e);
+  }
+
   // 初始化右侧面板
   try {
     await initRightPanel();
