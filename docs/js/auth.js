@@ -33,7 +33,6 @@ function updateUI(user) {
 export async function initAuth() {
   let user = getUser();
   const token = localStorage.getItem('authToken');
-  const user = getUser();
 
   // 如果未登录，显示登录弹窗
   if (!token || !user) {
@@ -43,7 +42,7 @@ export async function initAuth() {
   } else {
     // 已登录，初始化右侧面板
     updateUI(user);
-    await initRightPanel();
+    try { await initRightPanel(); } catch (e) { console.warn(e); }
     return user;
   }
 
