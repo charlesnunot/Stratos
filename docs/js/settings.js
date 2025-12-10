@@ -1,7 +1,7 @@
 // js/settings.js
 
-// 切换右侧内容显示
-const menuItems = document.querySelectorAll('#settings-menu .menu-item');
+// 切换右侧内容显示（已有逻辑）
+const menuItems = document.querySelectorAll('#settings-menu .menu-item[data-section]');
 const sections = document.querySelectorAll('.settings-section');
 
 menuItems.forEach(item => {
@@ -13,19 +13,10 @@ menuItems.forEach(item => {
   });
 });
 
-// 示例：绑定 Logout 按钮
-const logoutBtn = document.getElementById('logout-btn');
-logoutBtn?.addEventListener('click', () => {
-  // 调用你的 performLogout 或跳转登录页
-  alert('Logging out...');
+// 主页按钮点击跳转
+const homeBtn = document.getElementById('home-btn');
+homeBtn?.addEventListener('click', () => {
+  window.location.href = 'index.html';
 });
 
-// 示例：绑定 Delete Account
-const deleteBtn = document.getElementById('delete-account-btn');
-deleteBtn?.addEventListener('click', () => {
-  if (confirm('Are you sure you want to delete your account?')) {
-    alert('Account deleted');
-    // 这里调用删除账户的逻辑
-  }
-});
 
