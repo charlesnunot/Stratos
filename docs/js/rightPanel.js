@@ -90,6 +90,7 @@ export async function initRightPanel() {
     // 更新昵称显示
     if (profile.nickname && usernameEl) {
       usernameEl.textContent = profile.nickname;
+      setUser(user); 
     }
 
     // 头像变化（如果你 user_profiles 有 avatar 字段）
