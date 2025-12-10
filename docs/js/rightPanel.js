@@ -5,6 +5,7 @@ import { subscribeWebMonitor } from './subscribeWebMonitor.js';
 import { subscribeUserAvatar } from './subscribeUserAvatar.js';
 import { performLogout } from './logout.js';
 import { initEditNickname } from './editNickname.js';
+import { subscribeUserProfile } from './userProfileSubscriber.js';   // ⭐ 新增：订阅昵称/资料更新
 
 /** 初始化 RightPanel */
 export async function initRightPanel() {
@@ -12,47 +13,43 @@ export async function initRightPanel() {
   const avatarFile = document.getElementById("avatar-file");
   const avatarImg = document.getElementById("user-avatar");
 
+  const usernameEl = document.getElementById("username"); // ⭐ 昵称显示位置
   const appStatusText = document.getElementById("app-status-text");
   const appStatusDot = document.getElementById("app-status-dot");
 
   const user = getUser();
   if (!user || !user.uid) return;
 
+  // 初始化昵称编辑 UI
   initEditNickname(user);
-  
+
   /* ----------------------------
-    头像上传
+      头像上传
   ----------------------------- */
   avatarClick?.addEventListener("click", () => {
-    // 直接触发文件选择弹窗，不在此清空 value
     avatarFile.click();
   });
-  
+
   avatarFile?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-  
-    // 本地预览
+
     avatarImg.src = URL.createObjectURL(file);
-  
-    // 上传到 Cloudinary
+
     const avatarUrl = await uploadAvatarWeb(file, (p) => {
       console.log("上传进度:", p);
     });
-  
+
     if (!avatarUrl) {
       alert("头像上传失败");
-      // 上传失败也清空 value，方便下次选择同一文件
       avatarFile.value = "";
       return;
     }
-  
-    // 更新数据库头像
+
     await updateUserAvatar(user.uid, avatarUrl);
     avatarImg.src = avatarUrl;
     console.log("头像上传完成:", avatarUrl);
-  
-    // 上传完成后清空 value，以便下次选择同一文件
+
     avatarFile.value = "";
   });
 
@@ -65,17 +62,18 @@ export async function initRightPanel() {
 
     if (data.device === "app") {
       appStatusText.textContent = `APP: ${data.status}`;
-      appStatusDot.style.backgroundColor = data.status === "online" ? "#2ecc71" : "#888";
+      appStatusDot.style.backgroundColor =
+        data.status === "online" ? "#2ecc71" : "#888";
     }
 
     if (data.device === "web" && data.status === "offline") {
       console.log("检测到 web 端已登录，本端需要退出");
-      performLogout([unsubscribeWebMonitor, unsubscribeAvatar]); // 退出时取消所有订阅
+      performLogout([unsubscribeWebMonitor, unsubscribeAvatar, unsubscribeProfile]);
     }
   });
 
   /* ----------------------------
-      订阅用户头像变化
+      订阅 用户头像变化
   ----------------------------- */
   const unsubscribeAvatar = subscribeUserAvatar(user.uid, (newUrl) => {
     if (avatarImg) avatarImg.src = newUrl;
@@ -83,16 +81,39 @@ export async function initRightPanel() {
   });
 
   /* ----------------------------
+      ⭐ 订阅 用户资料变化（昵称、头像、职业…）
+      自动同步更新右侧昵称，无需刷新页面
+  ----------------------------- */
+  const unsubscribeProfile = subscribeUserProfile(user.uid, (profile) => {
+    console.log("🎉 收到用户资料更新:", profile);
+
+    // 更新昵称显示
+    if (profile.nickname && usernameEl) {
+      usernameEl.textContent = profile.nickname;
+    }
+
+    // 头像变化（如果你 user_profiles 有 avatar 字段）
+    if (profile.avatar && avatarImg) {
+      avatarImg.src = profile.avatar;
+    }
+  });
+
+  /* ----------------------------
       绑定退出按钮
   ----------------------------- */
   const logoutBtn = document.getElementById("logout-btn");
   logoutBtn?.addEventListener("click", async () => {
-    await performLogout([unsubscribeWebMonitor, unsubscribeAvatar]);
+    await performLogout([
+      unsubscribeWebMonitor,
+      unsubscribeAvatar,
+      unsubscribeProfile
+    ]);
   });
 
-  // 页面卸载时取消所有订阅
+  // 页面卸载时取消订阅
   window.addEventListener("beforeunload", () => {
     unsubscribeWebMonitor();
     unsubscribeAvatar();
+    unsubscribeProfile();
   });
 }
