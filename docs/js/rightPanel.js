@@ -98,7 +98,7 @@ export async function initRightPanel() {
     if (profile.avatar && avatarImg) {
       avatarImg.src = profile.avatar;
       const u = getUser();
-      setUser({ ...u, avatarUrl: profile.avatarUrl });
+      setUser({ ...u, avatarUrl: profile.avatar });
     }
   });
 
