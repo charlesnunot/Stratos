@@ -68,7 +68,7 @@ export async function initAuth() {
   // 4️⃣ 已登录，更新 UI 并初始化右侧面板
   updateUI(currentUser);
   try { await initRightPanel(); } catch (e) { console.warn(e); }
-  await getAppStatusAndUpdateUI(uid);
+  await getAppStatusAndUpdateUI(currentUser.uid);
 
   return currentUser;
 }
