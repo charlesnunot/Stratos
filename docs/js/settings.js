@@ -13,10 +13,5 @@ menuItems.forEach(item => {
   });
 });
 
-// 主页按钮点击跳转
-const homeBtn = document.getElementById('home-btn');
-homeBtn?.addEventListener('click', () => {
-  window.location.href = 'index.html';
-});
 
 
