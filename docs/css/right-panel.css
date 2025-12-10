@@ -62,6 +62,14 @@
   border-radius: 50%;
 }
 
+#avatar-click-area {
+  cursor: pointer;
+}
+
+#avatar-click-area:hover {
+  opacity: 0.8;
+}
+
 /* 昵称 */
 .user-nickname {
   font-weight: bold;
