@@ -31,6 +31,7 @@ function updateUI(user) {
 }
 
 export async function initAuth() {
+  let user = getUser();
   const token = localStorage.getItem('authToken');
   const user = getUser();
 
@@ -41,7 +42,9 @@ export async function initAuth() {
     document.getElementById('register-modal').style.display = 'none';
   } else {
     // 已登录，初始化右侧面板
-    try { await initRightPanel(); } catch (e) { console.warn(e); }
+    updateUI(user);
+    await initRightPanel();
+    return user;
   }
 
   document.getElementById('login-form')?.addEventListener('submit', async (e) => {
