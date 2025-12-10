@@ -2,63 +2,8 @@
 import { supabase } from './userService.js';
 import { getUser } from './userManager.js';
 import { subscribeWebMonitor } from './subscribeWebMonitor.js';
+import { subscribeUserAvatar } from './subscribeUserAvatar.js';
 import { performLogout } from './logout.js';
-
-/* ----------------------------
-   Cloudinary 上传头像
------------------------------ */
-async function uploadAvatarWeb(file, onProgress) {
-  const cloudName = 'dpgkgtb5n';
-  const uploadPreset = 'rn_unsigned';
-
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", uploadPreset);
-
-  return await new Promise((resolve) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/upload`);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && onProgress) {
-        onProgress(event.loaded / event.total);
-      }
-    };
-
-    xhr.onload = () => {
-      const result = JSON.parse(xhr.responseText);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(result.secure_url);
-      } else {
-        console.error("Cloudinary 上传失败:", result);
-        resolve(null);
-      }
-    };
-
-    xhr.onerror = () => {
-      console.error("Cloudinary 上传错误");
-      resolve(null);
-    };
-
-    xhr.send(formData);
-  });
-}
-
-/** 更新用户头像 (Supabase user_avatars 表) */
-async function updateUserAvatar(uid, avatarUrl) {
-  const { error } = await supabase
-    .from("user_avatars")
-    .upsert(
-      {
-        uid: uid,
-        avatar_url: avatarUrl,
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: "uid" }
-    );
-
-  if (error) console.error("用户头像更新失败:", error);
-}
 
 /** 初始化 RightPanel */
 export async function initRightPanel() {
@@ -101,36 +46,42 @@ export async function initRightPanel() {
   });
 
   /* ----------------------------
-    订阅 App 在线状态 (Web 端)
------------------------------ */
-const unsubscribeWebMonitor = subscribeWebMonitor(user.uid, (data) => {
-  console.log("收到 web_monitor 更新:", data);
-  if (!data) return;
+      订阅 App 在线状态 (Web 端)
+  ----------------------------- */
+  const unsubscribeWebMonitor = subscribeWebMonitor(user.uid, (data) => {
+    console.log("收到 web_monitor 更新:", data);
+    if (!data) return;
 
-  // 1️⃣ 如果是 app 设备，更新 App 在线状态
-  if (data.device === "app") {
-    appStatusText.textContent = `APP: ${data.status}`;
-    appStatusDot.style.backgroundColor = data.status === "online" ? "#2ecc71" : "#888";
-  }
+    if (data.device === "app") {
+      appStatusText.textContent = `APP: ${data.status}`;
+      appStatusDot.style.backgroundColor = data.status === "online" ? "#2ecc71" : "#888";
+    }
 
-  // 2️⃣ 如果是 web 设备且 status 为 offline，执行退出登录
-  if (data.device === "web" && data.status === "offline") {
-    console.log("检测到 web 端已登录，本端需要退出");
-    performLogout([unsubscribeWebMonitor]);
-  }
-});
-
-  // ----------------------------
-  // 绑定退出按钮
-  // ----------------------------
-  const logoutBtn = document.getElementById("logout-btn");
-  logoutBtn?.addEventListener("click", async () => {
-    // 将需要取消的订阅通道传入 performLogout
-    await performLogout([/* 如果有其他通道，可以加入这里 */]);
+    if (data.device === "web" && data.status === "offline") {
+      console.log("检测到 web 端已登录，本端需要退出");
+      performLogout([unsubscribeWebMonitor, unsubscribeAvatar]); // 退出时取消所有订阅
+    }
   });
 
-  // 页面卸载时取消订阅
+  /* ----------------------------
+      订阅用户头像变化
+  ----------------------------- */
+  const unsubscribeAvatar = subscribeUserAvatar(user.uid, (newUrl) => {
+    if (avatarImg) avatarImg.src = newUrl;
+    console.log("Web 端头像更新为:", newUrl);
+  });
+
+  /* ----------------------------
+      绑定退出按钮
+  ----------------------------- */
+  const logoutBtn = document.getElementById("logout-btn");
+  logoutBtn?.addEventListener("click", async () => {
+    await performLogout([unsubscribeWebMonitor, unsubscribeAvatar]);
+  });
+
+  // 页面卸载时取消所有订阅
   window.addEventListener("beforeunload", () => {
     unsubscribeWebMonitor();
+    unsubscribeAvatar();
   });
 }
