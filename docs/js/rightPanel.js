@@ -1,6 +1,6 @@
 // js/rightPanel.js
 import { supabase } from './userService.js';
-import { getUser } from './userManager.js';
+import { getUser, setUser } from './userManager.js';
 import { subscribeWebMonitor } from './subscribeWebMonitor.js';
 import { subscribeUserAvatar } from './subscribeUserAvatar.js';
 import { performLogout } from './logout.js';
