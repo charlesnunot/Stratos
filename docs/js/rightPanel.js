@@ -459,7 +459,8 @@ export async function initRightPanel() {
         event: "*",
         schema: "public",
         table: "web_monitor",
-        filter: `uid=eq.${user.uid},device=eq.app`
+        // filter: `uid=eq.${user.uid},device=eq.app`
+        filter: `uid=eq.${user.uid}&device=eq.app`
       },
       (payload) => {
         const row = payload.new;
