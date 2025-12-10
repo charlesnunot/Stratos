@@ -25,7 +25,7 @@ export async function loginWithEmail(email, password) {
 
   setUser(newUser);
 
-  // 登录成功后更新 web_monitor
+  // 登录成功后更新 web_monitor (本 web 端在线状态)
   try {
     await supabase
       .from('web_monitor')
@@ -42,7 +42,28 @@ export async function loginWithEmail(email, password) {
     console.error('更新 web_monitor 状态失败:', e);
   }
 
-  // 初始化右侧面板
+  // ✅ 主动获取 app 设备状态并更新右侧面板
+  try {
+    const { data: appStatusRow, error: appStatusError } = await supabase
+      .from('web_monitor')
+      .select('status')
+      .eq('uid', uid)
+      .eq('device', 'app')
+      .single(); // 只取一条记录
+
+    if (appStatusError) {
+      console.error('获取 app 在线状态失败:', appStatusError);
+    } else if (appStatusRow) {
+      const appStatusText = document.getElementById('app-status-text');
+      const appStatusDot = document.getElementById('app-status-dot');
+      if (appStatusText) appStatusText.textContent = `APP: ${appStatusRow.status}`;
+      if (appStatusDot) appStatusDot.style.backgroundColor = appStatusRow.status === 'online' ? '#2ecc71' : '#888';
+    }
+  } catch (err) {
+    console.error('获取 app 状态异常:', err);
+  }
+
+  // 初始化右侧面板并开始订阅
   try {
     await initRightPanel();
   } catch (err) {
@@ -51,4 +72,3 @@ export async function loginWithEmail(email, password) {
 
   return newUser;
 }
-
