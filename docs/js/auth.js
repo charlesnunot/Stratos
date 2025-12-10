@@ -4,7 +4,7 @@ import { supabase, getUserAvatar, getUserProfile, upsertUserProfile } from './us
 import { initRightPanel } from './rightPanel.js';
 import { loginWithEmail } from './login.js';
 import { registerWithEmail } from './register.js';
-import { updateWebStatus } from './webMonitorService.js';
+import { updateWebStatus, getAppStatusAndUpdateUI } from './webMonitorService.js';
 
 // 生成默认昵称
 function generateDefaultNickname(email) {
@@ -68,7 +68,7 @@ export async function initAuth() {
   // 4️⃣ 已登录，更新 UI 并初始化右侧面板
   updateUI(currentUser);
   try { await initRightPanel(); } catch (e) { console.warn(e); }
-  updateWebStatus(currentUser.uid, 'online');
+  await getAppStatusAndUpdateUI(uid);
 
   return currentUser;
 }
