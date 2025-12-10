@@ -4,6 +4,7 @@ import { getUser } from './userManager.js';
 import { subscribeWebMonitor } from './subscribeWebMonitor.js';
 import { subscribeUserAvatar } from './subscribeUserAvatar.js';
 import { performLogout } from './logout.js';
+import { initEditNickname } from './editNickname.js';
 
 /** 初始化 RightPanel */
 export async function initRightPanel() {
@@ -17,6 +18,8 @@ export async function initRightPanel() {
   const user = getUser();
   if (!user || !user.uid) return;
 
+  initEditNickname(user);
+  
   /* ----------------------------
     头像上传
   ----------------------------- */
