@@ -193,6 +193,7 @@
     height: 80px;
     border-radius: 50%;
     overflow: hidden;
+    flex-shrink: 0;
   }
   
   .profile-avatar-wrapper img {
