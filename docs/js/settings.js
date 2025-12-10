@@ -1,3 +1,5 @@
+// js/settings.js
+
 // 切换右侧内容显示
 const menuItems = document.querySelectorAll('#settings-menu .menu-item');
 const sections = document.querySelectorAll('.settings-section');
