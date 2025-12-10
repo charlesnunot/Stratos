@@ -90,12 +90,15 @@ export async function initRightPanel() {
     // 更新昵称显示
     if (profile.nickname && usernameEl) {
       usernameEl.textContent = profile.nickname;
-      setUser(user); 
+      const u = getUser();
+      setUser({ ...u, nickname: profile.nickname });
     }
 
     // 头像变化（如果你 user_profiles 有 avatar 字段）
     if (profile.avatar && avatarImg) {
       avatarImg.src = profile.avatar;
+      const u = getUser();
+      setUser({ ...u, avatarUrl: profile.avatarUrl });
     }
   });
 
