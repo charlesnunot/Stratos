@@ -32,3 +32,37 @@ export async function updateWebStatus(uid, status = 'online') {
   }
 }
 
+
+/**
+ * 获取指定用户在 APP 设备上的在线状态，并更新页面右侧面板显示
+ * @param {string} uid 用户 ID
+ */
+export async function getAppStatusAndUpdateUI(uid) {
+  if (!uid) return;
+
+  try {
+    const { data: appStatusRow, error: appStatusError } = await supabase
+      .from('web_monitor')
+      .select('status')
+      .eq('uid', uid)
+      .eq('device', 'app')
+      .single();
+
+    if (appStatusError) {
+      console.error('获取 app 在线状态失败:', appStatusError);
+      return;
+    }
+
+    if (appStatusRow) {
+      const appStatusText = document.getElementById('app-status-text');
+      const appStatusDot = document.getElementById('app-status-dot');
+
+      if (appStatusText) appStatusText.textContent = `APP: ${appStatusRow.status}`;
+      if (appStatusDot) appStatusDot.style.backgroundColor =
+        appStatusRow.status === 'online' ? '#2ecc71' : '#888';
+    }
+  } catch (err) {
+    console.error('获取 app 状态异常:', err);
+  }
+}
+
