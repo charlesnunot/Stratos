@@ -454,6 +454,7 @@ export async function initRightPanel() {
       订阅 App 在线状态 (Web 端)
   ----------------------------- */
   const unsubscribe = subscribeWebMonitor(user.uid, (data) => {
+    console.log("收到 web_monitor 更新:", data);
     if (!data) return;
     if (data.device !== "app") return;
     appStatusText.textContent = `APP: ${data.status}`;
