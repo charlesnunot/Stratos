@@ -463,8 +463,8 @@ const unsubscribeWebMonitor = subscribeWebMonitor(user.uid, (data) => {
     appStatusDot.style.backgroundColor = data.status === "online" ? "#2ecc71" : "#888";
   }
 
-  // 2️⃣ 如果是 web 设备且 status 为 online，执行退出登录
-  if (data.device === "web" && data.status === "online") {
+  // 2️⃣ 如果是 web 设备且 status 为 offline，执行退出登录
+  if (data.device === "web" && data.status === "offline") {
     console.log("检测到 web 端已登录，本端需要退出");
     performLogout([unsubscribeWebMonitor]);
   }
