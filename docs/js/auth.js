@@ -31,20 +31,34 @@ function updateUI(user) {
 }
 
 export async function initAuth() {
-  let user = getUser();
-  const token = localStorage.getItem('authToken');
+  const user = getUser();
+  const tokenData = localStorage.getItem('sb-zquslphbmowkgrdlygza-auth-token');
 
-  // 如果未登录，显示登录弹窗
-  if (!token || !user) {
+  if (tokenData) {
+    const session = JSON.parse(tokenData);
+    // ⚠️ 让 Supabase SDK 使用这个 session
+    supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token
+    });
+  }
+
+  // 重新读取 token 和 user
+  const token = localStorage.getItem('authToken');
+  const currentUser = getUser();
+
+  if (!token || !currentUser) {
     document.getElementById('modal-mask').style.display = 'flex';
     document.getElementById('login-modal').style.display = 'flex';
-    document.getElementById('register-modal').style.display = 'none';
-  } else {
-    // 已登录，初始化右侧面板
-    updateUI(user);
-    try { await initRightPanel(); } catch (e) { console.warn(e); }
-    return user;
+    return null;
   }
+
+  // 已登录，更新 UI
+  updateUI(currentUser);
+  try { await initRightPanel(); } catch(e) { console.warn(e); }
+
+  return currentUser;
+}
 
   document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
