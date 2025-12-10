@@ -22,72 +22,94 @@ function updateUI(user) {
   const userInfo = document.getElementById('user-info');
 
   if (!user) return;
+
   if (usernameEl) usernameEl.textContent = user.nickname;
   if (avatarEl) avatarEl.src = user.avatarUrl;
   if (userInfo) userInfo.style.display = 'flex';
+
   if (modalMask) modalMask.style.display = 'none';
   if (loginModal) loginModal.style.display = 'none';
   if (registerModal) registerModal.style.display = 'none';
 }
 
+// 初始化 Auth
 export async function initAuth() {
-  const user = getUser();
+  // 1️⃣ 读取本地 Supabase session 并恢复
   const tokenData = localStorage.getItem('sb-zquslphbmowkgrdlygza-auth-token');
-
   if (tokenData) {
-    const session = JSON.parse(tokenData);
-    // ⚠️ 让 Supabase SDK 使用这个 session
-    supabase.auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token
-    });
+    try {
+      const session = JSON.parse(tokenData);
+      await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token
+      });
+    } catch (err) {
+      console.warn('恢复 Supabase session 失败', err);
+      localStorage.removeItem('sb-zquslphbmowkgrdlygza-auth-token');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('currentUser');
+    }
   }
 
-  // 重新读取 token 和 user
-  const token = localStorage.getItem('authToken');
+  // 2️⃣ 获取本地存储用户
   const currentUser = getUser();
+  const token = localStorage.getItem('authToken');
 
+  // 3️⃣ 如果用户或 token 不存在，显示登录弹窗
   if (!token || !currentUser) {
-    document.getElementById('modal-mask').style.display = 'flex';
-    document.getElementById('login-modal').style.display = 'flex';
+    const modalMask = document.getElementById('modal-mask');
+    const loginModal = document.getElementById('login-modal');
+    if (modalMask) modalMask.style.display = 'flex';
+    if (loginModal) loginModal.style.display = 'flex';
     return null;
   }
 
-  // 已登录，更新 UI
+  // 4️⃣ 已登录，更新 UI 并初始化右侧面板
   updateUI(currentUser);
-  try { await initRightPanel(); } catch(e) { console.warn(e); }
+  try { await initRightPanel(); } catch (e) { console.warn(e); }
 
   return currentUser;
 }
 
-  document.getElementById('login-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-    try {
-      const user = await loginWithEmail(email, password);
-      // 更新 UI
-      updateUI(user);
-    } catch (err) {
-      alert(err.message);
-    }
-  });
+// ------------------------------
+// 事件绑定：登录
+// ------------------------------
+document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  try {
+    const user = await loginWithEmail(email, password);
+    // 保存到本地
+    setUser(user);
+    localStorage.setItem('authToken', user.access_token);
+    // 更新 UI
+    updateUI(user);
+    // 初始化右侧面板
+    await initRightPanel();
+  } catch (err) {
+    alert(err.message);
+  }
+});
 
-  document.getElementById('register-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
-    try {
-      await registerWithEmail(email, password);
-      // 显示邮箱验证提示
-      document.getElementById('email-verification-modal').style.display = 'flex';
-    } catch (err) {
-      const messageEl = document.getElementById('register-message');
-      if (messageEl) {
-        messageEl.style.color = 'red';
-        messageEl.textContent = err.message;
-        messageEl.style.display = 'block';
-      }
+// ------------------------------
+// 事件绑定：注册
+// ------------------------------
+document.getElementById('register-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('register-email').value;
+  const password = document.getElementById('register-password').value;
+  try {
+    await registerWithEmail(email, password);
+    // 显示邮箱验证提示
+    const emailModal = document.getElementById('email-verification-modal');
+    if (emailModal) emailModal.style.display = 'flex';
+  } catch (err) {
+    const messageEl = document.getElementById('register-message');
+    if (messageEl) {
+      messageEl.style.color = 'red';
+      messageEl.textContent = err.message;
+      messageEl.style.display = 'block';
     }
-  });
-}
+  }
+});
