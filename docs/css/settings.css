@@ -1,1 +1,48 @@
+/* 左右布局 */
+#settings-container {
+  display: flex;
+  height: 100vh;
+  font-family: sans-serif;
+}
+
+/* 左侧菜单 */
+#settings-menu {
+  width: 250px;
+  border-right: 1px solid #ddd;
+  padding: 20px;
+  background-color: #f8f8f8;
+}
+
+.brand {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.menu-category {
+  font-size: 12px;
+  color: #888;
+  margin-top: 20px;
+  margin-bottom: 5px;
+}
+
+.menu-item {
+  cursor: pointer;
+  padding: 8px 0;
+  color: #333;
+}
+
+.menu-item:hover {
+  color: #007bff;
+}
+
+/* 右侧内容 */
+#settings-content {
+  flex: 1;
+  padding: 20px;
+}
+
+.settings-section h2 {
+  margin-top: 0;
+}
 
