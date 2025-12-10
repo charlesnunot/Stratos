@@ -75,6 +75,13 @@
   font-weight: bold;
   font-size: 16px;
   text-align: center;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.user-nickname:hover {
+  color: #2ecc71; /* 或其他高亮颜色 */
+  text-decoration: underline;
 }
 
 /* App 在线状态 */
