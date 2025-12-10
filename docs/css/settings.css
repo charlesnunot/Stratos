@@ -19,6 +19,24 @@
   margin-bottom: 20px;
 }
 
+.menu-item.home-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;            /* 图标和文字的间距 */
+  text-decoration: none; 
+  color: #333;
+  padding: 8px 0;
+}
+
+.menu-item.home-btn:hover {
+  color: #007bff;
+}
+
+.menu-item.home-btn .icon {
+  font-size: 16px;      /* 图标大小 */
+}
+
+
 .menu-category {
   font-size: 12px;
   color: #888;
