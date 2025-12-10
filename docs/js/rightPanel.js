@@ -352,6 +352,7 @@
 import { supabase } from './userService.js';
 import { getUser } from './userManager.js';
 import { subscribeWebMonitor } from './subscribeWebMonitor.js';
+import { performLogout } from './logout.js';
 
 /* ----------------------------
    Cloudinary 上传头像
@@ -409,7 +410,7 @@ async function updateUserAvatar(uid, avatarUrl) {
   if (error) console.error("用户头像更新失败:", error);
 }
 
-/** 初始化 RightPanel 简化版 */
+/** 初始化 RightPanel */
 export async function initRightPanel() {
   const avatarClick = document.getElementById("avatar-click-area");
   const avatarFile = document.getElementById("avatar-file");
@@ -433,7 +434,6 @@ export async function initRightPanel() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 本地预览
     avatarImg.src = URL.createObjectURL(file);
 
     const avatarUrl = await uploadAvatarWeb(file, (p) => {
@@ -453,16 +453,25 @@ export async function initRightPanel() {
   /* ----------------------------
       订阅 App 在线状态 (Web 端)
   ----------------------------- */
-  const unsubscribe = subscribeWebMonitor(user.uid, (data) => {
+  const unsubscribeWebMonitor = subscribeWebMonitor(user.uid, (data) => {
     console.log("收到 web_monitor 更新:", data);
     if (!data) return;
-    if (data.device !== "app") return;
+    if (data.device !== "app") return; // 只显示 app 设备状态
     appStatusText.textContent = `APP: ${data.status}`;
     appStatusDot.style.backgroundColor = data.status === "online" ? "#2ecc71" : "#888";
   });
 
+  // ----------------------------
+  // 绑定退出按钮
+  // ----------------------------
+  const logoutBtn = document.getElementById("logout-btn");
+  logoutBtn?.addEventListener("click", async () => {
+    // 将需要取消的订阅通道传入 performLogout
+    await performLogout([/* 如果有其他通道，可以加入这里 */]);
+  });
+
   // 页面卸载时取消订阅
   window.addEventListener("beforeunload", () => {
-    unsubscribe();
+    unsubscribeWebMonitor();
   });
 }
