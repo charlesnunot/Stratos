@@ -1,1 +1,44 @@
+<div id="address" class="settings-section">
+  <h2>Address</h2>
+  <p>Manage your address details.</p>
+
+  <!-- 表单 -->
+  <div class="address-form card">
+    <div class="form-item">
+      <label for="country">Country/Region</label>
+      <input type="text" id="country" placeholder="Enter country or region">
+    </div>
+
+    <div class="form-item">
+      <label for="state">State/Province/Region</label>
+      <input type="text" id="state" placeholder="Enter state or province">
+    </div>
+
+    <div class="form-item">
+      <label for="city">City</label>
+      <input type="text" id="city" placeholder="Enter city">
+    </div>
+
+    <div class="form-item">
+      <label for="street">Street</label>
+      <input type="text" id="street" placeholder="Enter street">
+    </div>
+
+    <div class="form-item">
+      <label for="postal">Postal Code (Optional)</label>
+      <input type="text" id="postal" placeholder="Enter postal code">
+    </div>
+
+    <button id="save-address-btn" class="save-btn">Save</button>
+  </div>
+
+  <!-- 已保存地址 -->
+  <div class="saved-addresses card" style="margin-top: 20px;">
+    <h3>Saved Addresses</h3>
+    <div id="saved-address-list">
+      <!-- 这里会动态展示用户已有的地址 -->
+      <p>No saved addresses yet.</p>
+    </div>
+  </div>
+</div>
 
