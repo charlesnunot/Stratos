@@ -1,1 +1,82 @@
+/* 页面简介 */
+.profile-desc {
+  margin-bottom: 15px;
+  color: #555;
+  max-width: 600px;
+}
+
+/* 订阅卡片容器 */
+.subscription-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+  margin-bottom: 20px;
+}
+
+/* 单个卡片 */
+.subscription-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e6e6e6;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.subscription-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.subscription-card .price {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.subscription-card .features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 14px;
+  color: #555;
+}
+
+.check-icon {
+  font-size: 20px;
+  color: #007bff;
+  display: none; /* 默认隐藏 */
+}
+
+/* 选中状态 */
+.subscription-card.selected {
+  border-color: #007bff;
+}
+
+.subscription-card.selected .check-icon {
+  display: block;
+}
+
+/* Subscribe 按钮 */
+.subscribe-btn {
+  background-color: #007bff;
+  color: #fff;
+  padding: 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  max-width: 600px;
+  width: 100%;
+  transition: background 0.2s;
+}
+
+.subscribe-btn:hover {
+  background-color: #0069d9;
+}
 
