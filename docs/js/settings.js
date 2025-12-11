@@ -1,6 +1,7 @@
 // js/settings.js
 import { performLogout } from './logout.js';
-import { ProfileModal } from './profileModal.js'; // 弹窗模块
+import { getUser } from './userManager.js';
+import { ProfileModal } from './profileModal.js'; 
 
 // ======================
 // 动态加载页面组件
@@ -44,6 +45,16 @@ document.querySelectorAll(".menu-item").forEach(item => {
     else if (sec === "delete-account") loadSection("delete-account");
   });
 });
+
+
+// 获取当前用户
+const currentUser = getUser();
+if (!currentUser || !currentUser.uid) {
+  alert("User not logged in, redirecting to login...");
+  window.location.href = "index.html";
+} else {
+  console.log("Current UID:", currentUser.uid);
+}
 
 // ======================
 // 页面交互统一管理
