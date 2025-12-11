@@ -1,5 +1,4 @@
 // js/systemMessages.js
-
 import { getSystemMessagesByUser } from './userService.js';
 
 /**
@@ -41,6 +40,12 @@ export async function loadSystemMessages(mountId, uid) {
     const messagesListEl = container.querySelector('.messages-list');
     const badgeEl = container.querySelector('.unread-badge');
 
+    // 绑定点击 header 跳转到消息列表页
+    const headerEl = container.querySelector('.header');
+    headerEl.addEventListener('click', () => {
+      window.location.href = 'system-messages.html'; // 替换成你的消息列表页路径
+    });
+
     if (unreadCount === 0) {
       messagesListEl.innerHTML = `<p class="no-messages">No new system messages</p>`;
       return;
@@ -65,11 +70,11 @@ export async function loadSystemMessages(mountId, uid) {
 
     // 绑定“Mark All Read”按钮
     const markAllBtn = container.querySelector('#mark-all-read-btn');
-    markAllBtn.addEventListener('click', () => {
-      // 这里你可以调用接口标记所有消息为已读，然后刷新
-      unreadMessages.forEach(msg => {
-        // TODO: 调用接口标记为已读
-      });
+    markAllBtn.addEventListener('click', async () => {
+      // TODO: 调用接口标记所有消息为已读
+      // 例如: await markAllMessagesRead(uid);
+
+      // 刷新消息
       loadSystemMessages(mountId, uid);
     });
 
