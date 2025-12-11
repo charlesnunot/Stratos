@@ -1,6 +1,8 @@
-// js/settings.js
+import { performLogout } from './logout.js';
 
+// ----------------------
 // 动态加载页面组件
+// ----------------------
 async function loadSection(fileName) {
   try {
     const res = await fetch(`components/${fileName}.html`);
@@ -16,7 +18,9 @@ async function loadSection(fileName) {
 // 默认加载 Profile
 loadSection("profile");
 
+// ----------------------
 // 左侧菜单切换
+// ----------------------
 document.querySelectorAll(".menu-item").forEach(item => {
   item.addEventListener("click", () => {
     const sec = item.dataset.section;
@@ -30,17 +34,20 @@ document.querySelectorAll(".menu-item").forEach(item => {
   });
 });
 
-// Address 页面交互逻辑：新增 / 编辑 / 删除地址
-document.addEventListener("click", (e) => {
+// ----------------------
+// 页面交互统一管理
+// ----------------------
+document.addEventListener("click", async (e) => {
+
+  // ---------- Address ----------
   const listEl = document.getElementById("saved-address-list");
 
-  // 保存新地址
   if (e.target.id === "save-address-btn") {
-    const country = document.getElementById("country").value.trim();
-    const state = document.getElementById("state").value.trim();
-    const city = document.getElementById("city").value.trim();
-    const street = document.getElementById("street").value.trim();
-    const postal = document.getElementById("postal").value.trim();
+    const country = document.getElementById("country")?.value.trim();
+    const state = document.getElementById("state")?.value.trim();
+    const city = document.getElementById("city")?.value.trim();
+    const street = document.getElementById("street")?.value.trim();
+    const postal = document.getElementById("postal")?.value.trim();
 
     if (!country && !state && !city && !street) {
       alert("Please enter at least one address field!");
@@ -49,12 +56,8 @@ document.addEventListener("click", (e) => {
 
     const newAddress = `${street}, ${city}, ${state}, ${country}${postal ? ', ' + postal : ''}`;
 
-    // 移除空提示
-    if (listEl && listEl.querySelector(".empty-text")) {
-      listEl.innerHTML = "";
-    }
+    if (listEl && listEl.querySelector(".empty-text")) listEl.innerHTML = "";
 
-    // 创建地址卡片
     const card = document.createElement("div");
     card.className = "address-card";
     card.innerHTML = `
@@ -64,17 +67,14 @@ document.addEventListener("click", (e) => {
         <button class="delete-btn">Delete</button>
       </div>
     `;
+    listEl?.appendChild(card);
 
-    listEl.appendChild(card);
-
-    // 清空表单
     ["country","state","city","street","postal"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
   }
 
-  // 删除地址
   if (e.target.classList.contains("delete-btn")) {
     const card = e.target.closest(".address-card");
     card?.remove();
@@ -83,26 +83,21 @@ document.addEventListener("click", (e) => {
     }
   }
 
-  // 编辑地址
   if (e.target.classList.contains("edit-btn")) {
     const card = e.target.closest(".address-card");
     const textParts = card.querySelector(".address-text").innerText.split(",").map(s => s.trim());
-
-    // 填充表单
     const [street, city, state, country, postal] = textParts;
-    if (document.getElementById("street")) document.getElementById("street").value = street || "";
-    if (document.getElementById("city")) document.getElementById("city").value = city || "";
-    if (document.getElementById("state")) document.getElementById("state").value = state || "";
-    if (document.getElementById("country")) document.getElementById("country").value = country || "";
-    if (document.getElementById("postal")) document.getElementById("postal").value = postal || "";
 
-    // 删除旧卡片
+    document.getElementById("street") && (document.getElementById("street").value = street || "");
+    document.getElementById("city") && (document.getElementById("city").value = city || "");
+    document.getElementById("state") && (document.getElementById("state").value = state || "");
+    document.getElementById("country") && (document.getElementById("country").value = country || "");
+    document.getElementById("postal") && (document.getElementById("postal").value = postal || "");
+
     card.remove();
   }
-});
 
-
-document.addEventListener("click", (e) => {
+  // ---------- Subscription ----------
   if (e.target.closest(".subscription-card")) {
     const card = e.target.closest(".subscription-card");
     document.querySelectorAll(".subscription-card").forEach(c => c.classList.remove("selected"));
@@ -115,47 +110,45 @@ document.addEventListener("click", (e) => {
     const plan = selected.dataset.plan;
     alert(`Subscribed to the ${plan} plan!`);
   }
-});
 
-document.addEventListener("click", (e) => {
-  // Minor Protection 点击
-  if (e.target.closest("#privacy .privacy-item") && e.target.closest("#privacy .privacy-item").id === "blacklist-item") {
-    alert("Go to Blacklist page or open modal");
-  }
-
-  const arrows = ["Minor Protection", "Privacy Policy", "Stratos Convention"];
+  // ---------- Privacy ----------
   const item = e.target.closest(".privacy-item");
-  if (item && arrows.includes(item.querySelector("span").innerText)) {
-    alert(`Clicked on ${item.querySelector("span").innerText}`);
+  if (item) {
+    const text = item.querySelector("span")?.innerText;
+
+    switch (text) {
+      case "Do Not Disturb":
+        console.log("Do Not Disturb:", document.getElementById("dnd-toggle")?.checked);
+        break;
+      case "Message Notifications":
+        console.log("Message Notifications:", document.getElementById("msg-toggle")?.checked);
+        break;
+      case "Minor Protection":
+      case "Privacy Policy":
+      case "Stratos Convention":
+        alert(`Clicked on ${text}`);
+        break;
+      case "Blacklist":
+        alert("Open Blacklist page/modal");
+        break;
+    }
   }
+
+  // ---------- Logout ----------
+  if (e.target.id === "logout-btn") {
+    try {
+      const channels = window.supabaseChannels || [];
+      await performLogout(channels);
+      window.location.href = 'index.html';
+    } catch (err) {
+      console.error("Logout failed:", err);
+      alert("Logout failed. Please try again.");
+    }
+  }
+
+  // ---------- Delete Account ----------
+  if (e.target.id === "delete-account-btn") {
+    alert("Delete Account functionality not implemented yet.");
+  }
+
 });
-
-document.addEventListener("click", (e) => {
-  // 开关状态日志，可保存到 localStorage 或接口
-  if (e.target.id === "dnd-toggle") {
-    console.log("Do Not Disturb:", e.target.checked);
-  }
-  if (e.target.id === "msg-toggle") {
-    console.log("Message Notifications:", e.target.checked);
-  }
-
-  // 跳转类点击
-  const item = e.target.closest(".privacy-item");
-  if (!item) return;
-
-  switch (item.querySelector("span").innerText) {
-    case "Minor Protection":
-      alert("Open Minor Protection settings");
-      break;
-    case "Privacy Policy":
-      alert("Open Privacy Policy page");
-      break;
-    case "Stratos Convention":
-      alert("Open Stratos Convention page");
-      break;
-    case "Blacklist":
-      alert("Open Blacklist page/modal");
-      break;
-  }
-});
-
