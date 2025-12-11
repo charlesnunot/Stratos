@@ -56,3 +56,32 @@ export async function upsertUserProfile(profile) {
     return null;
   }
 }
+
+// js/userService.js
+import { supabase } from './supabaseClient.js'; // 确保你在 web 端初始化了 supabase 实例
+
+/**
+ * 获取用户地址列表
+ * @param {string} uid - 用户 ID
+ * @returns {Promise<Array>} - 返回地址对象数组
+ */
+export async function getUserAddresses(uid) {
+  try {
+    const { data, error } = await supabase
+      .from('user_addresses')
+      .select('*')
+      .eq('uid', uid)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('获取用户地址失败:', error.message);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error('获取用户地址异常:', err);
+    return [];
+  }
+}
+
