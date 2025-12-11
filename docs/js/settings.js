@@ -1,12 +1,9 @@
 import { performLogout } from './logout.js';
 
-// ----------------------
-// 动态加载页面组件（仅针对需要 fetch 的页面）
-// ----------------------
+// ======================
+// 动态加载页面组件
+// ======================
 async function loadSection(fileName) {
-  // logout 和 delete-account 页面不再通过 fetch 加载
-  if (fileName === "logout" || fileName === "delete-account") return;
-
   try {
     const res = await fetch(`components/${fileName}.html`);
     if (!res.ok) throw new Error(`Failed to load ${fileName}.html`);
@@ -18,43 +15,34 @@ async function loadSection(fileName) {
   }
 }
 
-// 默认加载 Profile
+// 默认加载 Profile 页面
 loadSection("profile");
 
-// ----------------------
+// ======================
 // 左侧菜单切换
-// ----------------------
+// ======================
 document.querySelectorAll(".menu-item").forEach(item => {
   item.addEventListener("click", () => {
     const sec = item.dataset.section;
 
-    // 先隐藏所有 section
-    document.querySelectorAll(".settings-section").forEach(secEl => {
-      secEl.style.display = "none";
-    });
-
-    // 根据 section 显示或加载
     if (sec === "profile") loadSection("profile");
     else if (sec === "address") loadSection("address");
     else if (sec === "subscription") loadSection("subscription");
     else if (sec === "privacy") loadSection("privacy");
-    else if (sec === "logout") document.getElementById("logout").style.display = "block";
-    else if (sec === "delete-account") document.getElementById("delete-account").style.display = "block";
-
-    // 显示对应 section
-    const targetEl = document.getElementById(sec);
-    if (targetEl) targetEl.style.display = "block";
+    // else if (sec === "logout") loadSection("logout");
+    else if (sec === "delete-account") loadSection("delete-account");
   });
 });
 
-// ----------------------
+// ======================
 // 页面交互统一管理
-// ----------------------
+// ======================
 document.addEventListener("click", async (e) => {
 
-  // ---------- Address ----------
+  // ---------- Address 页面交互 ----------
   const listEl = document.getElementById("saved-address-list");
 
+  // 保存新地址
   if (e.target.id === "save-address-btn") {
     const country = document.getElementById("country")?.value.trim();
     const state = document.getElementById("state")?.value.trim();
@@ -68,6 +56,7 @@ document.addEventListener("click", async (e) => {
     }
 
     const newAddress = `${street}, ${city}, ${state}, ${country}${postal ? ', ' + postal : ''}`;
+
     if (listEl && listEl.querySelector(".empty-text")) listEl.innerHTML = "";
 
     const card = document.createElement("div");
@@ -87,6 +76,7 @@ document.addEventListener("click", async (e) => {
     });
   }
 
+  // 删除地址
   if (e.target.classList.contains("delete-btn")) {
     const card = e.target.closest(".address-card");
     card?.remove();
@@ -95,6 +85,7 @@ document.addEventListener("click", async (e) => {
     }
   }
 
+  // 编辑地址
   if (e.target.classList.contains("edit-btn")) {
     const card = e.target.closest(".address-card");
     const textParts = card.querySelector(".address-text").innerText.split(",").map(s => s.trim());
@@ -109,7 +100,7 @@ document.addEventListener("click", async (e) => {
     card.remove();
   }
 
-  // ---------- Subscription ----------
+  // ---------- Subscription 页面交互 ----------
   if (e.target.closest(".subscription-card")) {
     const card = e.target.closest(".subscription-card");
     document.querySelectorAll(".subscription-card").forEach(c => c.classList.remove("selected"));
@@ -123,7 +114,7 @@ document.addEventListener("click", async (e) => {
     alert(`Subscribed to the ${plan} plan!`);
   }
 
-  // ---------- Privacy ----------
+  // ---------- Privacy 页面交互 ----------
   const item = e.target.closest(".privacy-item");
   if (item) {
     const text = item.querySelector("span")?.innerText;
