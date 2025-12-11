@@ -13,6 +13,45 @@
   font-weight: bold;
 }
 
+.system-message.latest-unread {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 0 2px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.system-message.latest-unread .msg-title {
+  flex: 1;
+  font-weight: bold;
+}
+
+.system-message.latest-unread .msg-time {
+  font-size: 12px;
+  color: #888;
+  margin-left: 8px;
+}
+
+/* 红色未读徽章 */
+.system-message.latest-unread .msg-badge {
+  display: inline-block;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  background-color: #e74c3c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  border-radius: 50%;
+  margin-left: 8px;
+  padding: 0 5px;
+}
+
+
 .messages-list {
   display: flex;
   flex-direction: column;
