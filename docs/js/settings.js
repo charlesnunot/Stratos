@@ -1,4 +1,6 @@
+// js/settings.js
 import { performLogout } from './logout.js';
+import { ProfileModal } from './profileModal.js'; // 弹窗模块
 
 // ======================
 // 动态加载页面组件
@@ -48,6 +50,16 @@ document.querySelectorAll(".menu-item").forEach(item => {
 // 页面交互统一管理
 // ======================
 document.addEventListener("click", async (e) => {
+
+  // ---------- Profile 编辑弹窗 ----------
+  const cardItem = e.target.closest(".card-item");
+  if (cardItem) {
+    const valueEl = cardItem.querySelector(".value");
+    if (valueEl) {
+      const label = cardItem.querySelector(".label").innerText;
+      ProfileModal.open(valueEl.id, label, valueEl.innerText);
+    }
+  }
 
   // ---------- Address 页面交互 ----------
   const listEl = document.getElementById("saved-address-list");
