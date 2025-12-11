@@ -5,7 +5,9 @@ import { subscribeWebMonitor } from './subscribeWebMonitor.js';
 import { subscribeUserAvatar } from './subscribeUserAvatar.js';
 import { performLogout } from './logout.js';
 import { initEditNickname } from './editNickname.js';
-import { subscribeUserProfile } from './userProfileSubscriber.js';   // ⭐ 新增：订阅昵称/资料更新
+import { subscribeUserProfile } from './userProfileSubscriber.js';   
+import { loadSystemMessages } from './systemMessages.js';
+
 
 /** 初始化 RightPanel */
 export async function initRightPanel() {
@@ -16,6 +18,8 @@ export async function initRightPanel() {
   const usernameEl = document.getElementById("username"); // ⭐ 昵称显示位置
   const appStatusText = document.getElementById("app-status-text");
   const appStatusDot = document.getElementById("app-status-dot");
+
+  await loadSystemMessages('system-messages-mount', getUser().uid);
 
   const user = getUser();
   if (!user || !user.uid) return;
