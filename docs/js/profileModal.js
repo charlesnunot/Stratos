@@ -1,6 +1,6 @@
 // js/profileModal.js
 import { upsertUserProfile } from "./userService.js";
-import { getUser } from "./userManager.js";
+import { getUser, setUser } from "./userManager.js";
 
 // 完全动态生成 Profile 编辑弹窗
 export const ProfileModal = (() => {
