@@ -1,92 +1,91 @@
 // js/profileModal.js
 
 export const ProfileModal = (() => {
-  const modal = document.getElementById("profile-edit-modal");
+  // 创建 DOM
+  const modal = document.createElement("div");
+  modal.id = "profile-edit-modal";
+  modal.className = "modal";
+  modal.style.display = "none";
+
+  modal.innerHTML = `
+    <div class="modal-content">
+      <span class="close-btn">&times;</span>
+      <h3 id="modal-title">Edit</h3>
+      <div id="modal-input-container"></div>
+      <button id="modal-save-btn">Save</button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // DOM 元素
   const modalTitle = modal.querySelector("#modal-title");
-  const modalContent = modal.querySelector(".modal-content");
+  const modalInputContainer = modal.querySelector("#modal-input-container");
   const modalSaveBtn = modal.querySelector("#modal-save-btn");
   const modalCloseBtn = modal.querySelector(".close-btn");
 
   let currentFieldId = "";
-  let currentType = "text";
+  let currentInputEl = null;
 
   // 打开弹窗
-  const open = ({ fieldId, label, type = "text", options = [], currentValue = "" }) => {
+  const open = (fieldId, label, currentValue, type = "text", options = []) => {
     currentFieldId = fieldId;
-    currentType = type;
-
     modalTitle.innerText = `Edit ${label}`;
 
-    // 移除旧输入控件
-    const oldInput = modalContent.querySelector(".modal-input-wrapper");
-    if (oldInput) oldInput.remove();
+    // 清空旧输入
+    modalInputContainer.innerHTML = "";
 
-    // 创建输入控件
-    const wrapper = document.createElement("div");
-    wrapper.className = "modal-input-wrapper";
-
-    let inputEl;
-
-    switch (type) {
-      case "textarea":
-        inputEl = document.createElement("textarea");
-        inputEl.rows = 4;
-        inputEl.value = currentValue === "Loading..." ? "" : currentValue;
-        break;
-      case "select":
-        inputEl = document.createElement("select");
-        options.forEach(opt => {
-          const optionEl = document.createElement("option");
-          optionEl.value = opt;
-          optionEl.text = opt;
-          if (opt === currentValue) optionEl.selected = true;
-          inputEl.appendChild(optionEl);
-        });
-        break;
-      case "date":
-        inputEl = document.createElement("input");
-        inputEl.type = "date";
-        inputEl.value = currentValue ? currentValue : "";
-        break;
-      case "text":
-      default:
-        inputEl = document.createElement("input");
-        inputEl.type = "text";
-        inputEl.value = currentValue === "Loading..." ? "" : currentValue;
+    if (type === "text" || type === "date") {
+      const input = document.createElement("input");
+      input.type = type;
+      input.value = currentValue === "Loading..." ? "" : currentValue;
+      modalInputContainer.appendChild(input);
+      currentInputEl = input;
+    } else if (type === "textarea") {
+      const textarea = document.createElement("textarea");
+      textarea.rows = 4;
+      textarea.value = currentValue === "Loading..." ? "" : currentValue;
+      modalInputContainer.appendChild(textarea);
+      currentInputEl = textarea;
+    } else if (type === "select") {
+      const select = document.createElement("select");
+      options.forEach(opt => {
+        const optionEl = document.createElement("option");
+        optionEl.value = opt;
+        optionEl.innerText = opt;
+        if (opt === currentValue) optionEl.selected = true;
+        select.appendChild(optionEl);
+      });
+      modalInputContainer.appendChild(select);
+      currentInputEl = select;
     }
 
-    inputEl.id = "modal-input";
-    inputEl.className = "modal-input";
-    wrapper.appendChild(inputEl);
-
-    // 插入到 modalContent，Save 按钮前
-    modalContent.insertBefore(wrapper, modalSaveBtn);
-
     modal.style.display = "flex";
-    inputEl.focus();
+    currentInputEl.focus();
   };
 
+  // 关闭弹窗
   const close = () => {
     modal.style.display = "none";
   };
 
+  // 保存事件
   modalSaveBtn.addEventListener("click", () => {
-    const inputEl = modalContent.querySelector(".modal-input");
-    let newValue = inputEl.value.trim();
+    if (!currentInputEl) return;
+    const newValue = currentInputEl.value.trim();
     if (!newValue) return alert("Value cannot be empty!");
-
-    // 对 select 和 date 直接取 value
-    if (currentType === "select" || currentType === "date") {
-      newValue = inputEl.value;
-    }
-
     const valueEl = document.getElementById(currentFieldId);
     if (valueEl) valueEl.innerText = newValue;
     close();
   });
 
+  // 关闭按钮
   modalCloseBtn.addEventListener("click", close);
-  window.addEventListener("click", e => { if (e.target === modal) close(); });
+
+  // 点击遮罩关闭
+  window.addEventListener("click", (e) => {
+    if (e.target === modal) close();
+  });
 
   return { open, close };
 })();
