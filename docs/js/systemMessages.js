@@ -28,55 +28,75 @@ export async function loadSystemMessages(mountId, uid) {
 async function initSystemMessages(uid, mountEl) {
   if (!uid) return;
 
+  const listEl = mountEl.querySelector('#messages-list');
+  const markAllBtn = mountEl.querySelector('#mark-all-read-btn');
+
+  if (!listEl || !markAllBtn) return;
+
   try {
     // 1️⃣ 获取系统消息
     const messages = await getSystemMessagesByUser(uid);
 
-    if (!messages || messages.length === 0) {
-      mountEl.innerHTML = `<p class="no-messages">No system messages</p>`;
-      return;
-    }
+    // 2️⃣ 渲染消息
+    renderMessages(listEl, messages, uid);
 
-    // 2️⃣ 渲染消息列表
-    const listEl = document.createElement('div');
-    listEl.className = 'system-messages-list';
-
-    messages.forEach(msg => {
-      const item = document.createElement('div');
-      item.className = 'system-message-item';
-      // 判断是否已读
-      const readRecords = msg.system_message_reads || [];
-      if (!readRecords.find(r => r.user_id === uid)) {
-        item.classList.add('unread');
+    // 3️⃣ 全部标记已读
+    markAllBtn.addEventListener('click', async () => {
+      for (const msg of messages) {
+        await markMessageAsRead(uid, msg.id);
       }
-
-      item.innerHTML = `
-        <div class="msg-header">
-          <span class="msg-title">${msg.title || 'System Message'}</span>
-          <span class="msg-time">${new Date(msg.created_at).toLocaleString()}</span>
-        </div>
-        <div class="msg-body">${msg.content || ''}</div>
-      `;
-
-      // 点击标记已读
-      item.addEventListener('click', async () => {
-        if (!item.classList.contains('unread')) return;
-        item.classList.remove('unread');
-        try {
-          await markMessageAsRead(uid, msg.id);
-        } catch (err) {
-          console.error('标记已读失败:', err);
-        }
+      // 更新样式
+      listEl.querySelectorAll('.system-message.unread').forEach(el => {
+        el.classList.remove('unread');
+        el.classList.add('read');
       });
-
-      listEl.appendChild(item);
     });
-
-    mountEl.appendChild(listEl);
   } catch (err) {
     console.error('加载系统消息失败:', err);
-    mountEl.innerHTML = `<p class="error">Failed to load system messages</p>`;
+    listEl.innerHTML = `<p class="error">Failed to load system messages</p>`;
   }
+}
+
+/**
+ * 渲染消息列表
+ * @param {HTMLElement} listEl
+ * @param {Array} messages
+ * @param {string} uid
+ */
+function renderMessages(listEl, messages, uid) {
+  listEl.innerHTML = '';
+
+  if (!messages || messages.length === 0) {
+    listEl.innerHTML = `<p class="no-messages">No system messages</p>`;
+    return;
+  }
+
+  messages.forEach(msg => {
+    const readRecords = msg.system_message_reads || [];
+    const isRead = !!readRecords.find(r => r.user_id === uid);
+
+    const item = document.createElement('div');
+    item.className = `system-message ${isRead ? 'read' : 'unread'}`;
+    item.innerHTML = `
+      <p class="msg-text">${msg.title || 'System Message'}: ${msg.content || ''}</p>
+      <span class="msg-time">${new Date(msg.created_at).toLocaleString()}</span>
+      ${isRead ? '' : '<button class="mark-read-btn">Mark Read</button>'}
+    `;
+
+    // 点击标记单条已读
+    const markBtn = item.querySelector('.mark-read-btn');
+    if (markBtn) {
+      markBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await markMessageAsRead(uid, msg.id);
+        item.classList.remove('unread');
+        item.classList.add('read');
+        markBtn.remove();
+      });
+    }
+
+    listEl.appendChild(item);
+  });
 }
 
 /**
