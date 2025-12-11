@@ -2,6 +2,7 @@
 import { performLogout } from './logout.js';
 import { getUser } from './userManager.js';
 import { ProfileModal } from './profileModal.js'; 
+import { getUserProfile, upsertUserProfile } from './userService.js';
 
 // ======================
 // 动态加载页面组件
@@ -55,6 +56,27 @@ if (!currentUser || !currentUser.uid) {
 } else {
   console.log("Current UID:", currentUser.uid);
 }
+
+// --------------------------
+// 初始化 Profile 页面
+// --------------------------
+async function loadProfile() {
+  const uid = currentUser.uid;
+  const profile = await getUserProfile(uid);
+
+  if (!profile) return console.warn("No profile data found for user:", uid);
+
+  const fields = ['nickname','gender','birthday','region','occupation','school','bio','role'];
+  fields.forEach(f => {
+    const el = document.getElementById(`profile-${f}`);
+    if (el && profile[f] !== undefined && profile[f] !== null) {
+      el.innerText = profile[f];
+    }
+  });
+}
+
+// 页面加载时调用
+loadProfile();
 
 // ======================
 // 页面交互统一管理
