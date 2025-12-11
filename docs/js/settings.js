@@ -1,7 +1,7 @@
 // js/settings.js
 
 async function loadSection(fileName) {
-  const res = await fetch(`sections/${fileName}.html`);
+  const res = await fetch(`components/${fileName}.html`);
   const html = await res.text();
   document.getElementById("settings-content").innerHTML = html;
 }
