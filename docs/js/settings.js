@@ -32,7 +32,6 @@ document.querySelectorAll(".menu-item").forEach(item => {
     else if (sec === "subscription") loadSection("subscription");
     else if (sec === "privacy") loadSection("privacy");
     else if (sec === "logout") {
-      // 直接执行退出
       try {
         const channels = window.supabaseChannels || [];
         await performLogout(channels);
@@ -57,7 +56,17 @@ document.addEventListener("click", async (e) => {
     const valueEl = cardItem.querySelector(".value");
     if (valueEl) {
       const label = cardItem.querySelector(".label").innerText;
-      ProfileModal.open(valueEl.id, label, valueEl.innerText);
+      const fieldId = valueEl.id;
+
+      // 根据字段类型弹窗
+      let type = "text"; // 默认
+      let options = [];
+
+      if (fieldId === "profile-gender") type = "select", options = ["Male", "Female", "Other"];
+      else if (fieldId === "profile-birthday") type = "date";
+      else if (fieldId === "profile-bio") type = "textarea";
+
+      ProfileModal.open(fieldId, label, valueEl.innerText, type, options);
     }
   }
 
@@ -137,7 +146,6 @@ document.addEventListener("click", async (e) => {
   const item = e.target.closest(".privacy-item");
   if (item) {
     const text = item.querySelector("span")?.innerText;
-
     switch (text) {
       case "Do Not Disturb":
         console.log("Do Not Disturb:", document.getElementById("dnd-toggle")?.checked);
