@@ -2,8 +2,7 @@
 import { performLogout } from './logout.js';
 import { getUser } from './userManager.js';
 import { ProfileModal } from './profileModal.js'; 
-import { getUserProfile, upsertUserProfile } from './userService.js';
-import { getUserAddresses } from './userService.js';
+import { getUserProfile, upsertUserProfile, getUserAddresses, addUserAddress, deleteUserAddress, updateUserAddress } from './userService.js';
 
 // ======================
 // 动态加载页面组件
@@ -37,7 +36,6 @@ if (!currentUser || !currentUser.uid) {
 async function fillProfileData() {
   const uid = currentUser.uid;
   const profile = await getUserProfile(uid);
-
   if (!profile) return console.warn("No profile data found for user:", uid);
 
   const fields = ['nickname','gender','birthday','region','occupation','school','bio','role'];
@@ -54,7 +52,6 @@ async function fillProfileData() {
 // ======================
 async function initProfileSection() {
   await loadSection("profile");
-  // 等 DOM 渲染完成再填充数据
   await new Promise(resolve => requestAnimationFrame(resolve));
   await fillProfileData();
 }
@@ -62,34 +59,27 @@ async function initProfileSection() {
 // 页面加载时默认显示 Profile
 initProfileSection();
 
-
 // ======================
 // 初始化 Address 页面（加载 HTML + 填充数据）
 // ======================
 async function initAddressSection() {
-  // 1️⃣ 加载 HTML
   await loadSection("address");
-
-  // 2️⃣ 等 DOM 渲染完成
   await new Promise(resolve => requestAnimationFrame(resolve));
 
-  // 3️⃣ 获取用户地址数据
   const uid = currentUser.uid;
   const addresses = await getUserAddresses(uid);
 
   const listEl = document.getElementById("saved-address-list");
   if (!listEl) return;
-
-  // 4️⃣ 清空原来的内容
   listEl.innerHTML = "";
 
-  // 5️⃣ 渲染地址
   if (addresses.length === 0) {
     listEl.innerHTML = `<p class="empty-text">No saved addresses yet.</p>`;
   } else {
     addresses.forEach(addr => {
       const card = document.createElement("div");
       card.className = "address-card";
+      card.dataset.id = addr.id;
       card.innerHTML = `
         <div class="address-text">${addr.address}</div>
         <div class="address-actions">
@@ -158,6 +148,7 @@ document.addEventListener("click", async (e) => {
   // ---------- Address 页面交互 ----------
   const listEl = document.getElementById("saved-address-list");
 
+  // 新增 / 保存地址
   if (e.target.id === "save-address-btn") {
     const country = document.getElementById("country")?.value.trim();
     const state = document.getElementById("state")?.value.trim();
@@ -172,18 +163,34 @@ document.addEventListener("click", async (e) => {
 
     const newAddress = `${street}, ${city}, ${state}, ${country}${postal ? ', ' + postal : ''}`;
 
-    if (listEl && listEl.querySelector(".empty-text")) listEl.innerHTML = "";
+    let editingCard = document.querySelector(".address-card.editing");
+    if (editingCard) {
+      // 编辑模式
+      const id = parseInt(editingCard.dataset.id, 10);
+      const success = await updateUserAddress(id, newAddress);
+      if (!success) return alert("Failed to update address");
 
-    const card = document.createElement("div");
-    card.className = "address-card";
-    card.innerHTML = `
-      <div class="address-text">${newAddress}</div>
-      <div class="address-actions">
-        <button class="edit-btn">Edit</button>
-        <button class="delete-btn">Delete</button>
-      </div>
-    `;
-    listEl?.appendChild(card);
+      editingCard.querySelector(".address-text").innerText = newAddress;
+      editingCard.classList.remove("editing");
+    } else {
+      // 新增模式
+      const saved = await addUserAddress(currentUser.uid, newAddress);
+      if (!saved) return alert("Failed to save address");
+
+      if (listEl && listEl.querySelector(".empty-text")) listEl.innerHTML = "";
+
+      const card = document.createElement("div");
+      card.className = "address-card";
+      card.dataset.id = saved.id;
+      card.innerHTML = `
+        <div class="address-text">${saved.address}</div>
+        <div class="address-actions">
+          <button class="edit-btn">Edit</button>
+          <button class="delete-btn">Delete</button>
+        </div>
+      `;
+      listEl?.appendChild(card);
+    }
 
     ["country","state","city","street","postal"].forEach(id => {
       const el = document.getElementById(id);
@@ -191,14 +198,21 @@ document.addEventListener("click", async (e) => {
     });
   }
 
+  // 删除地址
   if (e.target.classList.contains("delete-btn")) {
     const card = e.target.closest(".address-card");
+    const id = parseInt(card.dataset.id, 10);
+    if (id) {
+      const success = await deleteUserAddress(id);
+      if (!success) return alert("Failed to delete address");
+    }
     card?.remove();
     if (listEl && !listEl.querySelector(".address-card")) {
       listEl.innerHTML = `<p class="empty-text">No saved addresses yet.</p>`;
     }
   }
 
+  // 编辑地址
   if (e.target.classList.contains("edit-btn")) {
     const card = e.target.closest(".address-card");
     const textParts = card.querySelector(".address-text").innerText.split(",").map(s => s.trim());
@@ -210,7 +224,7 @@ document.addEventListener("click", async (e) => {
     document.getElementById("country") && (document.getElementById("country").value = country || "");
     document.getElementById("postal") && (document.getElementById("postal").value = postal || "");
 
-    card.remove();
+    card.classList.add("editing"); // 标记为编辑状态
   }
 
   // ---------- Subscription 页面交互 ----------
