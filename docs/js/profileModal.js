@@ -1,7 +1,8 @@
 // js/profileModal.js
 
+// 完全动态生成 Profile 编辑弹窗
 export const ProfileModal = (() => {
-  // 创建 DOM
+  // 创建弹窗 DOM
   const modal = document.createElement("div");
   modal.id = "profile-edit-modal";
   modal.className = "modal";
@@ -35,6 +36,7 @@ export const ProfileModal = (() => {
     // 清空旧输入
     modalInputContainer.innerHTML = "";
 
+    // 创建对应输入类型
     if (type === "text" || type === "date") {
       const input = document.createElement("input");
       input.type = type;
@@ -79,7 +81,7 @@ export const ProfileModal = (() => {
     close();
   });
 
-  // 关闭按钮
+  // 点击关闭按钮
   modalCloseBtn.addEventListener("click", close);
 
   // 点击遮罩关闭
