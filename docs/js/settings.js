@@ -3,6 +3,7 @@ import { performLogout } from './logout.js';
 import { getUser } from './userManager.js';
 import { ProfileModal } from './profileModal.js'; 
 import { getUserProfile, upsertUserProfile } from './userService.js';
+import { getUserAddresses } from './userService.js';
 
 // ======================
 // 动态加载页面组件
@@ -61,6 +62,46 @@ async function initProfileSection() {
 // 页面加载时默认显示 Profile
 initProfileSection();
 
+
+// ======================
+// 初始化 Address 页面（加载 HTML + 填充数据）
+// ======================
+async function initAddressSection() {
+  // 1️⃣ 加载 HTML
+  await loadSection("address");
+
+  // 2️⃣ 等 DOM 渲染完成
+  await new Promise(resolve => requestAnimationFrame(resolve));
+
+  // 3️⃣ 获取用户地址数据
+  const uid = currentUser.uid;
+  const addresses = await getUserAddresses(uid);
+
+  const listEl = document.getElementById("saved-address-list");
+  if (!listEl) return;
+
+  // 4️⃣ 清空原来的内容
+  listEl.innerHTML = "";
+
+  // 5️⃣ 渲染地址
+  if (addresses.length === 0) {
+    listEl.innerHTML = `<p class="empty-text">No saved addresses yet.</p>`;
+  } else {
+    addresses.forEach(addr => {
+      const card = document.createElement("div");
+      card.className = "address-card";
+      card.innerHTML = `
+        <div class="address-text">${addr.address}</div>
+        <div class="address-actions">
+          <button class="edit-btn">Edit</button>
+          <button class="delete-btn">Delete</button>
+        </div>
+      `;
+      listEl.appendChild(card);
+    });
+  }
+}
+
 // ======================
 // 左侧菜单切换
 // ======================
@@ -71,7 +112,7 @@ document.querySelectorAll(".menu-item").forEach(item => {
     if (sec === "profile") {
       await initProfileSection();
     } else if (sec === "address") {
-      await loadSection("address");
+      await initAddressSection();
     } else if (sec === "subscription") {
       await loadSection("subscription");
     } else if (sec === "privacy") {
