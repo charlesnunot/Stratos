@@ -1,9 +1,12 @@
 import { performLogout } from './logout.js';
 
 // ----------------------
-// 动态加载页面组件
+// 动态加载页面组件（仅针对需要 fetch 的页面）
 // ----------------------
 async function loadSection(fileName) {
+  // logout 和 delete-account 页面不再通过 fetch 加载
+  if (fileName === "logout" || fileName === "delete-account") return;
+
   try {
     const res = await fetch(`components/${fileName}.html`);
     if (!res.ok) throw new Error(`Failed to load ${fileName}.html`);
@@ -25,12 +28,22 @@ document.querySelectorAll(".menu-item").forEach(item => {
   item.addEventListener("click", () => {
     const sec = item.dataset.section;
 
+    // 先隐藏所有 section
+    document.querySelectorAll(".settings-section").forEach(secEl => {
+      secEl.style.display = "none";
+    });
+
+    // 根据 section 显示或加载
     if (sec === "profile") loadSection("profile");
     else if (sec === "address") loadSection("address");
     else if (sec === "subscription") loadSection("subscription");
     else if (sec === "privacy") loadSection("privacy");
-    else if (sec === "logout") loadSection("logout");
-    else if (sec === "delete-account") loadSection("delete-account");
+    else if (sec === "logout") document.getElementById("logout").style.display = "block";
+    else if (sec === "delete-account") document.getElementById("delete-account").style.display = "block";
+
+    // 显示对应 section
+    const targetEl = document.getElementById(sec);
+    if (targetEl) targetEl.style.display = "block";
   });
 });
 
@@ -55,7 +68,6 @@ document.addEventListener("click", async (e) => {
     }
 
     const newAddress = `${street}, ${city}, ${state}, ${country}${postal ? ', ' + postal : ''}`;
-
     if (listEl && listEl.querySelector(".empty-text")) listEl.innerHTML = "";
 
     const card = document.createElement("div");
