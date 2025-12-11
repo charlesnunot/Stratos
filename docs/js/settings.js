@@ -22,14 +22,24 @@ loadSection("profile");
 // 左侧菜单切换
 // ======================
 document.querySelectorAll(".menu-item").forEach(item => {
-  item.addEventListener("click", () => {
+  item.addEventListener("click", async () => {
     const sec = item.dataset.section;
 
     if (sec === "profile") loadSection("profile");
     else if (sec === "address") loadSection("address");
     else if (sec === "subscription") loadSection("subscription");
     else if (sec === "privacy") loadSection("privacy");
-    // else if (sec === "logout") loadSection("logout");
+    else if (sec === "logout") {
+      // 直接执行退出
+      try {
+        const channels = window.supabaseChannels || [];
+        await performLogout(channels);
+        window.location.href = 'index.html';
+      } catch (err) {
+        console.error("Logout failed:", err);
+        alert("Logout failed. Please try again.");
+      }
+    }
     else if (sec === "delete-account") loadSection("delete-account");
   });
 });
@@ -42,7 +52,6 @@ document.addEventListener("click", async (e) => {
   // ---------- Address 页面交互 ----------
   const listEl = document.getElementById("saved-address-list");
 
-  // 保存新地址
   if (e.target.id === "save-address-btn") {
     const country = document.getElementById("country")?.value.trim();
     const state = document.getElementById("state")?.value.trim();
@@ -76,7 +85,6 @@ document.addEventListener("click", async (e) => {
     });
   }
 
-  // 删除地址
   if (e.target.classList.contains("delete-btn")) {
     const card = e.target.closest(".address-card");
     card?.remove();
@@ -85,7 +93,6 @@ document.addEventListener("click", async (e) => {
     }
   }
 
-  // 编辑地址
   if (e.target.classList.contains("edit-btn")) {
     const card = e.target.closest(".address-card");
     const textParts = card.querySelector(".address-text").innerText.split(",").map(s => s.trim());
@@ -137,7 +144,7 @@ document.addEventListener("click", async (e) => {
     }
   }
 
-  // ---------- Logout ----------
+  // ---------- Logout 页面交互（备用） ----------
   if (e.target.id === "logout-btn") {
     try {
       const channels = window.supabaseChannels || [];
