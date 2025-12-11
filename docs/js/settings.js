@@ -23,3 +23,32 @@ document.querySelectorAll(".menu-item").forEach(item => {
   });
 });
 
+document.addEventListener("click", (e) => {
+  if (e.target.id === "save-address-btn") {
+    const country = document.getElementById("country").value;
+    const state = document.getElementById("state").value;
+    const city = document.getElementById("city").value;
+    const street = document.getElementById("street").value;
+    const postal = document.getElementById("postal").value;
+
+    const newAddress = `${street}, ${city}, ${state}, ${country}${postal ? ', ' + postal : ''}`;
+
+    const listEl = document.getElementById("saved-address-list");
+    if (listEl.querySelector("p") && listEl.querySelector("p").innerText === "No saved addresses yet.") {
+      listEl.innerHTML = "";
+    }
+
+    const itemEl = document.createElement("p");
+    itemEl.innerText = newAddress;
+    listEl.appendChild(itemEl);
+
+    // 清空表单
+    document.getElementById("country").value = "";
+    document.getElementById("state").value = "";
+    document.getElementById("city").value = "";
+    document.getElementById("street").value = "";
+    document.getElementById("postal").value = "";
+  }
+});
+
+
