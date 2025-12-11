@@ -1,45 +1,92 @@
 // js/profileModal.js
 
 export const ProfileModal = (() => {
-  // 获取已经存在的 DOM
   const modal = document.getElementById("profile-edit-modal");
   const modalTitle = modal.querySelector("#modal-title");
-  const modalInput = modal.querySelector("#modal-input");
+  const modalContent = modal.querySelector(".modal-content");
   const modalSaveBtn = modal.querySelector("#modal-save-btn");
   const modalCloseBtn = modal.querySelector(".close-btn");
 
   let currentFieldId = "";
+  let currentType = "text";
 
   // 打开弹窗
-  const open = (fieldId, label, currentValue) => {
+  const open = ({ fieldId, label, type = "text", options = [], currentValue = "" }) => {
     currentFieldId = fieldId;
+    currentType = type;
+
     modalTitle.innerText = `Edit ${label}`;
-    modalInput.value = currentValue === "Loading..." ? "" : currentValue;
+
+    // 移除旧输入控件
+    const oldInput = modalContent.querySelector(".modal-input-wrapper");
+    if (oldInput) oldInput.remove();
+
+    // 创建输入控件
+    const wrapper = document.createElement("div");
+    wrapper.className = "modal-input-wrapper";
+
+    let inputEl;
+
+    switch (type) {
+      case "textarea":
+        inputEl = document.createElement("textarea");
+        inputEl.rows = 4;
+        inputEl.value = currentValue === "Loading..." ? "" : currentValue;
+        break;
+      case "select":
+        inputEl = document.createElement("select");
+        options.forEach(opt => {
+          const optionEl = document.createElement("option");
+          optionEl.value = opt;
+          optionEl.text = opt;
+          if (opt === currentValue) optionEl.selected = true;
+          inputEl.appendChild(optionEl);
+        });
+        break;
+      case "date":
+        inputEl = document.createElement("input");
+        inputEl.type = "date";
+        inputEl.value = currentValue ? currentValue : "";
+        break;
+      case "text":
+      default:
+        inputEl = document.createElement("input");
+        inputEl.type = "text";
+        inputEl.value = currentValue === "Loading..." ? "" : currentValue;
+    }
+
+    inputEl.id = "modal-input";
+    inputEl.className = "modal-input";
+    wrapper.appendChild(inputEl);
+
+    // 插入到 modalContent，Save 按钮前
+    modalContent.insertBefore(wrapper, modalSaveBtn);
+
     modal.style.display = "flex";
-    modalInput.focus();
+    inputEl.focus();
   };
 
-  // 关闭弹窗
   const close = () => {
     modal.style.display = "none";
   };
 
-  // 保存事件
   modalSaveBtn.addEventListener("click", () => {
-    const newValue = modalInput.value.trim();
+    const inputEl = modalContent.querySelector(".modal-input");
+    let newValue = inputEl.value.trim();
     if (!newValue) return alert("Value cannot be empty!");
+
+    // 对 select 和 date 直接取 value
+    if (currentType === "select" || currentType === "date") {
+      newValue = inputEl.value;
+    }
+
     const valueEl = document.getElementById(currentFieldId);
     if (valueEl) valueEl.innerText = newValue;
     close();
   });
 
-  // 关闭按钮
   modalCloseBtn.addEventListener("click", close);
-
-  // 点击遮罩关闭
-  window.addEventListener("click", (e) => {
-    if (e.target === modal) close();
-  });
+  window.addEventListener("click", e => { if (e.target === modal) close(); });
 
   return { open, close };
 })();
