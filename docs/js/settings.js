@@ -116,3 +116,27 @@ document.addEventListener("click", (e) => {
     alert(`Subscribed to the ${plan} plan!`);
   }
 });
+
+document.addEventListener("click", (e) => {
+  // Minor Protection 点击
+  if (e.target.closest("#privacy .privacy-item") && e.target.closest("#privacy .privacy-item").id === "blacklist-item") {
+    alert("Go to Blacklist page or open modal");
+  }
+
+  const arrows = ["Minor Protection", "Privacy Policy", "Stratos Convention"];
+  const item = e.target.closest(".privacy-item");
+  if (item && arrows.includes(item.querySelector("span").innerText)) {
+    alert(`Clicked on ${item.querySelector("span").innerText}`);
+  }
+});
+
+// 开关状态可保存到 localStorage 或调用接口
+document.getElementById("dnd-toggle").addEventListener("change", (e) => {
+  console.log("Do Not Disturb:", e.target.checked);
+  // localStorage.setItem('dnd', e.target.checked);
+});
+
+document.getElementById("msg-toggle").addEventListener("change", (e) => {
+  console.log("Message Notifications:", e.target.checked);
+});
+
