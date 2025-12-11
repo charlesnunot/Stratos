@@ -19,7 +19,9 @@ async function loadSection(fileName) {
   }
 }
 
+// ======================
 // 获取当前用户
+// ======================
 const currentUser = getUser();
 if (!currentUser || !currentUser.uid) {
   alert("User not logged in, redirecting to login...");
@@ -28,31 +30,35 @@ if (!currentUser || !currentUser.uid) {
   console.log("Current UID:", currentUser.uid);
 }
 
-// --------------------------
+// ======================
 // 填充 Profile 数据
-// --------------------------
+// ======================
 async function fillProfileData() {
-  if (!currentUser || !currentUser.uid) return;
+  const uid = currentUser.uid;
+  const profile = await getUserProfile(uid);
 
-  const profile = await getUserProfile(currentUser.uid);
-  if (!profile) return console.warn("No profile data found for user:", currentUser.uid);
+  if (!profile) return console.warn("No profile data found for user:", uid);
 
   const fields = ['nickname','gender','birthday','region','occupation','school','bio','role'];
   fields.forEach(f => {
     const el = document.getElementById(`profile-${f}`);
-    if (el) el.innerText = profile[f] ?? "";
+    if (el && profile[f] !== undefined && profile[f] !== null) {
+      el.innerText = profile[f];
+    }
   });
 }
 
-// --------------------------
-// 初始化 Profile 页面
-// --------------------------
+// ======================
+// 初始化 Profile 页面（加载 HTML + 填充数据）
+// ======================
 async function initProfileSection() {
-  await loadSection("profile");  // 先加载 HTML
-  await fillProfileData();       // 再填充数据
+  await loadSection("profile");
+  // 等 DOM 渲染完成再填充数据
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  await fillProfileData();
 }
 
-// 页面初始加载时默认加载 Profile
+// 页面加载时默认显示 Profile
 initProfileSection();
 
 // ======================
@@ -89,7 +95,6 @@ document.querySelectorAll(".menu-item").forEach(item => {
 // 页面交互统一管理
 // ======================
 document.addEventListener("click", async (e) => {
-
   // ---------- Profile 编辑弹窗 ----------
   const cardItem = e.target.closest(".card-item");
   if (cardItem) {
