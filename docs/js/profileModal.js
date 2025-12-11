@@ -1,25 +1,8 @@
 // js/profileModal.js
 
-// 创建 Profile 编辑弹窗组件
 export const ProfileModal = (() => {
-  // 创建 DOM
-  const modal = document.createElement("div");
-  modal.id = "profile-edit-modal";
-  modal.className = "modal";
-  modal.style.display = "none";
-  modal.innerHTML = `
-    <div class="modal-content">
-      <span class="close-btn">&times;</span>
-      <h3 id="modal-title">Edit</h3>
-      <input type="text" id="modal-input" placeholder="Enter value..." />
-      <button id="modal-save-btn">Save</button>
-    </div>
-  `;
-
-  // 添加到 body
-  document.body.appendChild(modal);
-
-  // DOM 元素
+  // 获取已经存在的 DOM
+  const modal = document.getElementById("profile-edit-modal");
   const modalTitle = modal.querySelector("#modal-title");
   const modalInput = modal.querySelector("#modal-input");
   const modalSaveBtn = modal.querySelector("#modal-save-btn");
@@ -60,4 +43,3 @@ export const ProfileModal = (() => {
 
   return { open, close };
 })();
-
