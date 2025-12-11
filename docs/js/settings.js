@@ -130,13 +130,32 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// 开关状态可保存到 localStorage 或调用接口
-document.getElementById("dnd-toggle").addEventListener("change", (e) => {
-  console.log("Do Not Disturb:", e.target.checked);
-  // localStorage.setItem('dnd', e.target.checked);
-});
+document.addEventListener("click", (e) => {
+  // 开关状态日志，可保存到 localStorage 或接口
+  if (e.target.id === "dnd-toggle") {
+    console.log("Do Not Disturb:", e.target.checked);
+  }
+  if (e.target.id === "msg-toggle") {
+    console.log("Message Notifications:", e.target.checked);
+  }
 
-document.getElementById("msg-toggle").addEventListener("change", (e) => {
-  console.log("Message Notifications:", e.target.checked);
+  // 跳转类点击
+  const item = e.target.closest(".privacy-item");
+  if (!item) return;
+
+  switch (item.querySelector("span").innerText) {
+    case "Minor Protection":
+      alert("Open Minor Protection settings");
+      break;
+    case "Privacy Policy":
+      alert("Open Privacy Policy page");
+      break;
+    case "Stratos Convention":
+      alert("Open Stratos Convention page");
+      break;
+    case "Blacklist":
+      alert("Open Blacklist page/modal");
+      break;
+  }
 });
 
