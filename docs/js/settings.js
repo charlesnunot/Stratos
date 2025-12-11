@@ -51,24 +51,26 @@ document.querySelectorAll(".menu-item").forEach(item => {
 document.addEventListener("click", async (e) => {
 
   // ---------- Profile 编辑弹窗 ----------
-  const cardItem = e.target.closest(".card-item");
-  if (cardItem) {
+  document.addEventListener("click", (e) => {
+    const cardItem = e.target.closest(".card-item");
+    if (!cardItem) return;
+    
     const valueEl = cardItem.querySelector(".value");
-    if (valueEl) {
-      const label = cardItem.querySelector(".label").innerText;
-      const fieldId = valueEl.id;
-
-      // 根据字段类型弹窗
-      let type = "text"; // 默认
-      let options = [];
-
-      if (fieldId === "profile-gender") type = "select", options = ["Male", "Female", "Other"];
-      else if (fieldId === "profile-birthday") type = "date";
-      else if (fieldId === "profile-bio") type = "textarea";
-
-      ProfileModal.open(fieldId, label, valueEl.innerText, type, options);
-    }
-  }
+    if (!valueEl) return;
+  
+    const label = cardItem.querySelector(".label").innerText;
+    const fieldId = valueEl.id;
+  
+    // 根据字段类型选择弹窗
+    let type = "text";
+    let options = [];
+  
+    if (fieldId === "profile-gender") type = "select", options = ["Male", "Female", "Other"];
+    else if (fieldId === "profile-birthday") type = "date";
+    else if (fieldId === "profile-bio") type = "textarea";
+  
+    ProfileModal.open(fieldId, label, valueEl.innerText, type, options);
+  });
 
   // ---------- Address 页面交互 ----------
   const listEl = document.getElementById("saved-address-list");
