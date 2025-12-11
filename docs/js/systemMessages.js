@@ -42,9 +42,8 @@ export async function loadSystemMessages(mountId, uid) {
     // 5️⃣ 渲染最新消息（标题 + 日期）
     const item = document.createElement('div');
     item.className = 'system-message latest-unread';
-    item.style.cursor = 'pointer';
     item.innerHTML = `
-      <strong class="msg-title">${latest.title}</strong>
+      <span class="msg-title">${latest.title}</span>
       <span class="msg-time">${new Date(latest.created_at).toLocaleString()}</span>
     `;
     item.addEventListener('click', () => {
