@@ -157,3 +157,40 @@ export async function deleteUserAddress(id) {
     return false;
   }
 }
+
+
+/**
+ * 获取指定用户的系统消息
+ * @param {string} userId 用户 ID
+ * @returns {Promise<SystemMessage[]>} 系统消息数组
+ */
+export async function getSystemMessagesByUser(userId) {
+  if (!userId) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from("system_messages")
+      .select(`
+        *,
+        system_message_metadata (*),
+        system_message_reads (
+          user_id,
+          message_id,
+          read_at
+        )
+      `)
+      .or(`target_user.eq.${userId},target_user.is.null`) 
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error('Supabase error fetching system messages:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error('获取系统消息异常:', err);
+    return [];
+  }
+}
+
