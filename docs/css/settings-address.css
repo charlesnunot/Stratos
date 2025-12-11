@@ -12,8 +12,10 @@
   padding: 16px;
   border: 1px solid #e6e6e6;
   max-width: 600px;
+  width: 100%;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   margin-bottom: 20px;
+  box-sizing: border-box;
 }
 
 .address-form .form-item {
@@ -27,6 +29,7 @@
   border-radius: 8px;
   border: 1px solid #ccc;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .address-form input:focus {
