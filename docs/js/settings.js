@@ -103,26 +103,16 @@ document.addEventListener("click", (e) => {
 
 
 document.addEventListener("click", (e) => {
-  // 订阅卡片点击
   if (e.target.closest(".subscription-card")) {
     const card = e.target.closest(".subscription-card");
-
-    // 清除其他卡片选中状态
     document.querySelectorAll(".subscription-card").forEach(c => c.classList.remove("selected"));
-
-    // 设置当前卡片为选中
     card.classList.add("selected");
   }
 
-  // Subscribe 按钮点击
   if (e.target.id === "subscribe-btn") {
     const selected = document.querySelector(".subscription-card.selected");
-    if (!selected) {
-      alert("Please select a subscription plan.");
-      return;
-    }
+    if (!selected) return alert("Please select a plan!");
     const plan = selected.dataset.plan;
-    alert(`You subscribed to the ${plan} plan!`);
-    // 这里可以调用接口进行实际订阅操作
+    alert(`Subscribed to the ${plan} plan!`);
   }
 });
