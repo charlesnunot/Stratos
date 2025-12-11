@@ -19,35 +19,6 @@ async function loadSection(fileName) {
   }
 }
 
-// 默认加载 Profile 页面
-loadSection("profile");
-
-// ======================
-// 左侧菜单切换
-// ======================
-document.querySelectorAll(".menu-item").forEach(item => {
-  item.addEventListener("click", async () => {
-    const sec = item.dataset.section;
-
-    if (sec === "profile") loadSection("profile");
-    else if (sec === "address") loadSection("address");
-    else if (sec === "subscription") loadSection("subscription");
-    else if (sec === "privacy") loadSection("privacy");
-    else if (sec === "logout") {
-      try {
-        const channels = window.supabaseChannels || [];
-        await performLogout(channels);
-        window.location.href = 'index.html';
-      } catch (err) {
-        console.error("Logout failed:", err);
-        alert("Logout failed. Please try again.");
-      }
-    }
-    else if (sec === "delete-account") loadSection("delete-account");
-  });
-});
-
-
 // 获取当前用户
 const currentUser = getUser();
 if (!currentUser || !currentUser.uid) {
@@ -58,25 +29,61 @@ if (!currentUser || !currentUser.uid) {
 }
 
 // --------------------------
-// 初始化 Profile 页面
+// 填充 Profile 数据
 // --------------------------
-async function loadProfile() {
-  const uid = currentUser.uid;
-  const profile = await getUserProfile(uid);
+async function fillProfileData() {
+  if (!currentUser || !currentUser.uid) return;
 
-  if (!profile) return console.warn("No profile data found for user:", uid);
+  const profile = await getUserProfile(currentUser.uid);
+  if (!profile) return console.warn("No profile data found for user:", currentUser.uid);
 
   const fields = ['nickname','gender','birthday','region','occupation','school','bio','role'];
   fields.forEach(f => {
     const el = document.getElementById(`profile-${f}`);
-    if (el && profile[f] !== undefined && profile[f] !== null) {
-      el.innerText = profile[f];
-    }
+    if (el) el.innerText = profile[f] ?? "";
   });
 }
 
-// 页面加载时调用
-loadProfile();
+// --------------------------
+// 初始化 Profile 页面
+// --------------------------
+async function initProfileSection() {
+  await loadSection("profile");  // 先加载 HTML
+  await fillProfileData();       // 再填充数据
+}
+
+// 页面初始加载时默认加载 Profile
+initProfileSection();
+
+// ======================
+// 左侧菜单切换
+// ======================
+document.querySelectorAll(".menu-item").forEach(item => {
+  item.addEventListener("click", async () => {
+    const sec = item.dataset.section;
+
+    if (sec === "profile") {
+      await initProfileSection();
+    } else if (sec === "address") {
+      await loadSection("address");
+    } else if (sec === "subscription") {
+      await loadSection("subscription");
+    } else if (sec === "privacy") {
+      await loadSection("privacy");
+    } else if (sec === "logout") {
+      try {
+        const channels = window.supabaseChannels || [];
+        await performLogout(channels);
+        window.location.href = 'index.html';
+      } catch (err) {
+        console.error("Logout failed:", err);
+        alert("Logout failed. Please try again.");
+      }
+    } else if (sec === "delete-account") {
+      await loadSection("delete-account");
+    }
+  });
+});
 
 // ======================
 // 页面交互统一管理
@@ -84,26 +91,23 @@ loadProfile();
 document.addEventListener("click", async (e) => {
 
   // ---------- Profile 编辑弹窗 ----------
-  document.addEventListener("click", (e) => {
-    const cardItem = e.target.closest(".card-item");
-    if (!cardItem) return;
-    
+  const cardItem = e.target.closest(".card-item");
+  if (cardItem) {
     const valueEl = cardItem.querySelector(".value");
-    if (!valueEl) return;
-  
-    const label = cardItem.querySelector(".label").innerText;
-    const fieldId = valueEl.id;
-  
-    // 根据字段类型选择弹窗
-    let type = "text";
-    let options = [];
-  
-    if (fieldId === "profile-gender") type = "select", options = ["Male", "Female", "Other"];
-    else if (fieldId === "profile-birthday") type = "date";
-    else if (fieldId === "profile-bio") type = "textarea";
-  
-    ProfileModal.open(fieldId, label, valueEl.innerText, type, options);
-  });
+    if (valueEl) {
+      const label = cardItem.querySelector(".label").innerText;
+      const fieldId = valueEl.id;
+
+      let type = "text";
+      let options = [];
+
+      if (fieldId === "profile-gender") type = "select", options = ["Male", "Female", "Other"];
+      else if (fieldId === "profile-birthday") type = "date";
+      else if (fieldId === "profile-bio") type = "textarea";
+
+      ProfileModal.open(fieldId, label, valueEl.innerText, type, options);
+    }
+  }
 
   // ---------- Address 页面交互 ----------
   const listEl = document.getElementById("saved-address-list");
@@ -199,7 +203,7 @@ document.addEventListener("click", async (e) => {
     }
   }
 
-  // ---------- Logout 页面交互（备用） ----------
+  // ---------- Logout 页面交互 ----------
   if (e.target.id === "logout-btn") {
     try {
       const channels = window.supabaseChannels || [];
@@ -215,5 +219,4 @@ document.addEventListener("click", async (e) => {
   if (e.target.id === "delete-account-btn") {
     alert("Delete Account functionality not implemented yet.");
   }
-
 });
