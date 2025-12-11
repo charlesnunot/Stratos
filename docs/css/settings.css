@@ -80,54 +80,62 @@ body {
   background-color: #ffffff;
 }
 
-/* Profile Section */
-.profile-desc {
-  color: #555;
-  margin-bottom: 20px;
-  font-size: 14px;
+/* --- Card Style Container --- */
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e6e6e6;
+  max-width: 600px;
 }
 
-/* 列表整体容器 */
-.profile-list {
-  margin-top: 10px;
-}
-
-/* 单行条目样式 */
-.profile-item {
+/* --- Single Row Item --- */
+.card-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-
-  padding: 14px 0;
-  border-bottom: 1px solid #eee;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
 }
 
-.profile-item:hover {
-  background-color: #f8f8f8;
+.card-item:last-child {
+  border-bottom: none;
 }
 
-/* 左侧 */
-.profile-item .left {
+.card-item:hover {
+  background: #f8f9fa;
+}
+
+/* Left content */
+.card-item .left {
   display: flex;
   flex-direction: column;
 }
 
-.profile-item .label {
+.card-item .label {
   font-size: 13px;
-  color: #888;
+  color: #666;
 }
 
-.profile-item .value {
+.card-item .value {
   font-size: 15px;
-  color: #333;
+  color: #111;
   margin-top: 3px;
 }
 
-/* 右侧箭头 */
-.profile-item .arrow i {
+/* Arrow icon */
+.card-item .arrow {
   font-size: 14px;
-  color: #aaa;
+  color: #9aa0a6;
+}
+
+
+/* Intro text */
+.profile-desc {
+  margin-bottom: 15px;
+  color: #555;
+  max-width: 600px;
 }
 
 
