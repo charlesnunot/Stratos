@@ -1,5 +1,6 @@
 <!-- Stratos/docs/components/right-panel.html-->
 <link rel="stylesheet" href="css/right-panel.css">
+<link rel="stylesheet" href="css/system-messages.css">
 
 <div class="right-panel" id="right-panel">
   <div class="app-download">
@@ -47,11 +48,9 @@
       </div>
     </div>
 
-    <div class="notifications">
-      <p>New message: User C commented on your post</p>
-      <p>Friend online: User D</p>
-      <p>System notification: Event starting soon</p>
-    </div>
+    <!-- 系统消息挂载点 -->
+    <div id="system-messages-mount"></div>
+    
     <button id="logout-btn">Logout</button>
   </div>
 </div>
