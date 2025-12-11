@@ -57,8 +57,6 @@ export async function upsertUserProfile(profile) {
   }
 }
 
-// js/userService.js
-import { supabase } from './supabaseClient.js'; // 确保你在 web 端初始化了 supabase 实例
 
 /**
  * 获取用户地址列表
