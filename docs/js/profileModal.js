@@ -1,8 +1,9 @@
 // js/profileModal.js
+import { upsertUserProfile } from "./userService.js";
+import { getUser } from "./userManager.js";
 
 // 完全动态生成 Profile 编辑弹窗
 export const ProfileModal = (() => {
-  // 创建弹窗 DOM
   const modal = document.createElement("div");
   modal.id = "profile-edit-modal";
   modal.className = "modal";
@@ -32,11 +33,9 @@ export const ProfileModal = (() => {
   const open = (fieldId, label, currentValue, type = "text", options = []) => {
     currentFieldId = fieldId;
     modalTitle.innerText = `Edit ${label}`;
-
-    // 清空旧输入
     modalInputContainer.innerHTML = "";
 
-    // 创建对应输入类型
+    // 创建输入组件
     if (type === "text" || type === "date") {
       const input = document.createElement("input");
       input.type = type;
@@ -71,13 +70,40 @@ export const ProfileModal = (() => {
     modal.style.display = "none";
   };
 
-  // 保存事件
-  modalSaveBtn.addEventListener("click", () => {
+  // 保存事件（写入 UI + 写入数据库）
+  modalSaveBtn.addEventListener("click", async () => {
     if (!currentInputEl) return;
+
     const newValue = currentInputEl.value.trim();
     if (!newValue) return alert("Value cannot be empty!");
+
+    // 1️⃣ 更新 UI
     const valueEl = document.getElementById(currentFieldId);
     if (valueEl) valueEl.innerText = newValue;
+
+    // 2️⃣ 获取 uid
+    const user = getUser();
+    if (!user || !user.uid) {
+      alert("User not logged in.");
+      close();
+      return;
+    }
+
+    // 3️⃣ 解析字段名
+    // 例如 profile-nickname → nickname
+    const dbField = currentFieldId.replace("profile-", "");
+
+    const profileUpdate = {
+      uid: user.uid,
+      [dbField]: newValue
+    };
+
+    // 4️⃣ 更新数据库
+    const saved = await upsertUserProfile(profileUpdate);
+    if (!saved) {
+      alert("Failed to save data to server.");
+    }
+
     close();
   });
 
