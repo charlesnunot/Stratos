@@ -2,7 +2,7 @@
 import { supabase, getSystemMessagesByUser } from './userService.js';
 
 /**
- * 加载最新一条未读系统消息（仅标题 + 日期）
+ * 加载最新一条未读系统消息（标题 + 日期 + 未读数量徽章）
  * @param {string} mountId - 挂载点 ID
  * @param {string} uid - 用户 ID
  */
@@ -34,14 +34,17 @@ export async function loadSystemMessages(mountId, uid) {
     unreadMessages.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const latest = unreadMessages[0];
 
-    // 5️⃣ 渲染最新消息（仅标题 + 日期）
+    // 5️⃣ 渲染最新消息（标题 + 日期 + 未读数量徽章）
     const item = document.createElement('div');
     item.className = 'system-message latest-unread';
     item.style.cursor = 'pointer';
     item.innerHTML = `
       <strong class="msg-title">${latest.title}</strong>
+      <span class="msg-badge">${unreadMessages.length}</span>
       <span class="msg-time">${new Date(latest.created_at).toLocaleString()}</span>
     `;
+
+    // 点击跳转到完整系统消息页面
     item.addEventListener('click', () => {
       window.location.href = `system-message.html?id=${latest.id}`;
     });
