@@ -57,6 +57,9 @@ export async function upsertUserProfile(profile) {
   }
 }
 
+/* ----------------------------
+   用户地址相关 API
+---------------------------- */
 
 /**
  * 获取用户地址列表
@@ -83,3 +86,74 @@ export async function getUserAddresses(uid) {
   }
 }
 
+/**
+ * 新增用户地址
+ * @param {string} uid 用户 UID
+ * @param {string} address 地址内容
+ */
+export async function addUserAddress(uid, address) {
+  try {
+    const { data, error } = await supabase
+      .from('user_addresses')
+      .insert([{ uid, address }])
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('新增用户地址失败:', error.message);
+      return null;
+    }
+
+    return data || null;
+  } catch (err) {
+    console.error('新增用户地址异常:', err);
+    return null;
+  }
+}
+
+/**
+ * 更新用户地址
+ * @param {number} id 地址 ID
+ * @param {string} newAddress 新地址内容
+ */
+export async function updateUserAddress(id, newAddress) {
+  try {
+    const { error } = await supabase
+      .from('user_addresses')
+      .update({ address: newAddress })
+      .eq('id', id);
+
+    if (error) {
+      console.error('更新用户地址失败:', error.message);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('更新用户地址异常:', err);
+    return false;
+  }
+}
+
+/**
+ * 删除用户地址
+ * @param {number} id 地址 ID
+ */
+export async function deleteUserAddress(id) {
+  try {
+    const { error } = await supabase
+      .from('user_addresses')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('删除用户地址失败:', error.message);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('删除用户地址异常:', err);
+    return false;
+  }
+}
