@@ -1,8 +1,28 @@
-/* 左右布局 */
+/* 页面背景为白色 */
+body {
+  background-color: #ffffff;
+  margin: 0;
+  font-family: sans-serif;
+}
+
+/* 外层包裹居中容器 */
+#page-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+/* 内容最大宽度 */
 #settings-container {
   display: flex;
-  height: 100vh;
-  font-family: sans-serif;
+  width: 100%;
+  max-width: 1200px;
+  min-height: 90vh;
+
+  background-color: #ffffff; /* 主背景白色 */
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 /* 左侧菜单 */
@@ -10,7 +30,7 @@
   width: 250px;
   border-right: 1px solid #ddd;
   padding: 20px;
-  background-color: #f8f8f8;
+  background-color: #ffffff;
 }
 
 .brand {
@@ -22,8 +42,8 @@
 .menu-item.home-btn {
   display: flex;
   align-items: center;
-  gap: 8px;            /* 图标和文字的间距 */
-  text-decoration: none; 
+  gap: 8px;
+  text-decoration: none;
   color: #333;
   padding: 8px 0;
 }
@@ -33,9 +53,8 @@
 }
 
 .menu-item.home-btn .icon {
-  font-size: 16px;      /* 图标大小 */
+  font-size: 16px;
 }
-
 
 .menu-category {
   font-size: 12px;
@@ -58,9 +77,9 @@
 #settings-content {
   flex: 1;
   padding: 20px;
+  background-color: #ffffff;
 }
 
 .settings-section h2 {
   margin-top: 0;
 }
-
