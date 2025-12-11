@@ -102,6 +102,9 @@ export const ProfileModal = (() => {
     const saved = await upsertUserProfile(profileUpdate);
     if (!saved) {
       alert("Failed to save data to server.");
+    } else {
+      const updatedUser = { ...user, [dbField]: newValue };
+      setUser(updatedUser);
     }
 
     close();
