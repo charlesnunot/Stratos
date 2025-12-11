@@ -17,6 +17,7 @@
   justify-content: space-between;
   position: relative;
   cursor: pointer; /* 点击整个 header 可跳转 */
+  cursor: pointer;
 }
 
 .system-messages h3 {
