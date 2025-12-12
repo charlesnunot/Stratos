@@ -35,7 +35,7 @@
 
   /* 中间动态面板 */
   #dynamic-panel {
-    width: 400px; /* 默认宽度 */
+    width: 500px; /* 默认宽度 */
     background: #fff; /* 背景改白色 */
     padding: 20px;
     overflow-y: auto;
@@ -167,135 +167,6 @@
       isDragging = false;
       document.body.style.cursor = 'default';
     }
-  });
-</script>
-
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>三列布局示例</title>
-<style>
-  body {
-    margin: 0;
-    font-family: "Segoe UI", Arial, sans-serif;
-    display: flex;
-    height: 100vh;
-  }
-
-  /* 左侧工具栏 */
-  #toolbar {
-    width: 60px;
-    background: #fff;
-    border-right: 1px solid #ccc;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px 0;
-  }
-
-  #toolbar button {
-    background: none;
-    border: none;
-    margin: 10px 0;
-    cursor: pointer;
-    font-size: 24px;
-  }
-
-  /* 中间动态面板 */
-  #dynamic-panel {
-    width: 400px; /* 固定宽度 */
-    background: #f0f0f0;
-    padding: 20px;
-    overflow-y: auto;
-    border-right: 1px solid #ccc;
-  }
-
-  .panel-section {
-    display: none;
-  }
-
-  .panel-section.active {
-    display: block;
-  }
-
-  /* 最右宽内容面板 */
-  #main-content {
-    flex: 1;
-    background: #fff;
-    padding: 20px;
-    overflow-y: auto;
-  }
-
-  /* 用户栏示例 */
-  .user-card {
-    background: #eaeaea;
-    padding: 10px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .user-card img {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-  }
-
-  .user-card .text {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .user-card .text span {
-    font-weight: bold;
-  }
-</style>
-</head>
-<body>
-
-<!-- 左侧工具栏 -->
-<div id="toolbar">
-  <button data-panel="panel1">🏠</button>
-  <button data-panel="panel2">🔍</button>
-  <button data-panel="panel3">🧭</button>
-</div>
-
-<!-- 中间动态面板 -->
-<div id="dynamic-panel">
-  <div id="panel1" class="panel-section active">面板 1 内容</div>
-  <div id="panel2" class="panel-section">面板 2 内容</div>
-  <div id="panel3" class="panel-section">面板 3 内容</div>
-</div>
-
-<!-- 最右宽内容面板 -->
-<div id="main-content">
-  <div class="user-card">
-    <img src="527a4911-904d-424f-846f-9e01bee7c7b4.png" alt="用户头像">
-    <div class="text">
-      <span>最右宽内容面板</span>
-      <small>这里始终显示固定内容</small>
-    </div>
-  </div>
-  <p>这里可以放大量内容，比如帖子列表、文章内容、统计数据等。</p>
-</div>
-
-<script>
-  const buttons = document.querySelectorAll('#toolbar button');
-  const panels = document.querySelectorAll('.panel-section');
-
-  buttons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const target = btn.getAttribute('data-panel');
-      panels.forEach(panel => {
-        panel.classList.remove('active');
-        if (panel.id === target) panel.classList.add('active');
-      });
-    });
   });
 </script>
 
