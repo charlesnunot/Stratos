@@ -4,15 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>社交平台三列布局</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="style.css">
+<!-- 引入 Material Icons -->
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
 
 <!-- 左侧工具栏 -->
 <div id="toolbar">
-  <button data-panel="panel1">🏠</button>
-  <button data-panel="panel2">🔍</button>
-  <button data-panel="panel3">🧭</button>
+  <button data-panel="panel1"><span class="material-icons">home</span></button>
+  <button data-panel="panel2"><span class="material-icons">search</span></button>
+  <button data-panel="panel3"><span class="material-icons">explore</span></button>
 </div>
 
 <!-- 左侧工具栏和中间面板分隔线 -->
@@ -40,6 +42,6 @@
   <p>这里可以放大量内容，比如帖子列表、文章内容、统计数据等。</p>
 </div>
 
-<script src="js/script.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
