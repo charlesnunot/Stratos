@@ -37,14 +37,15 @@
   /* 分隔线 / 可拖动区域 */
   .divider {
     width: 1px;
-    background: #ccc;
+    background: #ccc; /* 和工具栏边线一样 */
     cursor: col-resize;
+    flex-shrink: 0;
   }
 
   /* 中间动态面板 */
   #dynamic-panel {
     width: 300px;
-    background: #fff; /* 统一白色 */
+    background: #fff;
     overflow-y: auto;
     box-sizing: border-box;
   }
@@ -75,7 +76,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    border: 1px solid #ccc; /* 清晰分界 */
+    border: 1px solid #ccc;
   }
 
   .user-card img {
@@ -104,7 +105,7 @@
 </div>
 
 <!-- 左侧工具栏和动态面板的分隔线 -->
-<div class="divider" id="divider1"></div>
+<div class="divider"></div>
 
 <!-- 中间动态面板 -->
 <div id="dynamic-panel">
@@ -114,7 +115,7 @@
 </div>
 
 <!-- 中间动态面板和右侧内容的分隔线 -->
-<div class="divider" id="divider2"></div>
+<div class="divider"></div>
 
 <!-- 最右宽内容面板 -->
 <div id="main-content">
@@ -143,42 +144,40 @@
   });
 
   // 左右拖动逻辑
-  const divider1 = document.getElementById('divider1');
-  const divider2 = document.getElementById('divider2');
-  let isDragging = false;
+  const dividers = document.querySelectorAll('.divider');
+  let isDragging = null;
   let startX, startWidth1, startWidth2;
 
-  divider1.addEventListener('mousedown', e => {
-    isDragging = 'divider1';
-    startX = e.clientX;
-    startWidth1 = document.getElementById('toolbar').offsetWidth;
-    startWidth2 = document.getElementById('dynamic-panel').offsetWidth;
-    document.body.style.cursor = 'col-resize';
-  });
-
-  divider2.addEventListener('mousedown', e => {
-    isDragging = 'divider2';
-    startX = e.clientX;
-    startWidth1 = document.getElementById('dynamic-panel').offsetWidth;
-    startWidth2 = document.getElementById('main-content').offsetWidth;
-    document.body.style.cursor = 'col-resize';
+  dividers.forEach((divider, index) => {
+    divider.addEventListener('mousedown', e => {
+      isDragging = index;
+      startX = e.clientX;
+      if (index === 0) {
+        startWidth1 = document.getElementById('toolbar').offsetWidth;
+        startWidth2 = document.getElementById('dynamic-panel').offsetWidth;
+      } else {
+        startWidth1 = document.getElementById('dynamic-panel').offsetWidth;
+        startWidth2 = document.getElementById('main-content').offsetWidth;
+        document.getElementById('main-content').style.flex = 'none';
+      }
+      document.body.style.cursor = 'col-resize';
+    });
   });
 
   window.addEventListener('mousemove', e => {
-    if (!isDragging) return;
+    if (isDragging === null) return;
     const dx = e.clientX - startX;
-    if (isDragging === 'divider1') {
+    if (isDragging === 0) {
       document.getElementById('toolbar').style.width = startWidth1 + dx + 'px';
       document.getElementById('dynamic-panel').style.width = startWidth2 - dx + 'px';
-    } else if (isDragging === 'divider2') {
+    } else {
       document.getElementById('dynamic-panel').style.width = startWidth1 + dx + 'px';
-      document.getElementById('main-content').style.flex = 'none';
       document.getElementById('main-content').style.width = startWidth2 - dx + 'px';
     }
   });
 
   window.addEventListener('mouseup', e => {
-    isDragging = false;
+    isDragging = null;
     document.body.style.cursor = 'default';
   });
 </script>
