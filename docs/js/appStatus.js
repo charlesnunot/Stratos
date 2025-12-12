@@ -4,7 +4,7 @@ export function setAppOnline() {
   if (!dot || !text) return;
   dot.classList.remove("offline");
   dot.classList.add("online");
-  text.textContent = "Online";
+  text.textContent = "App Online";
 }
 
 export function setAppOffline() {
@@ -13,5 +13,5 @@ export function setAppOffline() {
   if (!dot || !text) return;
   dot.classList.remove("online");
   dot.classList.add("offline");
-  text.textContent = "Offline";
+  text.textContent = "App Offline";
 }
