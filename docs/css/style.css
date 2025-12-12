@@ -1,7 +1,5 @@
-/* ===== 全局样式 ===== */
-* {
-  box-sizing: border-box;
-}
+/* ===== Global ===== */
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -12,13 +10,13 @@ body {
   overflow: hidden;
 }
 
-/* ===== 左侧工具栏 ===== */
+/* ===== Left Toolbar ===== */
 #toolbar {
   width: 70px;
   background: #fff;
   display: flex;
   flex-direction: column;
-  justify-content: space-between; /* 顶部和底部分开 */
+  justify-content: space-between;
   align-items: center;
   padding: 20px 0;
   flex-shrink: 0;
@@ -45,40 +43,38 @@ body {
 
 #toolbar .material-icons {
   font-size: 28px;
-  color: #6e6e6e; /* 高级灰色 */
+  color: #6e6e6e;
   transition: color 0.2s;
 }
 
-/* 鼠标悬停高亮 */
 #toolbar button:hover .material-icons {
-  color: #1DA1F2; /* 主色高亮 */
+  color: #1DA1F2;
 }
 
-/* ===== 分隔线 ===== */
+/* ===== Divider ===== */
 .divider {
   width: 1px;
   background: #ccc;
   flex-shrink: 0;
 }
 
-/* ===== 中间动态面板 ===== */
+/* ===== Dynamic Panel ===== */
 #dynamic-panel {
   width: 300px;
   flex: 0 0 300px;
   background: #fff;
   overflow: hidden;
   padding: 20px;
-
-  /* 滑动动画 */
-  transform: translateX(0);      
-  transition: transform 0.3s ease, width 0.3s ease, padding 0.3s ease;
+  transform: translateX(0);
+  transition: transform 0.3s ease, width 0.3s ease, padding 0.3s ease, flex 0.3s ease;
 }
 
-/* 隐藏状态：向左滑出 */
+/* Hidden state */
 #dynamic-panel.hidden {
   width: 0;
   padding: 0;
   transform: translateX(-100%);
+  flex: 0 0 0;
 }
 
 .panel-section {
@@ -90,7 +86,7 @@ body {
   display: block;
 }
 
-/* ===== 最右宽内容面板 ===== */
+/* ===== Main Content ===== */
 #main-content {
   flex: 1;
   background: #fff;
@@ -98,7 +94,7 @@ body {
   overflow-y: auto;
 }
 
-/* ===== 用户卡片 ===== */
+/* ===== User Card ===== */
 .user-card {
   background: #fff;
   padding: 10px;
