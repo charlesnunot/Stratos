@@ -22,12 +22,8 @@ export function renderSidebar(container){
     container.appendChild(d);
 
     d.addEventListener('click', () => {
-      if(!it.panel){
-        console.log('nav', it.key);
-        return;
-      }
-      const current = getState().openPanel;
-      setState({ openPanel: current === it.panel ? null : it.panel });
+      if (!it.panel) return;
+      setState({ openPanel: getState().openPanel === it.panel ? null : it.panel });
     });
   });
 }
