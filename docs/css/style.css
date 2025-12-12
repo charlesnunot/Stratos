@@ -69,9 +69,11 @@ body {
   overflow: hidden;
   padding: 20px;
   
-  /* 添加滑动动画 */
-  transform: translateX(0);      /* 初始位置 */
-  transition: transform 0.3s ease, width 0.3s ease, padding 0.3s ease;
+  /* 滑动动画：先慢后快，略带弹性 */
+  transform: translateX(0);
+  transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), 
+              width 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), 
+              padding 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 /* 隐藏状态：右向左滑出 */
@@ -80,8 +82,6 @@ body {
   padding: 0;
   transform: translateX(-100%);
 }
-
-
 
 .panel-section {
   display: none;
