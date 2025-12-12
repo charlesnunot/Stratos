@@ -13,7 +13,7 @@ buttons.forEach(btn => {
       dynamicPanel.classList.add('hidden');
       panels.forEach(p => p.classList.remove('active'));
 
-      // 🔴 模拟离线
+      // Simulate offline for demo
       setAppOffline();
       return;
     }
@@ -25,7 +25,7 @@ buttons.forEach(btn => {
     const target = document.getElementById(panelId);
     if (target) target.classList.add('active');
 
-    // 🟢 模拟在线
+    // Simulate online
     setAppOnline();
   });
 });
