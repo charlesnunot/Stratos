@@ -1,13 +1,13 @@
 export function initSidebar(container, userPanelContainer, contentContainer) {
   container.innerHTML = `
-    <div class="icon" title="Home"><i class="fa-solid fa-house"></i></div>
-    <div class="icon" title="Search"><i class="fa-solid fa-magnifying-glass"></i></div>
-    <div class="icon" title="Explore"><i class="fa-solid fa-compass"></i></div>
-    <div class="icon" title="Marketplace"><i class="fa-solid fa-store"></i></div>
-    <div class="icon" title="Create"><i class="fa-solid fa-plus"></i></div>
-    <div class="icon" title="Messages"><i class="fa-solid fa-envelope"></i></div>
-    <div class="icon" id="chat-btn" title="Chat"><i class="fa-solid fa-comment-dots"></i></div>
-    <div class="icon" title="Profile"><i class="fa-solid fa-user"></i></div>
+    <div class="icon" title="Home"><i class="fas fa-house"></i></div>
+    <div class="icon" title="Search"><i class="fas fa-magnifying-glass"></i></div>
+    <div class="icon" title="Explore"><i class="fas fa-compass"></i></div>
+    <div class="icon" title="Marketplace"><i class="fas fa-store"></i></div>
+    <div class="icon" title="Create"><i class="fas fa-plus"></i></div>
+    <div class="icon" title="Messages"><i class="fas fa-envelope"></i></div>
+    <div class="icon" id="chat-btn" title="Chat"><i class="fas fa-comment-dots"></i></div>
+    <div class="icon" title="Profile"><i class="fas fa-user"></i></div>
   `;
 
   container.querySelectorAll('.icon').forEach(icon => {
