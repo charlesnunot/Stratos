@@ -13,11 +13,8 @@ const PANELS = {
 };
 
 const panelEls = {};
-let overlayEl = null;
 
 export function initPanels() {
-  overlayEl = document.getElementById('overlay');
-  overlayEl.addEventListener('click', () => setState({ openPanel: null }));
   subscribe(handleState);
 }
 
@@ -53,6 +50,7 @@ function ensurePanel(name) {
     <div class="panel-body">${cfg.body}</div>
   `;
 
+  // 点击叉号收回面板
   node.querySelector('[data-close]').addEventListener('click', () => {
     setState({ openPanel: null });
   });
@@ -69,14 +67,8 @@ function handleState(state) {
   Object.values(panelEls).forEach(p => p.style.transform = 'translateX(-100%)');
 
   if (open) {
-    overlayEl.classList.add('visible');
-    overlayEl.setAttribute('aria-hidden', 'false');
-
     const p = ensurePanel(open);
     setTimeout(() => { p.style.transform = 'translateX(0)'; }, 10);
-  } else {
-    overlayEl.classList.remove('visible');
-    overlayEl.setAttribute('aria-hidden', 'true');
   }
 
   // 保证 sidebar 永远可见在面板之上
