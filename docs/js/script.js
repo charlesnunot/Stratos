@@ -5,19 +5,17 @@ buttons.forEach(btn => {
   btn.addEventListener('click', () => {
     const panelId = btn.getAttribute('data-panel');
 
-    if (panelId === 'panel1') { // Home 按钮
-      dynamicPanel.style.flex = '0 0 0';
-      dynamicPanel.style.width = '0';
-      dynamicPanel.style.padding = '0';
-      dynamicPanel.style.overflow = 'hidden';
-    } else {
-      dynamicPanel.style.flex = '0 0 300px';
-      dynamicPanel.style.width = '300px';
-      dynamicPanel.style.padding = '20px';
-      dynamicPanel.style.overflow = 'auto';
+    if (panelId === 'panel1') { // Home 按钮 → 隐藏面板
+      dynamicPanel.classList.add('hidden');
 
-      const panels = dynamicPanel.querySelectorAll('.panel-section');
-      panels.forEach(panel => panel.classList.remove('active'));
+      // 同时隐藏所有面板内容
+      dynamicPanel.querySelectorAll('.panel-section').forEach(panel => panel.classList.remove('active'));
+    } else {
+      // 显示面板
+      dynamicPanel.classList.remove('hidden');
+
+      // 显示对应面板内容
+      dynamicPanel.querySelectorAll('.panel-section').forEach(panel => panel.classList.remove('active'));
       const targetPanel = document.getElementById(panelId);
       if (targetPanel) targetPanel.classList.add('active');
     }
