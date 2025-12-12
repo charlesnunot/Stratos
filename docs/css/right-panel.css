@@ -1,35 +1,39 @@
-/* Right Panel 用户信息 - 精简版 */
+/* 用户信息整体 */
 .user-info {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  margin-top: 20px;
+  height: 100%;
+  padding: 16px;
+  background: #ffffff; /* 背景白色 */
 }
 
 /* 顶部头像+昵称+状态行 */
 .user-info-top {
   display: flex;
   align-items: center;
-  gap: 12px; /* 头像与昵称间距 */
+  gap: 10px;
 }
 
 /* 头像 */
 .user-avatar-wrapper {
-  width: 40px;   /* 调小头像尺寸 */
+  width: 40px;
   height: 40px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .user-avatar-wrapper img {
   width: 100%;
   height: 100%;
+  max-width: 40px;
+  max-height: 40px;
   object-fit: cover;
   border-radius: 50%;
 }
 
-/* 昵称和App状态 */
+/* 昵称 + APP状态 */
 .user-info-text {
   display: flex;
   flex-direction: column;
@@ -40,6 +44,7 @@
   font-weight: bold;
   font-size: 14px;
   cursor: pointer;
+  color: #111;
   transition: color 0.2s;
 }
 
@@ -50,25 +55,35 @@
 
 .app-status {
   font-size: 12px;
-  color: var(--text-color);
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-/* 底部按钮区域 */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: gray;
+}
+
+/* 底部按钮 */
 .user-info-bottom {
-  margin-top: auto;
+  margin-top: auto; /* 把按钮推到底部 */
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .user-info-bottom button {
   font-size: 12px;
-  padding: 6px;
+  padding: 4px 0;
   border: none;
   background: none;
-  cursor: pointer;
   color: var(--primary-color);
   text-align: left;
+  cursor: pointer;
 }
 
 .user-info-bottom button:hover {
