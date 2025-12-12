@@ -51,7 +51,6 @@ body {
 
 #sidebar-container {
   flex: 1;               /* 1份 */
-  max-width: 16.66%;     /* 1/6 */
   background: var(--background-color);
   display: flex;
   flex-direction: column;
@@ -61,8 +60,7 @@ body {
 
 /* Center content area */
 .center-container {
-  flex: 3;               /* 3份 */
-  max-width: 50%;        /* 3/6 */
+  flex: 4;               /* 3份 */
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -73,8 +71,7 @@ body {
 
 /* Right panel container */
 #right-panel-container {
-  flex: 2;               /* 2份 */
-  max-width: 33.33%;     /* 2/6 */
+  flex: 1;               /* 1份 */
   background: var(--background-color);
   color: var(--text-color);
   padding: 20px;
