@@ -1,22 +1,19 @@
 let state = {
   openPanel: null,
-  isMobile: false
+  isMobile: false,
 };
 
-const listeners = [];
-
-export function getState() { return state; }
+const subscribers = [];
 
 export function setState(newState) {
   state = { ...state, ...newState };
-  listeners.forEach(fn => fn(state));
+  subscribers.forEach(fn => fn(state));
+}
+
+export function getState() {
+  return state;
 }
 
 export function subscribe(fn) {
-  listeners.push(fn);
-}
-
-// helper to detect mobile
-export function detectMobile() {
-  return window.innerWidth <= 880;
+  subscribers.push(fn);
 }
