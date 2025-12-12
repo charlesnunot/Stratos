@@ -1,6 +1,5 @@
 /* ===== Global ===== */
 * { box-sizing: border-box; }
-
 body {
   margin: 0;
   font-family: "Segoe UI", Arial, sans-serif;
@@ -10,7 +9,7 @@ body {
   overflow: hidden;
 }
 
-/* ===== Left Toolbar ===== */
+/* ===== Toolbar ===== */
 #toolbar {
   width: 70px;
   background: #fff;
@@ -47,9 +46,7 @@ body {
   transition: color 0.2s;
 }
 
-#toolbar button:hover .material-icons {
-  color: #1DA1F2;
-}
+#toolbar button:hover .material-icons { color: #1DA1F2; }
 
 /* ===== Divider ===== */
 .divider {
@@ -66,25 +63,16 @@ body {
   overflow: hidden;
   padding: 20px;
   transform: translateX(0);
-  transition: transform 0.3s ease, width 0.3s ease, padding 0.3s ease, flex 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Hidden state */
 #dynamic-panel.hidden {
-  width: 0;
-  padding: 0;
   transform: translateX(-100%);
-  flex: 0 0 0;
 }
 
-.panel-section {
-  display: none;
-  padding: 20px;
-}
-
-.panel-section.active {
-  display: block;
-}
+/* Panel Sections */
+.panel-section { display: none; padding: 0; }
+.panel-section.active { display: block; }
 
 /* ===== Main Content ===== */
 #main-content {
@@ -111,11 +99,5 @@ body {
   border-radius: 50%;
 }
 
-.user-card .text {
-  display: flex;
-  flex-direction: column;
-}
-
-.user-card .text span {
-  font-weight: bold;
-}
+.user-card .text { display: flex; flex-direction: column; }
+.user-card .text span { font-weight: bold; }
