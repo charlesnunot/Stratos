@@ -3,16 +3,16 @@ import { initUserPanel } from '../components/UserPanel/UserPanel.js';
 import { initDynamicPanel } from '../components/DynamicPanel/DynamicPanel.js';
 import { initMainContent } from '../components/MainContent/MainContent.js';
 
-// 先初始化 DynamicPanel，创建 panel 容器
+// 1️⃣ 初始化 DynamicPanel，创建 panel 容器
 initDynamicPanel.init();
 
-// 然后初始化 UserPanel（panel-user 已存在 DOM）
+// 2️⃣ 初始化 UserPanel（panel-user 已经在 DOM 里）
 initUserPanel();
 
-// 初始化 MainContent
+// 3️⃣ 初始化主内容
 initMainContent();
 
-// 初始化 Toolbar 并绑定点击事件
+// 4️⃣ 初始化 Toolbar 并绑定面板切换
 initToolbar(panelId => {
   initDynamicPanel.showPanel(panelId);
 });
