@@ -1,32 +1,16 @@
-import { setAppOnline, setAppOffline } from "./appStatus.js";
+// 临时模拟 appStatus.js
+export function setAppOnline() {
+  const dot = document.getElementById("app-status-dot");
+  if (!dot) return;
+  dot.classList.remove("offline");
+  dot.classList.add("online");
+  dot.setAttribute("title", "App Online"); // 提示文字
+}
 
-const buttons = document.querySelectorAll('#toolbar .top-icons button');
-const dynamicPanel = document.getElementById('dynamic-panel');
-const panels = dynamicPanel.querySelectorAll('.panel-section');
-
-buttons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const panelId = btn.getAttribute('data-panel');
-
-    if (panelId === 'panel-user') {
-      // home → fold dynamic panel
-      dynamicPanel.classList.add('hidden');
-      panels.forEach(p => p.classList.remove('active'));
-
-      // 🔴 用户点击 Home 时表示折叠 → APP 离线
-      setAppOffline();
-
-      return;
-    }
-
-    // show dynamic panel
-    dynamicPanel.classList.remove('hidden');
-    panels.forEach(p => p.classList.remove('active'));
-
-    const target = document.getElementById(panelId);
-    if (target) target.classList.add('active');
-
-    // 🟢 只要展开动态面板 → APP 在线
-    setAppOnline();
-  });
-});
+export function setAppOffline() {
+  const dot = document.getElementById("app-status-dot");
+  if (!dot) return;
+  dot.classList.remove("online");
+  dot.classList.add("offline");
+  dot.setAttribute("title", "App Offline"); // 提示文字
+}
