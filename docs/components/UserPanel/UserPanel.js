@@ -24,4 +24,5 @@ export function initUserPanel() {
   );
 }
 
-
+// ✅ 对外导出状态点方法
+export { setAppOnline, setAppOffline };
