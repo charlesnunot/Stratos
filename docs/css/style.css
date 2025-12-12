@@ -20,7 +20,7 @@ body {
   flex-direction: column;
   justify-content: space-between; /* 顶部和底部分开 */
   align-items: center;
-  padding: 15px 0;
+  padding: 20px 0;
   flex-shrink: 0;
   height: 100%;
 }
