@@ -12,37 +12,35 @@ const PANELS = {
   settings: { title: 'Settings', body: '<p>App settings</p>' }
 };
 
-let container = null;
-const panelEls = {}; // 缓存面板节点
+const panelEls = {};
 let overlayEl = null;
 
-export function initPanels(rootContainer){
-  container = rootContainer;
+export function initPanels(){
   overlayEl = document.getElementById('overlay');
-  overlayEl.addEventListener('click', ()=> setState({ openPanel: null }));
+  overlayEl.addEventListener('click', () => setState({ openPanel: null }));
   subscribe(handleState);
 }
 
 function ensurePanel(name){
   if(panelEls[name]) return panelEls[name];
-  const cfg = PANELS[name] || { title:name, body:'' };
+  const cfg = PANELS[name] || {title:name, body:''};
 
   const node = document.createElement('div');
   node.className = 'panel';
   node.dataset.title = name;
 
-  // 左侧滑出初始样式
-  node.style.position = 'absolute';
+  // 左侧滑出样式
+  node.style.position = 'fixed';
   node.style.top = '0';
-  node.style.left = '60px'; // sidebar 宽度
-  node.style.width = '340px'; // panel 宽度
+  node.style.left = '60px';  // sidebar 宽度
+  node.style.width = '340px';
   node.style.height = '100%';
+  node.style.background = '#fff';
+  node.style.borderRight = '1px solid #e6edf3';
+  node.style.boxShadow = '2px 0 12px rgba(0,0,0,0.1)';
   node.style.transform = 'translateX(-100%)';
   node.style.transition = 'transform 0.3s ease';
   node.style.zIndex = '50';
-  node.style.background = '#fff';
-  node.style.borderRight = '1px solid #e6edf3';
-  node.style.boxShadow = '2px 0 8px rgba(0,0,0,0.1)';
   node.style.overflowY = 'auto';
 
   node.innerHTML = `
@@ -53,10 +51,7 @@ function ensurePanel(name){
     <div class="panel-body">${cfg.body}</div>
   `;
 
-  // 点击叉关闭
-  node.querySelector('[data-close]').addEventListener('click', ()=>{
-    setState({ openPanel: null });
-  });
+  node.querySelector('[data-close]').addEventListener('click', ()=> setState({ openPanel: null }));
 
   document.getElementById('app').appendChild(node);
   panelEls[name] = node;
@@ -67,16 +62,13 @@ function handleState(state){
   const open = state.openPanel;
 
   // 隐藏所有面板
-  Object.values(panelEls).forEach(p=>{
-    p.style.transform = 'translateX(-100%)';
-  });
+  Object.values(panelEls).forEach(p => p.style.transform = 'translateX(-100%)');
 
-  // 显示 overlay
   if(open){
     overlayEl.classList.add('visible');
     overlayEl.setAttribute('aria-hidden','false');
     const p = ensurePanel(open);
-    setTimeout(()=>{ p.style.transform = 'translateX(0)'; }, 10);
+    setTimeout(()=> { p.style.transform = 'translateX(0)'; }, 10);
   } else {
     overlayEl.classList.remove('visible');
     overlayEl.setAttribute('aria-hidden','true');
