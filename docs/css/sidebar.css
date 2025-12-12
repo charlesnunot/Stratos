@@ -1,13 +1,11 @@
-/* 左侧栏 */
 #sidebar-container {
-  width: 60px;
-  background: #ffffff; /* 修改为白色背景 */
+  flex: 0 0 60px; /* 左侧固定宽度 */
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 20px;
-  position: relative; /* 方便放置右侧竖线 */
-  height: 100vh;
+  padding-top: 20px; /* 内部图标间距 */
+  position: relative; /* 为 ::after 定位 */
+  background: #ffffff;
 }
 
 /* 左侧栏右边的竖线 */
@@ -15,10 +13,10 @@
   content: '';
   position: absolute;
   top: 0;
+  bottom: 0; /* 让竖线贯穿整个容器 */
   right: 0;
-  width: 1px;       /* 竖线宽度 */
-  height: 100%;     /* 贯穿整个容器高度 */
-  background-color: #ccc; /* 竖线颜色 */
+  width: 1px;
+  background-color: #ccc;
 }
 
 /* 图标样式 */
@@ -30,6 +28,7 @@
   justify-content: center;
   align-items: center;
   width: 100%;
+  margin: 15px 0; /* 图标之间间距 */
   transition: color 0.2s;
 }
 
