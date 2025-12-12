@@ -1,1 +1,24 @@
+#content-container {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.post-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.post-card h3 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.post-card p {
+  font-size: 14px;
+  color: #333;
+}
 
