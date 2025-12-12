@@ -1,104 +1,76 @@
-.right-panel {
+/* Right Panel 用户信息 - 精简版 */
+.user-info {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  height: 100vh;
-  padding: 20px;
-  background: #ffffff;
-  color: #111;
+  align-items: stretch;
+  margin-top: 20px;
 }
 
-/* 顶部用户信息行 */
-.user-info-row {
+/* 顶部头像+昵称+状态行 */
+.user-info-top {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 12px; /* 头像与昵称间距 */
 }
 
 /* 头像 */
-.avatar-wrapper {
-  width: 60px;
-  height: 60px;
+.user-avatar-wrapper {
+  width: 40px;   /* 调小头像尺寸 */
+  height: 40px;
   border-radius: 50%;
   overflow: hidden;
-  cursor: pointer;
-  border: 2px solid #1DA1F2;
   flex-shrink: 0;
-  transition: transform 0.2s;
-}
-.avatar-wrapper:hover {
-  transform: scale(1.05);
 }
 
-.avatar-wrapper img {
+.user-avatar-wrapper img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 }
 
-/* 用户昵称和状态 */
-.user-details {
+/* 昵称和App状态 */
+.user-info-text {
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.nickname {
-  font-weight: 600;
-  font-size: 16px;
-  color: #1DA1F2;
+.user-nickname {
+  font-weight: bold;
+  font-size: 14px;
   cursor: pointer;
+  transition: color 0.2s;
 }
-.nickname:hover {
+
+.user-nickname:hover {
+  color: #2ecc71;
   text-decoration: underline;
 }
 
 .app-status {
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-  color: #555;
-  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-color);
 }
 
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: gray;
-  margin-right: 6px;
-}
-
-/* 底部操作 */
-.bottom-actions {
+/* 底部按钮区域 */
+.user-info-bottom {
+  margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
-/* 文本按钮风格 */
-.text-btn {
-  background: none;
+.user-info-bottom button {
+  font-size: 12px;
+  padding: 6px;
   border: none;
-  color: #1DA1F2;
+  background: none;
   cursor: pointer;
-  font-size: 14px;
-  padding: 4px 0;
+  color: var(--primary-color);
   text-align: left;
-  transition: color 0.2s;
 }
 
-.text-btn:hover {
-  color: #0d8ddb;
-}
-
-/* 下载链接 */
-.download-links {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 14px;
-}
-.download-links button.text-btn {
-  padding-left: 10px;
+.user-info-bottom button:hover {
+  text-decoration: underline;
 }
