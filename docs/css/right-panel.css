@@ -1,245 +1,109 @@
-/* Right Panel Container */
 .right-panel {
-  background: var(--background-color);
-  color: var(--text-color);
-  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  height: 100vh; /* Full height for right panel */
-}
-
-/* App Download Section */
-.app-download {
-  background: var(--card-bg);
+  gap: 20px;
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.app-download h3 {
-  font-size: 18px;
-  margin-bottom: 10px;
-}
-
-.app-download button {
-  background-color: var(--primary-color);
-  border: none;
-  color: #fff;
-  font-size: 14px;
-  padding: 10px;
-  margin-top: 10px;
   width: 100%;
-  border-radius: 4px;
-  cursor: pointer;
+  max-width: 300px;
+  background: #f8f9fa;
+  height: 100vh;
+  overflow-y: auto;
 }
 
-.app-download button:hover {
-  filter: brightness(0.9);
-}
-
-/* User Info Section */
-.user-info {
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
   display: flex;
   flex-direction: column;
-  align-items: center; /* 居中对齐 */
-  margin-top: 20px;
-  gap: 10px; /* 每个元素垂直间距 */
+  gap: 12px;
 }
 
-/* 头像 */
-.user-avatar-wrapper {
-  width: 60px;
-  height: 60px;
+/* 用户信息卡 */
+.user-card .avatar-wrapper {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
   border-radius: 50%;
   overflow: hidden;
+  border: 2px solid #1DA1F2;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.user-card .avatar-wrapper:hover {
+  transform: scale(1.05);
 }
 
-.user-avatar-wrapper img {
+.user-card .avatar-wrapper img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 50%;
 }
 
-#avatar-click-area {
-  cursor: pointer;
-}
-
-#avatar-click-area:hover {
-  opacity: 0.8;
-}
-
-/* 昵称 */
-.user-nickname {
-  font-weight: bold;
-  font-size: 16px;
+.user-card .user-info {
   text-align: center;
-  cursor: pointer;
-  transition: color 0.2s;
 }
 
-.user-nickname:hover {
-  color: #2ecc71; /* 或其他高亮颜色 */
+.user-card .nickname {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1DA1F2;
+  display: block;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.user-card .nickname:hover {
   text-decoration: underline;
 }
 
-/* App 在线状态 */
-.app-status {
+.user-card .status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   font-size: 14px;
-  color: var(--text-color);
-  margin-top: 6px;
-  text-align: center;
+  color: #555;
 }
 
 .status-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  margin-right: 6px;
-  background-color: gray; /* 初始状态 */
-  vertical-align: middle;
+  background-color: gray;
 }
 
-/* 消息通知 */
-.user-info .notifications {
+/* 按钮 */
+.actions-card button,
+.user-card button,
+.download-card button {
   width: 100%;
-  margin-top: 10px;
-  padding: 10px;
-  background-color: #f4f4f4;
+  padding: 10px 0;
   border-radius: 8px;
-}
-
-.user-info .notifications p {
-  margin: 5px 0;
-  font-size: 14px;
-}
-
-/* 登出按钮 */
-#logout-btn {
-  margin-top: 10px;
-  padding: 6px 12px;
-  font-size: 14px;
+  border: none;
+  background: #1DA1F2;
+  color: #fff;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-.user-info #logout-btn:hover {
-  filter: brightness(0.9);
+.actions-card button:hover,
+.user-card button:hover,
+.download-card button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
-/* Responsive Styles for Smaller Screens */
-@media (max-width: 768px) {
-  .right-panel {
-    padding: 15px;
-  }
+/* App 下载按钮组 */
+.download-card .download-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
 
-  .right-panel .app-download button,
-  .right-panel #logout-btn {
-    font-size: 12px;
-    padding: 8px;
-  }
-
-  /* Profile Modal */
-  .profile-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
-  
-  .profile-modal .modal-content {
-    background: var(--card-bg);
-    color: var(--text-color);
-    padding: 20px;
-    border-radius: 10px;
-    width: 300px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .modal-header h3 {
-    margin: 0;
-  }
-  
-  .modal-close {
-    cursor: pointer;
-    font-size: 20px;
-    font-weight: bold;
-  }
-  
-  .modal-body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-  }
-  
-  .profile-avatar-wrapper {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-  
-  .profile-avatar-wrapper img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-  }
-  
-  .profile-nickname-display {
-    font-weight: bold;
-    font-size: 16px;
-    text-align: center;
-  }
-  
-  #profile-nickname-input {
-    width: 100%;
-    padding: 6px 8px;
-    font-size: 14px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    text-align: center;
-  }
-  
-  .profile-hint {
-    font-size: 12px;
-    color: #888;
-    text-align: center;
-  }
-  
-  .modal-footer {
-    display: flex;
-    justify-content: center;
-  }
-  
-  #profile-save-btn {
-    padding: 6px 12px;
-    font-size: 14px;
-    cursor: pointer;
-    border-radius: 4px;
-    border: none;
-    background-color: var(--primary-color);
-    color: #fff;
-  }
-  
-  #profile-save-btn:hover {
-    filter: brightness(0.9);
-  }
+.download-card h4 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
 }
