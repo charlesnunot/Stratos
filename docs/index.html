@@ -31,7 +31,7 @@
     font-size: 24px;
   }
 
-  /* 主内容区域 */
+  /* 中间主内容区域 */
   #main {
     flex: 1;
     background: #f9f9f9;
@@ -39,11 +39,20 @@
     overflow-y: auto;
   }
 
-  .section {
+  /* 右侧面板 */
+  #sidepanel {
+    width: 300px;
+    background: #fff;
+    border-left: 1px solid #ccc;
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .panel-section {
     display: none;
   }
 
-  .section.active {
+  .panel-section.active {
     display: block;
   }
 
@@ -76,46 +85,50 @@
 <body>
 
 <div id="sidebar">
-  <button data-section="home">🏠</button>
-  <button data-section="search">🔍</button>
-  <button data-section="explore">🧭</button>
-  <button data-section="reels">🎬</button>
-  <button data-section="messages">✉️</button>
-  <button data-section="likes">❤️</button>
-  <button data-section="add">➕</button>
-  <button data-section="stats">📊</button>
+  <button data-panel="home-panel">🏠</button>
+  <button data-panel="search-panel">🔍</button>
+  <button data-panel="explore-panel">🧭</button>
+  <button data-panel="reels-panel">🎬</button>
+  <button data-panel="messages-panel">✉️</button>
+  <button data-panel="likes-panel">❤️</button>
+  <button data-panel="add-panel">➕</button>
+  <button data-panel="stats-panel">📊</button>
 </div>
 
 <div id="main">
-  <div id="home" class="section active">
-    <div class="user-card">
-      <img src="527a4911-904d-424f-846f-9e01bee7c7b4.png" alt="用户头像">
-      <div class="text">
-        <span>你的便签</span>
-        <small>点击左边图标切换栏目</small>
-      </div>
+  <div class="user-card">
+    <img src="527a4911-904d-424f-846f-9e01bee7c7b4.png" alt="用户头像">
+    <div class="text">
+      <span>你的便签</span>
+      <small>点击左边图标切换右侧面板内容</small>
     </div>
   </div>
-  <div id="search" class="section">搜索内容区域</div>
-  <div id="explore" class="section">探索内容区域</div>
-  <div id="reels" class="section">Reels 内容区域</div>
-  <div id="messages" class="section">消息内容区域</div>
-  <div id="likes" class="section">喜欢内容区域</div>
-  <div id="add" class="section">添加内容区域</div>
-  <div id="stats" class="section">分析内容区域</div>
+</div>
+
+<div id="sidepanel">
+  <div id="home-panel" class="panel-section active">
+    首页面板内容
+  </div>
+  <div id="search-panel" class="panel-section">搜索面板内容</div>
+  <div id="explore-panel" class="panel-section">探索面板内容</div>
+  <div id="reels-panel" class="panel-section">Reels 面板内容</div>
+  <div id="messages-panel" class="panel-section">消息面板内容</div>
+  <div id="likes-panel" class="panel-section">喜欢面板内容</div>
+  <div id="add-panel" class="panel-section">添加面板内容</div>
+  <div id="stats-panel" class="panel-section">分析面板内容</div>
 </div>
 
 <script>
   const buttons = document.querySelectorAll('#sidebar button');
-  const sections = document.querySelectorAll('.section');
+  const panels = document.querySelectorAll('.panel-section');
 
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
-      const target = btn.getAttribute('data-section');
-      sections.forEach(sec => {
-        sec.classList.remove('active');
-        if (sec.id === target) {
-          sec.classList.add('active');
+      const target = btn.getAttribute('data-panel');
+      panels.forEach(panel => {
+        panel.classList.remove('active');
+        if (panel.id === target) {
+          panel.classList.add('active');
         }
       });
     });
