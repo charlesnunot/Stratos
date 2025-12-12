@@ -60,24 +60,21 @@ body {
 /* ===== Dynamic Panel ===== */
 #dynamic-panel {
   width: 300px;
-  flex: 0 0 300px;
+  flex-shrink: 0;
   background: #fff;
   overflow: hidden;
-  position: relative;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 20px;
 }
 
-#dynamic-panel .panel-content {
-  transform: translateX(0);
-  transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+#dynamic-panel.hidden {
+  width: 0;
+  padding: 0;
 }
 
-#dynamic-panel.hidden .panel-content {
-  transform: translateX(-100%);
-}
-
+/* Panel sections */
 .panel-section {
   display: none;
-  padding: 20px;
 }
 
 .panel-section.active {
