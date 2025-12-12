@@ -7,6 +7,5 @@ export function initUserPanel(container) {
   `;
 
   container.style.flex = '0 0 20%';  // 默认宽度 20%
-  container.style.background = '#f5f5f5';
   container.style.padding = '12px';
 }
