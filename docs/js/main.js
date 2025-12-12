@@ -1,66 +1,29 @@
-const sidebarContainer = document.getElementById('sidebar-container');
-const contentContainer = document.getElementById('content-container');
+// ===============================
+// main.js
+// ===============================
 
-const icons = [
-  { title: 'Home', icon: 'fa-house', panel: null },
-  { title: 'Search', icon: 'fa-magnifying-glass', panel: 'Search Panel' },
-  { title: 'Explore', icon: 'fa-compass', panel: 'Explore Panel' },
-  { title: 'Marketplace', icon: 'fa-store', panel: 'Marketplace Panel' },
-  { title: 'Create', icon: 'fa-plus', panel: 'Create Panel' },
-  { title: 'Messages', icon: 'fa-envelope', panel: 'Messages Panel' },
-  { title: 'Chat', icon: 'fa-comment-dots', panel: 'Chat Panel' },
-  { title: 'Profile', icon: 'fa-user', panel: 'Profile Panel' },
-];
+import { initSidebar } from "./sidebar.js";
+import { initUserPanel } from "./user-panel.js";
+import { initContent } from "./content.js";
 
-let currentPanel = null;
+const sidebar = document.getElementById("sidebar-container");
+const userPanel = document.getElementById("user-panel-container");
 
-// 初始化图标栏
-icons.forEach(item => {
-  const div = document.createElement('div');
-  div.className = 'icon';
-  div.title = item.title;
-  div.innerHTML = `<i class="fa-solid ${item.icon}"></i>`;
-  sidebarContainer.appendChild(div);
+initSidebar(sidebar);
+initUserPanel(userPanel);
+initContent(document.getElementById("content-container"));
 
-  div.addEventListener('click', () => {
-    if (!item.panel) {
-      alert(`Clicked ${item.title}`);
-      return;
-    }
+// 当前打开的面板
+let openedPanel = null;
 
-    // 如果点击的是同一个面板 → 收回
-    if (currentPanel && currentPanel.dataset.title === item.title) {
-      currentPanel.classList.remove('show');
-      currentPanel = null;
-      contentContainer.style.flex = '1';
-      return;
-    }
-
-    // 收起旧面板
-    if (currentPanel) {
-      currentPanel.classList.remove('show');
-    }
-
-    // 查询是否已有面板
-    let panel = document.querySelector(`.panel[data-title="${item.title}"]`);
-
-    // 如果没有，生成一个新面板
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.className = 'panel';
-      panel.dataset.title = item.title;
-      panel.innerHTML = `
-        <h3>${item.panel}</h3>
-        <p>Content for ${item.title}</p>
-      `;
-      document.getElementById('main-container').appendChild(panel);
-    }
-
-    // 显示面板
-    panel.classList.add('show');
-    currentPanel = panel;
-
-    // 内容区域缩小
-    contentContainer.style.flex = `1 1 calc(100% - var(--panel-width))`;
-  });
-});
+export function togglePanel(panelName) {
+  if (openedPanel === panelName) {
+    // 再次点击 → 收回
+    userPanel.classList.remove("active");
+    openedPanel = null;
+  } else {
+    // 展开
+    userPanel.classList.add("active");
+    openedPanel = panelName;
+  }
+}
