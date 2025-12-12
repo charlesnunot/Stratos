@@ -2,6 +2,7 @@
   width: 300px; /* 用户栏宽度可调整 */
   border-right: 1px solid var(--border-color);
   display: flex;
+  background: #ffffff;
   flex-direction: column;
   padding: 10px;
   overflow-y: auto;
