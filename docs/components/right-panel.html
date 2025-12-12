@@ -1,27 +1,20 @@
-<div class="right-panel">
-
-  <!-- 顶部用户信息 -->
-  <div class="user-info-row">
-    <div class="avatar-wrapper" id="avatar-click-area">
-      <img src="https://via.placeholder.com/60" alt="User Avatar" id="user-avatar">
+<div class="user-info" id="user-info" style="display:none;">
+  <div class="user-info-top">
+    <div class="user-avatar-wrapper" id="avatar-click-area">
+      <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
     </div>
-    <div class="user-details">
-      <span class="nickname" id="username">Loading...</span>
-      <span class="app-status" id="app-status-text">
-        <span class="status-dot" id="app-status-dot"></span>
-        Checking App status...
-      </span>
+    <div class="user-info-text">
+      <div id="username" class="user-nickname"></div>
+      <div id="app-status" class="app-status">
+        <span id="app-status-dot" class="status-dot"></span>
+        <span id="app-status-text">Checking App status...</span>
+      </div>
     </div>
   </div>
 
-  <!-- 底部操作 -->
-  <div class="bottom-actions">
-    <button id="logout-btn" class="text-btn">Logout</button>
-    <div class="download-links">
-      <span>Download Stratos App:</span>
-      <button class="text-btn">iOS</button>
-      <button class="text-btn">Android</button>
-    </div>
+  <div class="user-info-bottom">
+    <button id="logout-btn">Logout</button>
+    <button id="download-ios">Download iOS</button>
+    <button id="download-android">Download Android</button>
   </div>
-
 </div>
