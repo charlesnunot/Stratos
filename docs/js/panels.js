@@ -26,22 +26,6 @@ function ensurePanel(name) {
   node.className = 'panel';
   node.dataset.title = name;
 
-  // 左侧滑出，去掉阴影
-  Object.assign(node.style, {
-    position: 'fixed',
-    top: '0',
-    left: '60px',        // sidebar 宽度
-    width: '340px',
-    height: '100%',
-    background: '#fff',
-    borderRight: '1px solid #e6edf3',
-    boxShadow: 'none',   // 去掉阴影
-    transform: 'translateX(-100%)',
-    transition: 'transform 0.3s ease',
-    zIndex: '50',
-    overflowY: 'auto',
-  });
-
   node.innerHTML = `
     <div class="panel-header">
       <strong>${cfg.title}</strong>
@@ -70,9 +54,4 @@ function handleState(state) {
     const p = ensurePanel(open);
     setTimeout(() => { p.style.transform = 'translateX(0)'; }, 10);
   }
-
-  // 保证 sidebar 永远可见在面板之上
-  const sidebar = document.getElementById('sidebar-container');
-  sidebar.style.display = 'flex';
-  sidebar.style.zIndex = '60';
 }
