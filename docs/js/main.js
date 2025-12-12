@@ -4,11 +4,10 @@ import { initPanels } from './panels.js';
 import { renderContent } from './content.js';
 import { detectMobile, setState, subscribe } from './store.js';
 
-// DOM refs
-const sidebar=document.getElementById('sidebar-container');
-const topbar=document.getElementById('topbar-container');
-const content=document.getElementById('content-container');
-const app=document.getElementById('app');
+const sidebar = document.getElementById('sidebar-container');
+const topbar = document.getElementById('topbar-container');
+const content = document.getElementById('content-container');
+const app = document.getElementById('app');
 
 renderSidebar(sidebar);
 renderTopbar(topbar);
@@ -17,17 +16,15 @@ renderContent(content);
 
 setState({ isMobile: detectMobile() });
 
-// window resize
-window.addEventListener('resize', ()=> setState({ isMobile: window.innerWidth <=880 }));
+window.addEventListener('resize', () => setState({ isMobile: window.innerWidth <= 880 }));
 
-// mobile tabbar
-subscribe(state=>{
-  let tab=document.querySelector('.mobile-tabbar');
+subscribe(state => {
+  let tab = document.querySelector('.mobile-tabbar');
   if(state.isMobile){
     if(!tab){
-      tab=document.createElement('div');
-      tab.className='mobile-tabbar';
-      tab.innerHTML=`
+      tab = document.createElement('div');
+      tab.className = 'mobile-tabbar';
+      tab.innerHTML = `
         <div class="sidebar-item"><i class="fas fa-home"></i></div>
         <div class="sidebar-item"><i class="fas fa-search"></i></div>
         <div class="sidebar-item"><i class="fas fa-plus"></i></div>
@@ -36,7 +33,7 @@ subscribe(state=>{
       `;
       document.body.appendChild(tab);
     }
-  } else {
-    if(tab) tab.remove();
+  } else if(tab){
+    tab.remove();
   }
 });
