@@ -1,33 +1,26 @@
-<link rel="stylesheet" href="css/right-panel.css">
-
 <div class="right-panel">
 
-  <!-- 用户信息卡 -->
-  <div class="card user-card">
+  <!-- 顶部用户信息 -->
+  <div class="user-info-row">
     <div class="avatar-wrapper" id="avatar-click-area">
-      <img src="https://via.placeholder.com/80" alt="User Avatar" id="user-avatar">
+      <img src="https://via.placeholder.com/60" alt="User Avatar" id="user-avatar">
     </div>
-    <div class="user-info">
+    <div class="user-details">
       <span class="nickname" id="username">Loading...</span>
-      <div class="status">
+      <span class="app-status" id="app-status-text">
         <span class="status-dot" id="app-status-dot"></span>
-        <span id="app-status-text">Checking App status...</span>
-      </div>
+        Checking App status...
+      </span>
     </div>
-    <button id="edit-profile-btn" style="display:none;">Edit Profile</button>
   </div>
 
-  <!-- 登出按钮 -->
-  <div class="card actions-card">
-    <button id="logout-btn">Logout</button>
-  </div>
-
-  <!-- App 下载卡片 -->
-  <div class="card download-card">
-    <h4>Download Stratos App</h4>
-    <div class="download-buttons">
-      <button>iOS</button>
-      <button>Android</button>
+  <!-- 底部操作 -->
+  <div class="bottom-actions">
+    <button id="logout-btn" class="text-btn">Logout</button>
+    <div class="download-links">
+      <span>Download Stratos App:</span>
+      <button class="text-btn">iOS</button>
+      <button class="text-btn">Android</button>
     </div>
   </div>
 
