@@ -42,6 +42,12 @@ body {
 }
 
 /* Sidebar container */
+/* 左侧竖线 */
+.left-divider {
+  width: 1px;
+  background-color: #f2f2f2;
+  height: 100vh;
+}
 #sidebar-container {
   flex: 1;
   max-width: 16.66%;
