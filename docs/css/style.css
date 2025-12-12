@@ -28,13 +28,18 @@ body {
   border: none;
   margin: 10px 0;
   cursor: pointer;
-  font-size: 24px;
+  padding: 0;
+}
+
+#toolbar .material-icons {
+  font-size: 28px;
+  color: #1DA1F2; /* 可以改成主色 */
 }
 
 /* ===== 分隔线 ===== */
 .divider {
   width: 1px;
-  background: #ccc; /* 和工具栏边线一致 */
+  background: #ccc;
   flex-shrink: 0;
 }
 
