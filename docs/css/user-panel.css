@@ -1,6 +1,5 @@
 #user-panel-container {
   width: 300px; /* 用户栏宽度可调整 */
-  background: #fff;
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
