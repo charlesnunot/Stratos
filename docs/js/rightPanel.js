@@ -1,56 +1,37 @@
 // js/rightPanel.js
+// js/rightPanel.js
 import { supabase } from './userService.js';
 import { getUser, setUser } from './userManager.js';
 import { subscribeWebMonitor } from './subscribeWebMonitor.js';
 import { subscribeUserAvatar } from './subscribeUserAvatar.js';
-import { performLogout } from './logout.js';
-import { initEditNickname } from './editNickname.js';
 import { subscribeUserProfile } from './userProfileSubscriber.js';
+import { performLogout } from './logout.js';
 
 export async function initRightPanel() {
-  const avatarClick = document.getElementById("avatar-click-area");
-  const avatarFile = document.getElementById("avatar-file");
+  const avatarArea = document.getElementById("avatar-click-area");
   const avatarImg = document.getElementById("user-avatar");
-
   const usernameEl = document.getElementById("username");
+
   const appStatusText = document.getElementById("app-status-text");
   const appStatusDot = document.getElementById("app-status-dot");
 
   const user = getUser();
   if (!user || !user.uid) return;
 
-  // 初始化昵称编辑 UI
-  initEditNickname(user);
-
-  /* ----------------------------
-      头像上传
-  ----------------------------- */
-  avatarClick?.addEventListener("click", () => {
-    avatarFile.click();
+  /* ------------------------------------------------
+      🔗 点击头像或昵称进入用户页面 user.html
+  ------------------------------------------------ */
+  avatarArea?.addEventListener("click", () => {
+    window.location.href = "user.html";
   });
 
-  avatarFile?.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    avatarImg.src = URL.createObjectURL(file);
-
-    const avatarUrl = await uploadAvatarWeb(file);
-    if (!avatarUrl) {
-      alert("头像上传失败");
-      avatarFile.value = "";
-      return;
-    }
-
-    await updateUserAvatar(user.uid, avatarUrl);
-    avatarImg.src = avatarUrl;
-
-    avatarFile.value = "";
+  usernameEl?.addEventListener("click", () => {
+    window.location.href = "user.html";
   });
 
-  /* ----------------------------
-      订阅 Web/App 在线状态
-  ----------------------------- */
+  /* ------------------------------------------------
+      📌 订阅 Web/App 在线状态
+  ------------------------------------------------ */
   const unsubscribeWebMonitor = subscribeWebMonitor(user.uid, (data) => {
     if (!data) return;
 
@@ -60,50 +41,58 @@ export async function initRightPanel() {
         data.status === "online" ? "#2ecc71" : "#888";
     }
 
+    // Web 被远程下线 → 自动登出
     if (data.device === "web" && data.status === "offline") {
-      performLogout([unsubscribeWebMonitor, unsubscribeAvatar, unsubscribeProfile]);
+      performLogout([
+        unsubscribeWebMonitor,
+        unsubscribeAvatar,
+        unsubscribeProfile,
+      ]);
     }
   });
 
-  /* ----------------------------
-      订阅用户头像变化
-  ----------------------------- */
+  /* ------------------------------------------------
+      🔄 订阅用户头像更新
+  ------------------------------------------------ */
   const unsubscribeAvatar = subscribeUserAvatar(user.uid, (newUrl) => {
     if (avatarImg) avatarImg.src = newUrl;
   });
 
-  /* ----------------------------
-      订阅用户资料变化（昵称、头像等）
-  ----------------------------- */
+  /* ------------------------------------------------
+      🔄 订阅用户资料变化（昵称、头像）
+  ------------------------------------------------ */
   const unsubscribeProfile = subscribeUserProfile(user.uid, (profile) => {
+    const u = getUser();
+    if (!u) return;
+
     if (profile.nickname && usernameEl) {
       usernameEl.textContent = profile.nickname;
-      const u = getUser();
       setUser({ ...u, nickname: profile.nickname });
     }
 
     if (profile.avatar && avatarImg) {
       avatarImg.src = profile.avatar;
-      const u = getUser();
       setUser({ ...u, avatarUrl: profile.avatar });
     }
   });
 
-  /* ----------------------------
-      绑定退出按钮
-  ----------------------------- */
+  /* ------------------------------------------------
+      🔒 退出按钮
+  ------------------------------------------------ */
   const logoutBtn = document.getElementById("logout-btn");
   logoutBtn?.addEventListener("click", async () => {
     await performLogout([
       unsubscribeWebMonitor,
       unsubscribeAvatar,
-      unsubscribeProfile
+      unsubscribeProfile,
     ]);
   });
 
+  // 页面关闭时取消订阅
   window.addEventListener("beforeunload", () => {
     unsubscribeWebMonitor();
     unsubscribeAvatar();
     unsubscribeProfile();
   });
 }
+
