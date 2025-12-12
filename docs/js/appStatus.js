@@ -1,5 +1,5 @@
 /**
- * 设置 APP 在线
+ * 设置 APP 在线（绿色状态点）
  */
 export function setAppOnline() {
   const dot = document.getElementById("app-status-dot");
@@ -10,7 +10,7 @@ export function setAppOnline() {
 }
 
 /**
- * 设置 APP 离线
+ * 设置 APP 离线（红色状态点）
  */
 export function setAppOffline() {
   const dot = document.getElementById("app-status-dot");
