@@ -1,29 +1,46 @@
-// ===============================
-// main.js
-// ===============================
+import { renderSidebar } from './sidebar.js';
+import { renderTopbar } from './topbar.js';
+import { initPanels } from './panels.js';
+import { renderContent } from './content.js';
+import { detectMobile, setState, subscribe } from './store.js';
 
-import { initSidebar } from "./sidebar.js";
-import { initUserPanel } from "./user-panel.js";
-import { initContent } from "./content.js";
+// init DOM refs
+const sidebar = document.getElementById('sidebar-container');
+const topbar = document.getElementById('topbar-container');
+const content = document.getElementById('content-container');
+const app = document.getElementById('app');
 
-const sidebar = document.getElementById("sidebar-container");
-const userPanel = document.getElementById("user-panel-container");
+renderSidebar(sidebar);
+renderTopbar(topbar);
+initPanels(app);
+renderContent(content);
 
-initSidebar(sidebar);
-initUserPanel(userPanel);
-initContent(document.getElementById("content-container"));
+// initial detect
+setState({ isMobile: detectMobile() });
 
-// 当前打开的面板
-let openedPanel = null;
+// window resize update
+window.addEventListener('resize', () => {
+  setState({ isMobile: window.innerWidth <= 880 });
+});
 
-export function togglePanel(panelName) {
-  if (openedPanel === panelName) {
-    // 再次点击 → 收回
-    userPanel.classList.remove("active");
-    openedPanel = null;
+// subscribe to store for additional UI tweaks if needed
+subscribe(state => {
+  // mobile: show a bottom tabbar (simple approach)
+  let tab = document.querySelector('.mobile-tabbar');
+  if(state.isMobile){
+    if(!tab){
+      tab = document.createElement('div');
+      tab.className = 'mobile-tabbar';
+      tab.innerHTML = `
+        <div class="sidebar-item"><i class="fas fa-home"></i></div>
+        <div class="sidebar-item"><i class="fas fa-search"></i></div>
+        <div class="sidebar-item"><i class="fas fa-plus"></i></div>
+        <div class="sidebar-item"><i class="fas fa-comment-dots"></i></div>
+        <div class="sidebar-item"><i class="fas fa-user"></i></div>
+      `;
+      document.body.appendChild(tab);
+    }
   } else {
-    // 展开
-    userPanel.classList.add("active");
-    openedPanel = panelName;
+    if(tab) tab.remove();
   }
-}
+});
