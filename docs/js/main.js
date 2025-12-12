@@ -4,20 +4,26 @@ import { initPanels } from './panels.js';
 import { renderContent } from './content.js';
 import { detectMobile, setState, subscribe } from './store.js';
 
+// DOM references
 const sidebar = document.getElementById('sidebar-container');
 const topbar = document.getElementById('topbar-container');
 const content = document.getElementById('content-container');
-const app = document.getElementById('app');
 
+// render UI
 renderSidebar(sidebar);
 renderTopbar(topbar);
-initPanels(app);
+initPanels();
 renderContent(content);
 
+// initial detect
 setState({ isMobile: detectMobile() });
 
-window.addEventListener('resize', () => setState({ isMobile: window.innerWidth <= 880 }));
+// window resize
+window.addEventListener('resize', () => {
+  setState({ isMobile: window.innerWidth <= 880 });
+});
 
+// mobile tabbar
 subscribe(state => {
   let tab = document.querySelector('.mobile-tabbar');
   if(state.isMobile){
@@ -33,7 +39,7 @@ subscribe(state => {
       `;
       document.body.appendChild(tab);
     }
-  } else if(tab){
-    tab.remove();
+  } else {
+    if(tab) tab.remove();
   }
 });
