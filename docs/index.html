@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Social Platform Layout</title>
-
 <link rel="stylesheet" href="css/style.css">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
@@ -22,7 +21,6 @@
     <button data-panel="panel7" title="Add"><span class="material-icons">add_box</span></button>
     <button data-panel="panel8" title="User"><span class="material-icons">person</span></button>
   </div>
-
   <div class="bottom-icon">
     <button title="More"><span class="material-icons">menu</span></button>
   </div>
@@ -30,25 +28,20 @@
 
 <div class="divider"></div>
 
-<!-- ⭐⭐⭐ Dynamic Panel MUST wrap all internal panels ⭐⭐⭐ -->
+<!-- Dynamic Panel -->
 <div id="dynamic-panel">
 
   <!-- User Panel -->
   <div id="panel-user" class="panel-section active">
     <div class="user-header">
       <div class="avatar-wrapper">
-
-        <!-- Temporary avatar you provided -->
         <img src="https://res.cloudinary.com/dpgkgtb5n/image/upload/v1765341478/qllvyqinyhpqwuzny2zr.png"
              alt="User Avatar"
              class="avatar">
-
-        <!-- Boolean online/offline dot -->
         <span id="app-status-dot" class="status-dot offline"></span>
+        <span id="app-status-text" class="status-text">Offline</span>
       </div>
-
       <div class="nickname">Keyong</div>
-      <div id="app-status-text" class="status-text">App Offline</div>
     </div>
   </div>
 
