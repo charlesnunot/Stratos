@@ -24,4 +24,3 @@
 /* overlay with blur */
 #overlay{position:fixed;inset:0;background:rgba(7,12,18,0.18);backdrop-filter:blur(4px);z-index:40;opacity:0;pointer-events:none;transition:opacity .25s}
 #overlay.visible{opacity:1;pointer-events:auto}
-
