@@ -1,4 +1,4 @@
-// ===== 面板切换和滑入/滑出动画 =====
+// ===== 面板切换 =====
 const buttons = document.querySelectorAll('#toolbar .top-icons button');
 const dynamicPanel = document.getElementById('dynamic-panel');
 
