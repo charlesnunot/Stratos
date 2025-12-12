@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>三列布局-可拖动面板</title>
+<title>三列布局示例</title>
 <style>
   body {
     margin: 0;
     font-family: "Segoe UI", Arial, sans-serif;
     display: flex;
     height: 100vh;
-    user-select: none; /* 拖动时避免选中内容 */
   }
 
   /* 左侧工具栏 */
@@ -34,23 +33,11 @@
 
   /* 中间动态面板 */
   #dynamic-panel {
-    width: 500px; /* 默认宽度 */
+    width: 400px; /* 固定宽度 */
     background: #f0f0f0;
     padding: 20px;
     overflow-y: auto;
-    border-right: 2px solid #999; /* 拖动分隔线 */
-    position: relative;
-  }
-
-  /* 拖动手柄 */
-  #drag-handle {
-    width: 5px;
-    cursor: ew-resize;
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.1);
+    border-right: 1px solid #ccc;
   }
 
   .panel-section {
@@ -109,9 +96,6 @@
   <div id="panel1" class="panel-section active">面板 1 内容</div>
   <div id="panel2" class="panel-section">面板 2 内容</div>
   <div id="panel3" class="panel-section">面板 3 内容</div>
-
-  <!-- 拖动手柄 -->
-  <div id="drag-handle"></div>
 </div>
 
 <!-- 最右宽内容面板 -->
@@ -127,7 +111,6 @@
 </div>
 
 <script>
-  // 面板切换
   const buttons = document.querySelectorAll('#toolbar button');
   const panels = document.querySelectorAll('.panel-section');
 
@@ -139,32 +122,6 @@
         if (panel.id === target) panel.classList.add('active');
       });
     });
-  });
-
-  // 拖动改变宽度
-  const panel = document.getElementById('dynamic-panel');
-  const handle = document.getElementById('drag-handle');
-
-  let isDragging = false;
-
-  handle.addEventListener('mousedown', e => {
-    isDragging = true;
-    document.body.style.cursor = 'ew-resize';
-  });
-
-  document.addEventListener('mousemove', e => {
-    if (!isDragging) return;
-    const newWidth = e.clientX - panel.getBoundingClientRect().left;
-    if (newWidth > 200 && newWidth < 800) { // 限制最小/最大宽度
-      panel.style.width = newWidth + 'px';
-    }
-  });
-
-  document.addEventListener('mouseup', e => {
-    if (isDragging) {
-      isDragging = false;
-      document.body.style.cursor = 'default';
-    }
   });
 </script>
 
