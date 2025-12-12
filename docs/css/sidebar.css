@@ -1,5 +1,5 @@
 #sidebar-container {
-  width: 60px; /* 左栏宽度 */
+  width: 40px; /* 左栏宽度 */
   background: #e0e0e0;
   display: flex;
   flex-direction: column;
