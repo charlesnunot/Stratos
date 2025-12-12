@@ -31,8 +31,24 @@
     font-size: 24px;
   }
 
-  /* 右侧最宽内容栏 */
-  #content {
+  /* 中间容器：右侧面板 + 原中间内容 */
+  #content-wrapper {
+    display: flex;
+    flex: 1;
+    height: 100%;
+  }
+
+  /* 右侧面板（现在在中间） */
+  #sidepanel {
+    width: 300px;
+    background: #fff;
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 1px solid #ccc; /* 分隔竖线 */
+  }
+
+  /* 中间内容（现在在右边） */
+  #main {
     flex: 1;
     background: #f9f9f9;
     padding: 20px;
@@ -86,23 +102,31 @@
   <button data-panel="stats-panel">📊</button>
 </div>
 
-<div id="content">
-  <div id="home-panel" class="panel-section active">
+<div id="content-wrapper">
+  <!-- 右侧面板，现在在中间 -->
+  <div id="sidepanel">
+    <div id="home-panel" class="panel-section active">
+      首页面板内容
+    </div>
+    <div id="search-panel" class="panel-section">搜索面板内容</div>
+    <div id="explore-panel" class="panel-section">探索面板内容</div>
+    <div id="reels-panel" class="panel-section">Reels 面板内容</div>
+    <div id="messages-panel" class="panel-section">消息面板内容</div>
+    <div id="likes-panel" class="panel-section">喜欢面板内容</div>
+    <div id="add-panel" class="panel-section">添加面板内容</div>
+    <div id="stats-panel" class="panel-section">分析面板内容</div>
+  </div>
+
+  <!-- 中间内容，现在在右边 -->
+  <div id="main">
     <div class="user-card">
       <img src="527a4911-904d-424f-846f-9e01bee7c7b4.png" alt="用户头像">
       <div class="text">
         <span>你的便签</span>
-        <small>点击左边图标切换内容</small>
+        <small>点击左边图标切换右侧面板内容</small>
       </div>
     </div>
   </div>
-  <div id="search-panel" class="panel-section">搜索内容区域</div>
-  <div id="explore-panel" class="panel-section">探索内容区域</div>
-  <div id="reels-panel" class="panel-section">Reels 内容区域</div>
-  <div id="messages-panel" class="panel-section">消息内容区域</div>
-  <div id="likes-panel" class="panel-section">喜欢内容区域</div>
-  <div id="add-panel" class="panel-section">添加内容区域</div>
-  <div id="stats-panel" class="panel-section">分析内容区域</div>
 </div>
 
 <script>
