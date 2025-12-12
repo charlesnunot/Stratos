@@ -13,7 +13,7 @@ buttons.forEach(btn => {
       dynamicPanel.classList.add('hidden');
       panels.forEach(p => p.classList.remove('active'));
 
-      // Simulate offline for demo
+      // App temporarily offline when folded
       setAppOffline();
       return;
     }
@@ -25,7 +25,7 @@ buttons.forEach(btn => {
     const target = document.getElementById(panelId);
     if (target) target.classList.add('active');
 
-    // Simulate online
+    // App online when dynamic panel is expanded
     setAppOnline();
   });
 });
