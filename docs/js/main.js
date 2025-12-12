@@ -12,7 +12,6 @@ const icons = [
   { title: 'Profile', icon: 'fa-user', panel: 'Profile Panel' },
 ];
 
-// 当前显示的面板
 let currentPanel = null;
 
 // 初始化图标栏
@@ -29,7 +28,7 @@ icons.forEach(item => {
       return;
     }
 
-    // 如果当前面板就是这个，收回
+    // 如果点击的是同一个面板 → 收回
     if (currentPanel && currentPanel.dataset.title === item.title) {
       currentPanel.classList.remove('show');
       currentPanel = null;
@@ -37,24 +36,31 @@ icons.forEach(item => {
       return;
     }
 
-    // 移除已有面板
+    // 收起旧面板
     if (currentPanel) {
       currentPanel.classList.remove('show');
     }
 
-    // 创建或显示新面板
+    // 查询是否已有面板
     let panel = document.querySelector(`.panel[data-title="${item.title}"]`);
+
+    // 如果没有，生成一个新面板
     if (!panel) {
       panel = document.createElement('div');
-      panel.className = 'panel show';
+      panel.className = 'panel';
       panel.dataset.title = item.title;
-      panel.innerHTML = `<h3>${item.panel}</h3><p>Content for ${item.title}</p>`;
-      contentContainer.parentNode.insertBefore(panel, contentContainer);
-    } else {
-      panel.classList.add('show');
+      panel.innerHTML = `
+        <h3>${item.panel}</h3>
+        <p>Content for ${item.title}</p>
+      `;
+      document.getElementById('main-container').appendChild(panel);
     }
 
+    // 显示面板
+    panel.classList.add('show');
     currentPanel = panel;
-    contentContainer.style.flex = `1 1 calc(100% - ${panel.offsetWidth}px)`;
+
+    // 内容区域缩小
+    contentContainer.style.flex = `1 1 calc(100% - var(--panel-width))`;
   });
 });
