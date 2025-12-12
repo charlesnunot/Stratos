@@ -1,1 +1,91 @@
+/* ===== 全局样式 ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  display: flex;
+  height: 100vh;
+  background: #fff;
+  overflow: hidden;
+}
+
+/* ===== 左侧工具栏 ===== */
+#toolbar {
+  width: 60px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  flex-shrink: 0;
+}
+
+#toolbar button {
+  background: none;
+  border: none;
+  margin: 10px 0;
+  cursor: pointer;
+  font-size: 24px;
+}
+
+/* ===== 分隔线 ===== */
+.divider {
+  width: 1px;
+  background: #ccc; /* 和工具栏边线一致 */
+  flex-shrink: 0;
+}
+
+/* ===== 中间动态面板 ===== */
+#dynamic-panel {
+  width: 300px;
+  background: #fff;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.panel-section {
+  display: none;
+  padding: 20px;
+}
+
+.panel-section.active {
+  display: block;
+}
+
+/* ===== 最右宽内容面板 ===== */
+#main-content {
+  flex: 1;
+  background: #fff;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* ===== 用户卡片 ===== */
+.user-card {
+  background: #fff;
+  padding: 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #ccc;
+}
+
+.user-card img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+}
+
+.user-card .text {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-card .text span {
+  font-weight: bold;
+}
 
