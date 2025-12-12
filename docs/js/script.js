@@ -25,13 +25,12 @@ buttons.forEach(btn => {
     if (target) target.classList.add('active');
 
     setAppOnline(); // 绿点
-    
   });
 });
 
 // 弹窗显示完整 Bio
 const bioElement = document.getElementById('user-bio');
 bioElement.addEventListener('click', () => {
-  const fullBio = bioElement.textContent; // 真实文本也可以放在 data-full 属性中
-  alert(fullBio); // 临时弹窗显示全部
+  const fullBio = bioElement.getAttribute('data-full');
+  alert(fullBio);
 });
