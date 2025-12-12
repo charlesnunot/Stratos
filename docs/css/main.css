@@ -1,28 +1,24 @@
-:root {
-  --primary-color: #1DA1F2;
-  --background-color: #f8f9fa;
-  --text-color: #111;
-  --card-bg: #ffffff;
-  --border-color: #ddd;
-}
-
-/* Reset */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body, html {
-  width: 100%;
-  height: 100%;
-  font-family: Arial, sans-serif;
-  background: var(--background-color);
-}
-
 #main-container {
   display: flex;
-  height: 100vh;
   width: 100%;
+  height: 100vh;
+  overflow: hidden;
 }
 
+#sidebar-container {
+  flex: 0 0 60px; /* 左侧固定窄栏 */
+  background: #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+}
+
+#user-panel-container {
+  display: flex;
+  flex-direction: column;
+}
+
+#content-container {
+  overflow-y: auto;
+}
