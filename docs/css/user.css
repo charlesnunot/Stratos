@@ -3,36 +3,42 @@
 /* 整体布局（左右分栏） */
 .layout {
   display: flex;
-  height: 100vh; /* 占满整个视口高度 */
+  height: 100vh;
   margin: 0;
   padding: 0;
   background: var(--background-color, #f9f9f9);
   color: var(--text-color, #1c1c1c);
 }
 
-/* 左侧 sidebar 容器 - 占 1/6 */
+/* 左侧 sidebar - 占 1/6 */
 .sidebar-wrapper {
-  flex: 1; /* 占 1 份 */
-  max-width: 16.6667%; /* 确保不超过 1/6 */
+  flex: 1;
+  max-width: 16.6667%;
+  min-width: 180px;
   background: var(--background-color, #ffffff);
-  border-right: 1px solid #ddd; /* 竖线 */
-  box-sizing: border-box;
-  min-width: 180px; /* 小屏幕最小宽度 */
   display: flex;
   flex-direction: column;
+  padding: 20px; /* 内部内容 padding */
+  box-sizing: border-box;
 }
 
-/* 去掉可能产生空隙的 padding/margin */
-.sidebar-wrapper > * {
-  margin: 0;
-  padding: 0;
+/* 垂直分隔线 */
+.divider {
+  width: 1px; /* 竖线宽度 */
+  background-color: #ddd; /* 竖线颜色 */
+  height: 100vh; /* 占满整个视口高度 */
 }
 
 /* 右侧用户页面 - 占 5/6 */
 .user-page {
-  flex: 5; /* 占 5 份 */
+  flex: 5;
   padding: 40px;
   overflow-y: auto;
   background: var(--background-color, #f9f9f9);
   color: var(--text-color, #1c1c1c);
+}
+
+/* 更多菜单显示 */
+.more-menu.show {
+  display: block;
 }
