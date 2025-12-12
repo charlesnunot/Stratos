@@ -1,13 +1,25 @@
 #user-panel-container {
   width: 300px; /* 用户栏宽度 */
-  border-right: 1px solid #ccc; /* 右侧竖线 */
   display: flex;
   flex-direction: column;
-  background: #ffffff; /* 背景白色 */
-  padding: 10px;
+  background: #ffffff;
+  position: relative; /* 为 ::after 定位 */
+  padding: 12px;
   overflow-y: auto;
 }
 
+/* 用户栏右侧竖线 */
+#user-panel-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0; /* 贯穿整个容器 */
+  right: 0;
+  width: 1px;
+  background-color: #ccc;
+}
+
+/* 用户卡片 */
 .user-card {
   display: flex;
   align-items: center;
