@@ -1,36 +1,126 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Stratos — Fixed Left Panel UI</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instagram 样式页面</title>
+<style>
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+  }
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/sidebar.css" />
-  <link rel="stylesheet" href="css/topbar.css" />
-  <link rel="stylesheet" href="css/panels.css" />
-  <link rel="stylesheet" href="css/content.css" />
-  <link rel="stylesheet" href="css/mobile.css" />
+  /* 左侧导航栏 */
+  #sidebar {
+    width: 60px;
+    background: #fff;
+    border-right: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0;
+  }
 
-  <!-- FontAwesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  #sidebar button {
+    background: none;
+    border: none;
+    margin: 10px 0;
+    cursor: pointer;
+    font-size: 24px;
+  }
+
+  /* 主内容区域 */
+  #main {
+    flex: 1;
+    background: #f9f9f9;
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .section {
+    display: none;
+  }
+
+  .section.active {
+    display: block;
+  }
+
+  /* 用户栏示例 */
+  .user-card {
+    background: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .user-card img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+  }
+
+  .user-card .text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .user-card .text span {
+    font-weight: bold;
+  }
+</style>
 </head>
 <body>
-  <div id="app">
-    <!-- Left sidebar -->
-    <aside id="sidebar-container" aria-hidden="false"></aside>
 
-    <!-- Main area -->
-    <div id="main-area">
-      <header id="topbar-container"></header>
-      <main id="content-wrapper">
-        <div id="content-container"></div>
-      </main>
+<div id="sidebar">
+  <button data-section="home">🏠</button>
+  <button data-section="search">🔍</button>
+  <button data-section="explore">🧭</button>
+  <button data-section="reels">🎬</button>
+  <button data-section="messages">✉️</button>
+  <button data-section="likes">❤️</button>
+  <button data-section="add">➕</button>
+  <button data-section="stats">📊</button>
+</div>
+
+<div id="main">
+  <div id="home" class="section active">
+    <div class="user-card">
+      <img src="527a4911-904d-424f-846f-9e01bee7c7b4.png" alt="用户头像">
+      <div class="text">
+        <span>你的便签</span>
+        <small>点击左边图标切换栏目</small>
+      </div>
     </div>
   </div>
+  <div id="search" class="section">搜索内容区域</div>
+  <div id="explore" class="section">探索内容区域</div>
+  <div id="reels" class="section">Reels 内容区域</div>
+  <div id="messages" class="section">消息内容区域</div>
+  <div id="likes" class="section">喜欢内容区域</div>
+  <div id="add" class="section">添加内容区域</div>
+  <div id="stats" class="section">分析内容区域</div>
+</div>
 
-  <!-- JS -->
-  <script type="module" src="js/main.js"></script>
+<script>
+  const buttons = document.querySelectorAll('#sidebar button');
+  const sections = document.querySelectorAll('.section');
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-section');
+      sections.forEach(sec => {
+        sec.classList.remove('active');
+        if (sec.id === target) {
+          sec.classList.add('active');
+        }
+      });
+    });
+  });
+</script>
+
 </body>
 </html>
