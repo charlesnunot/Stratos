@@ -1,13 +1,19 @@
-/* css/user.css */
+/* ================= 整体布局 ================= */
 
-/* 整体布局（左右分栏） */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+}
+
+/* 整体左右分栏布局 */
 .layout {
   display: flex;
   height: 100vh;
   margin: 0;
   padding: 0;
-  background: var(--background-color, #f9f9f9);
-  color: var(--text-color, #1c1c1c);
+  background-color: #ffffff; /* 全白背景 */
+  color: #1c1c1c;
 }
 
 /* 左侧 sidebar - 占 1/6 */
@@ -15,18 +21,12 @@
   flex: 1;
   max-width: 16.6667%;
   min-width: 180px;
-  background: var(--background-color, #ffffff);
+  background-color: #ffffff; /* 白色背景 */
   display: flex;
   flex-direction: column;
-  padding: 20px; /* 内部内容 padding */
+  padding: 20px;
   box-sizing: border-box;
-}
-
-/* 垂直分隔线 */
-.divider {
-  width: 1px; /* 竖线宽度 */
-  background-color: #ddd; /* 竖线颜色 */
-  height: 100vh; /* 占满整个视口高度 */
+  border: none; /* 去掉任何残留边框 */
 }
 
 /* 右侧用户页面 - 占 5/6 */
@@ -34,11 +34,27 @@
   flex: 5;
   padding: 40px;
   overflow-y: auto;
-  background: var(--background-color, #f9f9f9);
-  color: var(--text-color, #1c1c1c);
+  background-color: #ffffff; /* 白色背景 */
+  color: #1c1c1c;
 }
 
 /* 更多菜单显示 */
 .more-menu.show {
   display: block;
+}
+
+/* 按钮样式 */
+.user-page button {
+  padding: 10px 16px;
+  font-size: 14px;
+  border: none;
+  background-color: #1967d2;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 16px;
+}
+
+.user-page button:hover {
+  background-color: #155ab6;
 }
