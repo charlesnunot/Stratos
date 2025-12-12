@@ -34,3 +34,20 @@
 #overlay.visible {
   opacity:1; visibility: visible;
 }
+
+/* panel itself */
+.panel {
+  position: fixed;
+  top: 0;
+  left: 60px; /* sidebar 宽度 */
+  width: 340px;
+  height: 100%;
+  background: #fff;
+  border-right: 1px solid #e6edf3;
+  /* 去掉阴影 */
+  box-shadow: none;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  z-index: 50;
+  overflow-y: auto;
+}
