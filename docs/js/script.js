@@ -1,36 +1,13 @@
-import { setAppOnline, setAppOffline } from "./appStatus.js";
+import { initToolbar } from '../components/Toolbar/Toolbar.js';
+import { initUserPanel, setAppOnline, setAppOffline } from '../components/UserPanel/UserPanel.js';
+import { initDynamicPanel } from '../components/DynamicPanel/DynamicPanel.js';
+import { initMainContent } from '../components/MainContent/MainContent.js';
 
-const buttons = document.querySelectorAll('#toolbar .top-icons button');
-const dynamicPanel = document.getElementById('dynamic-panel');
-const panels = dynamicPanel.querySelectorAll('.panel-section');
-
-buttons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const panelId = btn.getAttribute('data-panel');
-
-    if (panelId === 'panel-user') {
-      // 点击 Home → 折叠动态面板
-      dynamicPanel.classList.add('hidden');
-      panels.forEach(p => p.classList.remove('active'));
-
-      setAppOffline(); // 红点
-      return;
-    }
-
-    // 展开动态面板
-    dynamicPanel.classList.remove('hidden');
-    panels.forEach(p => p.classList.remove('active'));
-
-    const target = document.getElementById(panelId);
-    if (target) target.classList.add('active');
-
-    setAppOnline(); // 绿点
-  });
+// 初始化 Toolbar 并绑定面板切换
+initToolbar(panelId => {
+  initDynamicPanel.showPanel(panelId);
 });
 
-// 弹窗显示完整 Bio
-const bioElement = document.getElementById('user-bio');
-bioElement.addEventListener('click', () => {
-  const fullBio = bioElement.getAttribute('data-full');
-  alert(fullBio);
-});
+// 初始化其他大组件
+initUserPanel();
+initMainContent();
