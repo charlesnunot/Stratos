@@ -1,64 +1,66 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>User Profile</title>
+/* ================= 整体布局 ================= */
 
-  <!-- 外部 CSS -->
-  <link rel="stylesheet" href="css/sidebar.css">
-  <link rel="stylesheet" href="css/user.css">
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+}
 
-  <!-- JS -->
-  <script type="module" src="js/user.js"></script>
-</head>
+/* 整体左右分栏布局 */
+.layout {
+  display: flex;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-color: #ffffff; /* 全白背景 */
+  color: #1c1c1c;
+}
 
-<body>
-  <div class="layout">
+/* 左侧 sidebar - 占 1/6 */
+.sidebar-wrapper {
+  flex: 1;
+  max-width: 16.6667%;
+  min-width: 180px;
+  background-color: #ffffff; /* 白色背景 */
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  box-sizing: border-box;
+}
 
-    <!-- 左侧 Sidebar 容器 -->
-    <div class="sidebar-wrapper" id="sidebar-container">
-      <!-- sidebar.html 会被动态加载到这里 -->
-    </div>
+/* 右侧用户页面 - 占 5/6 */
+.user-page {
+  flex: 5;
+  padding: 40px;
+  overflow-y: auto;
+  background-color: #ffffff; /* 白色背景 */
+  color: #1c1c1c;
+}
 
-    <!-- 垂直分隔线 -->
-    <div class="divider"></div>
+/* 垂直分隔线 */
+.divider {
+  width: 1px;
+  background-color: #ddd;
+  height: 100vh; /* 从顶部到底部 */
+}
 
-    <!-- 右侧用户面板 -->
-    <div class="user-page" id="user-page">
-      <h1>User Profile</h1>
-      <p>Welcome to your profile page. You can edit your details here.</p>
+/* 更多菜单显示 */
+.more-menu.show {
+  display: block;
+}
 
-      <div class="user-info">
-        <p><strong>Username:</strong> JohnDoe</p>
-        <p><strong>Email:</strong> john@example.com</p>
-        <p><strong>Member since:</strong> 2025-01-01</p>
-      </div>
+/* 用户面板按钮样式 */
+.user-page button {
+  padding: 10px 16px;
+  font-size: 14px;
+  border: none;
+  background-color: #1967d2;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 16px;
+}
 
-      <button>Edit Profile</button>
-    </div>
-
-  </div>
-
-  <script>
-    // 动态加载 sidebar.html
-    fetch('components/sidebar.html')
-      .then(response => response.text())
-      .then(html => {
-        const container = document.getElementById('sidebar-container');
-        container.innerHTML = html;
-
-        // 初始化 More 菜单
-        const moreBtn = container.querySelector('#more-button');
-        const moreMenu = container.querySelector('#more-menu');
-
-        if (moreBtn && moreMenu) {
-          moreBtn.addEventListener('click', () => {
-            moreMenu.classList.toggle('show');
-            moreBtn.classList.toggle('active');
-          });
-        }
-      })
-      .catch(err => console.error('Failed to load sidebar:', err));
-  </script>
-</body>
-</html>
+.user-page button:hover {
+  background-color: #155ab6;
+}
