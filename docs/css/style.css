@@ -148,3 +148,18 @@ body {
   padding: 20px;
   overflow-y: auto;
 }
+
+.user-bio {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #555;
+
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3; /* 只显示3行 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  cursor: pointer;
+}
