@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Stratos — Upgraded UI</title>
+  <title>Stratos — Fixed Left Panel UI</title>
 
   <!-- CSS -->
   <link rel="stylesheet" href="css/layout.css" />
@@ -15,20 +15,22 @@
 
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
 </head>
 <body>
   <div id="app">
+    <!-- Left sidebar -->
     <aside id="sidebar-container" aria-hidden="false"></aside>
+
+    <!-- Main area -->
     <div id="main-area">
       <header id="topbar-container"></header>
       <main id="content-wrapper">
         <div id="content-container"></div>
       </main>
     </div>
-    <div id="overlay" class="hidden" aria-hidden="true"></div>
   </div>
 
+  <!-- JS -->
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
