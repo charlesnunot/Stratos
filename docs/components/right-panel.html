@@ -1,11 +1,13 @@
 <link rel="stylesheet" href="css/right-panel.css">
+
 <div class="user-info" id="user-info" style="display:none;">
+  <!-- 顶部：头像 + 昵称 + APP状态 -->
   <div class="user-info-top">
     <div class="user-avatar-wrapper" id="avatar-click-area">
-      <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
+      <img id="user-avatar" src="https://via.placeholder.com/40" alt="User Avatar">
     </div>
     <div class="user-info-text">
-      <div id="username" class="user-nickname"></div>
+      <div id="username" class="user-nickname">Loading...</div>
       <div id="app-status" class="app-status">
         <span id="app-status-dot" class="status-dot"></span>
         <span id="app-status-text">Checking App status...</span>
@@ -13,6 +15,7 @@
     </div>
   </div>
 
+  <!-- 底部按钮 -->
   <div class="user-info-bottom">
     <button id="logout-btn">Logout</button>
     <button id="download-ios">Download iOS</button>
