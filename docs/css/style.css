@@ -119,3 +119,15 @@ body {
   padding: 20px;
   overflow-y: auto;
 }
+
+.status-text {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #888;
+}
+.status-text.online {
+  color: #27c93f; /* 绿色 */
+}
+.status-text.offline {
+  color: #ff3b30; /* 红色 */
+}
