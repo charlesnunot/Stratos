@@ -27,4 +27,3 @@ html,body,#app{height:100%;width:100%;background:var(--surface);font-family:Inte
 
 /* content wrapper takes remaining height */
 #content-wrapper{flex:1;display:flex;overflow:hidden}
-
