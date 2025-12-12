@@ -35,7 +35,6 @@ body {
   display: flex;
   flex-direction: row;
   width: 100%;
-  max-width: 1200px; /* 页面最大宽度 */
   justify-content: space-between;
   margin: 0 auto;    /* 居中显示 */
   padding: 0 10px;
