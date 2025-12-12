@@ -61,7 +61,7 @@ body {
 /* Right panel container */
 #right-panel-container {
   flex: 1;
-  max-width: 16.66%;
+  max-width: 33%;
   background: var(--background-color);
   color: var(--text-color);
   padding: 20px;
