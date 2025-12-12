@@ -13,18 +13,21 @@ const ICONS = [
 
 export function renderSidebar(container){
   container.innerHTML = '';
-  ICONS.forEach(it=>{
+  ICONS.forEach(it => {
     const d = document.createElement('div');
-    d.className='sidebar-item';
+    d.className = 'sidebar-item';
     d.dataset.key = it.key;
-    d.dataset.panel = it.panel||'';
-    d.innerHTML=`<i class="fa-solid ${it.icon}"></i><div class="sidebar-label">${it.label}</div>`;
+    d.dataset.panel = it.panel || '';
+    d.innerHTML = `<i class="fa-solid ${it.icon}"></i><div class="sidebar-label">${it.label}</div>`;
     container.appendChild(d);
 
-    d.addEventListener('click', ()=>{
-      if(!it.panel){ console.log('nav', it.key); return; }
+    d.addEventListener('click', () => {
+      if(!it.panel){
+        console.log('nav', it.key);
+        return;
+      }
       const current = getState().openPanel;
-      setState({ openPanel: current===it.panel?null:it.panel });
+      setState({ openPanel: current === it.panel ? null : it.panel });
     });
   });
 }
