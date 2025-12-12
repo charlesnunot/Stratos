@@ -5,8 +5,11 @@
   <meta charset="UTF-8">
   <title>User Profile</title>
 
+  <!-- 外部 CSS -->
   <link rel="stylesheet" href="css/sidebar.css">
   <link rel="stylesheet" href="css/user.css">
+
+  <!-- JS -->
   <script type="module" src="js/user.js"></script>
 </head>
 
@@ -14,96 +17,19 @@
 
   <div class="layout">
 
-    <!-- 左侧导航 -->
+    <!-- 左侧 Sidebar -->
     <div class="sidebar-wrapper">
-      <!-- 直接嵌入组件 -->
-      <div id="sidebar-container">
-        <!-- sidebar.html 会被加载进来 -->
-      </div>
+      <div id="sidebar-container"></div>
     </div>
 
-    <!-- 右侧用户页面 -->
-    <div class="user-page">
+    <!-- 右侧用户面板（当前空） -->
+    <div class="user-page" id="user-page">
+      <!-- 等你给 UI -->
+    </div>
 
-      <h2 class="title">Profile</h2>
-      <p class="subtitle">
-        Manage and update your personal information. Your profile helps others recognize you across Stratos.
-      </p>
-
-      <div class="profile-card">
-
-        <!-- 头像 -->
-        <div class="profile-avatar-wrapper">
-          <img id="profile-avatar" src="https://via.placeholder.com/100" alt="Avatar">
-          <input type="file" id="avatar-file" accept="image/*" style="display:none;">
-        </div>
-        <button class="edit-avatar-btn" id="edit-avatar-btn">Change Avatar</button>
-
-        <!-- 信息列表 -->
-        <div class="profile-list">
-
-          <div class="profile-item" data-edit="nickname">
-            <div>
-              <div class="item-title">Nickname</div>
-              <div class="item-value" id="nickname-value">Loading...</div>
-            </div>
-            <span class="arrow">›</span>
-          </div>
-
-          <div class="profile-item" data-edit="region">
-            <div>
-              <div class="item-title">Region</div>
-              <div class="item-value" id="region-value">Loading...</div>
-            </div>
-            <span class="arrow">›</span>
-          </div>
-
-          <div class="profile-item" data-edit="occupation">
-            <div>
-              <div class="item-title">Occupation</div>
-              <div class="item-value" id="occupation-value">Loading...</div>
-            </div>
-            <span class="arrow">›</span>
-          </div>
-
-          <div class="profile-item" data-edit="school">
-            <div>
-              <div class="item-title">School</div>
-              <div class="item-value" id="school-value">Loading...</div>
-            </div>
-            <span class="arrow">›</span>
-          </div>
-
-          <div class="profile-item" data-edit="gender">
-            <div>
-              <div class="item-title">Gender</div>
-              <div class="item-value" id="gender-value">Loading...</div>
-            </div>
-            <span class="arrow">›</span>
-          </div>
-
-          <div class="profile-item" data-edit="birthday">
-            <div>
-              <div class="item-title">Birthday</div>
-              <div class="item-value" id="birthday-value">Loading...</div>
-            </div>
-            <span class="arrow">›</span>
-          </div>
-
-          <div class="profile-item" data-edit="bio">
-            <div>
-              <div class="item-title">Bio</div>
-              <div class="item-value" id="bio-value">Loading...</div>
-            </div>
-            <span class="arrow">›</span>
-          </div>
-
-        </div>
-      </div>
-
-    </div> 
   </div>
 
 </body>
 </html>
+
 
