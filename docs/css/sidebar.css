@@ -10,7 +10,6 @@
   padding: 20px;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #eee; /* 让白色更有层次感，可选 */
 }
 
 /* Brand name */
