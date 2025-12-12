@@ -14,22 +14,55 @@
 </head>
 
 <body>
-
   <div class="layout">
 
     <!-- 左侧 Sidebar -->
     <div class="sidebar-wrapper">
-      <div id="sidebar-container"></div>
+      <div id="sidebar-container">
+        <div class="brand">MyApp</div>
+        <button>Dashboard</button>
+        <button>Settings</button>
+        <button>Profile</button>
+
+        <div class="more-button" id="more-btn">
+          <i>+</i> More
+        </div>
+        <div class="more-menu" id="more-menu">
+          <a href="#">Option 1</a>
+          <a href="#">Option 2</a>
+          <a href="#">Option 3</a>
+        </div>
+      </div>
     </div>
 
-    <!-- 右侧用户面板（当前空） -->
+    <!-- 垂直分隔线 -->
+    <div class="divider"></div>
+
+    <!-- 右侧用户面板 -->
     <div class="user-page" id="user-page">
-      <!-- 等你给 UI -->
+      <h1>User Profile</h1>
+      <p>Welcome to your profile page. You can edit your details here.</p>
+
+      <div class="user-info">
+        <p><strong>Username:</strong> JohnDoe</p>
+        <p><strong>Email:</strong> john@example.com</p>
+        <p><strong>Member since:</strong> 2025-01-01</p>
+      </div>
+
+      <button>Edit Profile</button>
     </div>
 
   </div>
 
+  <script>
+    // 更多菜单交互示例
+    const moreBtn = document.getElementById('more-btn');
+    const moreMenu = document.getElementById('more-menu');
+
+    moreBtn.addEventListener('click', () => {
+      moreMenu.classList.toggle('show');
+      moreBtn.classList.toggle('active');
+    });
+  </script>
 </body>
 </html>
-
-
