@@ -1,11 +1,13 @@
 /* index.css */
 
+/* index.css */
+
 :root {
-  --primary-color: #1DA1F2;   /* 蓝色，也可以改成灰色 */
-  --background-color: #FAFAFA; /* 页面背景色 */
-  --text-color: #111;           /* 默认文字色 */
-  --card-bg: #fff;              /* 卡片背景 */
-  --border-color: #E0E0E0;      /* 边框颜色 */
+  --primary-color: #1DA1F2;    /* 蓝色 */
+  --background-color: #ffffff; /* ← 页面背景：白色 */
+  --text-color: #111;          
+  --card-bg: #ffffff;          /* 卡片背景：白色 */
+  --border-color: #E0E0E0;
 }
 
 /* Reset margin and padding */
@@ -30,7 +32,7 @@ body {
   align-items: flex-start;
   flex-direction: row;
   height: 100vh;
-  background: var(--background-color);
+  background: #ffffff; /* ← 强制白色背景 */
   color: var(--text-color);
   width: 100%;
 }
@@ -43,13 +45,14 @@ body {
   justify-content: space-between;
   margin: 0 auto;
   padding: 0 10px;
+  background: #ffffff; /* ← 白色 */
 }
 
 /* Sidebar container */
 #sidebar-container {
   flex: 1;
   max-width: 16.66%;
-  background: var(--background-color);
+  background: #ffffff; /* ← 白色 */
   display: flex;
   flex-direction: column;
   padding: 20px;
@@ -61,7 +64,7 @@ body {
 #right-panel-container {
   flex: 1;
   max-width: 16.66%;
-  background: var(--background-color);
+  background: #ffffff; /* ← 白色 */
   color: var(--text-color);
   border-left: 1px solid var(--border-color);
   padding: 20px;
@@ -82,7 +85,7 @@ body {
   justify-content: flex-start;
   padding: 20px;
   overflow-y: auto;
-  background: var(--card-bg);
+  background: #ffffff; /* ← 白色 */
 }
 
 /* Main content section */
@@ -92,7 +95,7 @@ body {
 
 /* Post styling */
 .post {
-  background: var(--card-bg);
+  background: #ffffff; /* ← 白色 */
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
@@ -115,7 +118,7 @@ body {
 }
 
 .modal {
-  background: #fff;
+  background: #ffffff; /* ← 白色 */
   padding: 24px;
   border-radius: 12px;
   width: 320px;
@@ -142,14 +145,14 @@ body {
   border: none;
   cursor: pointer;
   background: var(--primary-color);
-  color: #333; /* 初始文字深色 */
+  color: #333;
   font-weight: bold;
   transition: all 0.2s;
 }
 
 .modal button:hover {
-  background: #1A91DA; /* 背景高亮 */
-  color: gray; /* 悬停文字灰色 */
+  background: #1A91DA;
+  color: gray;
 }
 
 /* 切换模式文本 */
