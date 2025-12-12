@@ -32,7 +32,7 @@
 
 .sidebar button:hover {
   background-color: var(--primary-color);
-  color: gray; /* 统一悬停文字为灰色 */
+  color: gray;
 }
 
 /* More Button */
@@ -64,7 +64,7 @@
 
 .sidebar .more-menu a:hover {
   background-color: var(--primary-color);
-  color: gray; /* 统一悬停文字为灰色 */
+  color: gray;
 }
 
 /* Show more menu when clicked */
