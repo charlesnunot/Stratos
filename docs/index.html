@@ -3,25 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>三列布局示例</title>
+<title>三列布局示例 - 可拖动</title>
 <style>
   body {
     margin: 0;
     font-family: "Segoe UI", Arial, sans-serif;
     display: flex;
     height: 100vh;
-    background: #fff; /* 整体背景白色 */
+    background: #fff;
+    overflow: hidden;
   }
 
   /* 左侧工具栏 */
   #toolbar {
     width: 60px;
-    background: #fff; /* 白色 */
-    border-right: 1px solid #ccc;
+    background: #fff;
+    border-right: 1px solid #ccc; /* 分隔线样式 */
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 10px 0;
+    box-sizing: border-box;
   }
 
   #toolbar button {
@@ -32,17 +34,24 @@
     font-size: 24px;
   }
 
+  /* 分隔线 / 可拖动区域 */
+  .divider {
+    width: 1px;
+    background: #ccc;
+    cursor: col-resize;
+  }
+
   /* 中间动态面板 */
   #dynamic-panel {
     width: 300px;
-    background: #fff; /* 白色 */
-    border-right: 1px solid #ccc;
-    padding: 20px;
+    background: #fff; /* 统一白色 */
     overflow-y: auto;
+    box-sizing: border-box;
   }
 
   .panel-section {
     display: none;
+    padding: 20px;
   }
 
   .panel-section.active {
@@ -52,20 +61,21 @@
   /* 最右宽内容面板 */
   #main-content {
     flex: 1;
-    background: #fff; /* 白色 */
+    background: #fff;
     padding: 20px;
     overflow-y: auto;
+    box-sizing: border-box;
   }
 
   /* 用户栏示例 */
   .user-card {
-    background: #fff; /* 白色 */
+    background: #fff;
     padding: 10px;
     border-radius: 8px;
     display: flex;
     align-items: center;
     gap: 10px;
-    border: 1px solid #ccc; /* 加个边框突出 */
+    border: 1px solid #ccc; /* 清晰分界 */
   }
 
   .user-card img {
@@ -93,12 +103,18 @@
   <button data-panel="panel3">🧭</button>
 </div>
 
+<!-- 左侧工具栏和动态面板的分隔线 -->
+<div class="divider" id="divider1"></div>
+
 <!-- 中间动态面板 -->
 <div id="dynamic-panel">
   <div id="panel1" class="panel-section active">面板 1 内容</div>
   <div id="panel2" class="panel-section">面板 2 内容</div>
   <div id="panel3" class="panel-section">面板 3 内容</div>
 </div>
+
+<!-- 中间动态面板和右侧内容的分隔线 -->
+<div class="divider" id="divider2"></div>
 
 <!-- 最右宽内容面板 -->
 <div id="main-content">
@@ -113,9 +129,9 @@
 </div>
 
 <script>
+  // 面板切换
   const buttons = document.querySelectorAll('#toolbar button');
   const panels = document.querySelectorAll('.panel-section');
-
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
       const target = btn.getAttribute('data-panel');
@@ -124,6 +140,46 @@
         if (panel.id === target) panel.classList.add('active');
       });
     });
+  });
+
+  // 左右拖动逻辑
+  const divider1 = document.getElementById('divider1');
+  const divider2 = document.getElementById('divider2');
+  let isDragging = false;
+  let startX, startWidth1, startWidth2;
+
+  divider1.addEventListener('mousedown', e => {
+    isDragging = 'divider1';
+    startX = e.clientX;
+    startWidth1 = document.getElementById('toolbar').offsetWidth;
+    startWidth2 = document.getElementById('dynamic-panel').offsetWidth;
+    document.body.style.cursor = 'col-resize';
+  });
+
+  divider2.addEventListener('mousedown', e => {
+    isDragging = 'divider2';
+    startX = e.clientX;
+    startWidth1 = document.getElementById('dynamic-panel').offsetWidth;
+    startWidth2 = document.getElementById('main-content').offsetWidth;
+    document.body.style.cursor = 'col-resize';
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    if (isDragging === 'divider1') {
+      document.getElementById('toolbar').style.width = startWidth1 + dx + 'px';
+      document.getElementById('dynamic-panel').style.width = startWidth2 - dx + 'px';
+    } else if (isDragging === 'divider2') {
+      document.getElementById('dynamic-panel').style.width = startWidth1 + dx + 'px';
+      document.getElementById('main-content').style.flex = 'none';
+      document.getElementById('main-content').style.width = startWidth2 - dx + 'px';
+    }
+  });
+
+  window.addEventListener('mouseup', e => {
+    isDragging = false;
+    document.body.style.cursor = 'default';
   });
 </script>
 
