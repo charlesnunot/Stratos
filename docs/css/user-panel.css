@@ -1,9 +1,9 @@
 #user-panel-container {
-  width: 300px; /* 用户栏宽度可调整 */
-  border-right: 1px solid #ccc; /* 右侧竖线颜色 */
+  width: 300px; /* 用户栏宽度 */
+  border-right: 1px solid #ccc; /* 右侧竖线 */
   display: flex;
-  background: #ffffff; /* 背景白色 */
   flex-direction: column;
+  background: #ffffff; /* 背景白色 */
   padding: 10px;
   overflow-y: auto;
 }
