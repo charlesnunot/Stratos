@@ -1,1 +1,19 @@
+/* 动态滑出的面板 */
+.panel {
+  position: absolute;
+  top: 0;
+  left: 60px; /* 从sidebar右侧开始 */
+  width: 300px;
+  height: 100%;
+  background: #ffffff;
+  border-right: 1px solid #ccc;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+  padding: 12px;
+  transition: transform 0.3s ease;
+  transform: translateX(-100%); /* 默认隐藏在左侧 */
+}
+
+.panel.show {
+  transform: translateX(0); /* 显示 */
+}
 
