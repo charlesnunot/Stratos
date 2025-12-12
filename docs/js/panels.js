@@ -15,43 +15,25 @@ const PANELS = {
 const panelEls = {};
 
 export function initPanels() {
-  subscribe(handleState);
-}
-
-function ensurePanel(name) {
-  if (panelEls[name]) return panelEls[name];
-  const cfg = PANELS[name] || { title: name, body: '' };
-
-  const node = document.createElement('div');
-  node.className = 'panel';
-  node.dataset.title = name;
-
-  node.innerHTML = `
-    <div class="panel-header">
-      <strong>${cfg.title}</strong>
-      <button data-close class="close-btn">&times;</button>
-    </div>
-    <div class="panel-body">${cfg.body}</div>
-  `;
-
-  // 点击叉号收回面板
-  node.querySelector('[data-close]').addEventListener('click', () => {
-    setState({ openPanel: null });
+  const app = document.getElementById('app');
+  Object.keys(PANELS).forEach(key => {
+    const cfg = PANELS[key];
+    const node = document.createElement('div');
+    node.className = 'panel';
+    node.dataset.key = key;
+    node.innerHTML = `
+      <div class="panel-header"><strong>${cfg.title}</strong></div>
+      <div class="panel-body">${cfg.body}</div>
+    `;
+    node.style.display = 'none'; // 默认隐藏
+    app.appendChild(node);
+    panelEls[key] = node;
   });
 
-  document.getElementById('app').appendChild(node);
-  panelEls[name] = node;
-  return node;
-}
-
-function handleState(state) {
-  const open = state.openPanel;
-
-  // 隐藏所有面板
-  Object.values(panelEls).forEach(p => p.style.transform = 'translateX(-100%)');
-
-  if (open) {
-    const p = ensurePanel(open);
-    setTimeout(() => { p.style.transform = 'translateX(0)'; }, 10);
-  }
+  subscribe(state => {
+    Object.values(panelEls).forEach(p => p.style.display = 'none');
+    if(state.openPanel && panelEls[state.openPanel]){
+      panelEls[state.openPanel].style.display = 'block';
+    }
+  });
 }
