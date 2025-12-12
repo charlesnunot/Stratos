@@ -1,5 +1,4 @@
-// js/sidebar.js
-export function initSidebar(container) {
+export function initSidebar(container, userPanelContainer, contentContainer) {
   container.innerHTML = `
     <button title="Home"><i class="fa-solid fa-house"></i></button>
     <button title="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
@@ -7,18 +6,27 @@ export function initSidebar(container) {
     <button title="Marketplace"><i class="fa-solid fa-store"></i></button>
     <button title="Create"><i class="fa-solid fa-plus"></i></button>
     <button title="Messages"><i class="fa-solid fa-envelope"></i></button>
-    <button title="Chat"><i class="fa-solid fa-comment-dots"></i></button>
+    <button id="chat-btn" title="Chat"><i class="fa-solid fa-comment-dots"></i></button>
     <button title="Profile"><i class="fa-solid fa-user"></i></button>
   `;
 
-  // 添加点击事件示例
   container.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      alert(`Clicked ${btn.title}`);
+    if (btn.id !== 'chat-btn') {
+      btn.addEventListener('click', () => {
+        alert(`Clicked ${btn.title}`);
+      });
+    }
+  });
+
+  // 点击聊天按钮动态添加聊天面板
+  const chatBtn = document.getElementById('chat-btn');
+  chatBtn.addEventListener('click', () => {
+    import('./chat-panel.js').then(module => {
+      module.initChatPanel(userPanelContainer, contentContainer);
     });
   });
 
-  // 样式优化（可选）
+  // 样式
   container.style.display = 'flex';
   container.style.flexDirection = 'column';
   container.style.gap = '12px';
