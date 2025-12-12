@@ -1,56 +1,34 @@
-<!-- Stratos/docs/components/right-panel.html-->
 <link rel="stylesheet" href="css/right-panel.css">
 
-<div class="right-panel" id="right-panel">
-  <div class="app-download">
-    <h3>Download Stratos App</h3>
-    <button>iOS</button>
-    <button>Android</button>
-  </div>
+<div class="right-panel">
 
-  <div class="user-info" id="user-info" style="display:none;">
-    <div class="user-avatar-wrapper" id="avatar-click-area">
-      <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
-      <input type="file" id="avatar-file" accept="image/*" style="display:none;">
+  <!-- 用户信息卡 -->
+  <div class="card user-card">
+    <div class="avatar-wrapper" id="avatar-click-area">
+      <img src="https://via.placeholder.com/80" alt="User Avatar" id="user-avatar">
     </div>
-
-    <div id="username" class="user-nickname"></div>
-
-    <!-- App 在线状态 -->
-    <div id="app-status" class="app-status">
-      <span id="app-status-dot" class="status-dot"></span>
-      <span id="app-status-text">Checking App status...</span>
-    </div>
-
-    <div id="app-device-status"></div>
-
-    <!-- Profile Modal -->
-    <div class="profile-modal" id="profile-modal" style="display:none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Edit Profile</h3>
-          <span id="profile-close" class="modal-close">&times;</span>
-        </div>
-    
-        <div class="modal-body">
-          <div class="profile-avatar-wrapper">
-            <img id="profile-avatar" src="https://via.placeholder.com/80" alt="Avatar">
-          </div>
-          <div class="profile-nickname-display" id="profile-nickname-display">Nickname</div>
-    
-          <input type="text" id="profile-nickname-input" placeholder="Enter your nickname">
-    
-          <p class="profile-hint">
-            Please avoid using unusual capitalization, punctuation, special characters, or random words in your nickname.
-          </p>
-        </div>
-    
-        <div class="modal-footer">
-          <button id="profile-save-btn">Save</button>
-        </div>
+    <div class="user-info">
+      <span class="nickname" id="username">Loading...</span>
+      <div class="status">
+        <span class="status-dot" id="app-status-dot"></span>
+        <span id="app-status-text">Checking App status...</span>
       </div>
     </div>
+    <button id="edit-profile-btn" style="display:none;">Edit Profile</button>
+  </div>
 
+  <!-- 登出按钮 -->
+  <div class="card actions-card">
     <button id="logout-btn">Logout</button>
   </div>
+
+  <!-- App 下载卡片 -->
+  <div class="card download-card">
+    <h4>Download Stratos App</h4>
+    <div class="download-buttons">
+      <button>iOS</button>
+      <button>Android</button>
+    </div>
+  </div>
+
 </div>
