@@ -4,87 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Social Platform Layout</title>
-
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="components/Toolbar/Toolbar.css">
+<link rel="stylesheet" href="components/UserPanel/UserPanel.css">
+<link rel="stylesheet" href="components/DynamicPanel/DynamicPanel.css">
+<link rel="stylesheet" href="components/MainContent/MainContent.css">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
+  <div id="toolbar"></div>
+  <div class="divider"></div>
+  <div id="dynamic-panel"></div>
+  <div class="divider"></div>
+  <div id="main-content"></div>
 
-<!-- Left Toolbar -->
-<div id="toolbar">
-  <div class="top-icons">
-    <button data-panel="panel-user" title="Home"><span class="material-icons">home</span></button>
-    <button data-panel="panel2" title="Search"><span class="material-icons">search</span></button>
-    <button data-panel="panel3" title="Explore"><span class="material-icons">explore</span></button>
-    <button data-panel="panel4" title="Market"><span class="material-icons">storefront</span></button>
-    <button data-panel="panel5" title="Notifications"><span class="material-icons">notifications</span></button>
-    <button data-panel="panel6" title="Messages"><span class="material-icons">email</span></button>
-    <button data-panel="panel7" title="Add"><span class="material-icons">add_box</span></button>
-    <button data-panel="panel8" title="Profile"><span class="material-icons">person</span></button>
-  </div>
-
-  <div class="bottom-icon">
-    <button title="More"><span class="material-icons">menu</span></button>
-  </div>
-</div>
-
-<div class="divider"></div>
-
-<!-- Dynamic Panel -->
-<div id="dynamic-panel">
-
-  <!-- User Panel -->
-  <div id="panel-user" class="panel-section active">
-    <div class="user-header">
-      <div class="avatar-wrapper">
-        <img src="https://res.cloudinary.com/dpgkgtb5n/image/upload/v1765341478/qllvyqinyhpqwuzny2zr.png"
-             alt="User Avatar"
-             class="avatar">
-        <span id="app-status-dot" class="status-dot offline" title="App Offline"></span>
-      </div>
-      <div class="nickname">Keyong</div>
-    </div>
-
-    <!-- User Stats -->
-    <div class="user-stats">
-      <div class="stat-item">
-        <span class="stat-count">102</span>
-        <span class="stat-label">Following</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-count">230</span>
-        <span class="stat-label">Followers</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-count">58</span>
-        <span class="stat-label">Likes</span>
-      </div>
-    </div>
-
-    <!-- User Bio -->
-    <div class="user-bio" id="user-bio" data-full="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam..." title="Click to see full bio">
-      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...
-    </div>
-  </div>
-
-  <div id="panel2" class="panel-section">Search content</div>
-  <div id="panel3" class="panel-section">Explore content</div>
-  <div id="panel4" class="panel-section">Market content</div>
-  <div id="panel5" class="panel-section">Notifications content</div>
-  <div id="panel6" class="panel-section">Messages content</div>
-  <div id="panel7" class="panel-section">Add content</div>
-  <div id="panel8" class="panel-section">Profile content</div>
-
-</div>
-
-<div class="divider"></div>
-
-<!-- Main Content -->
-<div id="main-content">
-  <p>Main content area: posts, articles, stats, etc.</p>
-</div>
-
-<script type="module" src="js/appStatus.js"></script>
-<script type="module" src="js/script.js"></script>
+  <script type="module" src="js/script.js"></script>
 </body>
 </html>
