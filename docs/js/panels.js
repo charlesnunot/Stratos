@@ -15,33 +15,35 @@ const PANELS = {
 const panelEls = {};
 let overlayEl = null;
 
-export function initPanels(){
+export function initPanels() {
   overlayEl = document.getElementById('overlay');
   overlayEl.addEventListener('click', () => setState({ openPanel: null }));
   subscribe(handleState);
 }
 
-function ensurePanel(name){
-  if(panelEls[name]) return panelEls[name];
-  const cfg = PANELS[name] || {title:name, body:''};
+function ensurePanel(name) {
+  if (panelEls[name]) return panelEls[name];
+  const cfg = PANELS[name] || { title: name, body: '' };
 
   const node = document.createElement('div');
   node.className = 'panel';
   node.dataset.title = name;
 
   // 左侧滑出样式
-  node.style.position = 'fixed';
-  node.style.top = '0';
-  node.style.left = '60px';  // sidebar 宽度
-  node.style.width = '340px';
-  node.style.height = '100%';
-  node.style.background = '#fff';
-  node.style.borderRight = '1px solid #e6edf3';
-  node.style.boxShadow = '2px 0 12px rgba(0,0,0,0.1)';
-  node.style.transform = 'translateX(-100%)';
-  node.style.transition = 'transform 0.3s ease';
-  node.style.zIndex = '50';
-  node.style.overflowY = 'auto';
+  Object.assign(node.style, {
+    position: 'fixed',
+    top: '0',
+    left: '60px',        // sidebar 宽度
+    width: '340px',
+    height: '100%',
+    background: '#fff',
+    borderRight: '1px solid #e6edf3',
+    boxShadow: '2px 0 12px rgba(0,0,0,0.1)',
+    transform: 'translateX(-100%)',
+    transition: 'transform 0.3s ease',
+    zIndex: '50',
+    overflowY: 'auto',
+  });
 
   node.innerHTML = `
     <div class="panel-header">
@@ -51,26 +53,35 @@ function ensurePanel(name){
     <div class="panel-body">${cfg.body}</div>
   `;
 
-  node.querySelector('[data-close]').addEventListener('click', ()=> setState({ openPanel: null }));
+  // 点击叉号收回面板
+  node.querySelector('[data-close]').addEventListener('click', () => {
+    setState({ openPanel: null });
+  });
 
   document.getElementById('app').appendChild(node);
   panelEls[name] = node;
   return node;
 }
 
-function handleState(state){
+function handleState(state) {
   const open = state.openPanel;
 
   // 隐藏所有面板
   Object.values(panelEls).forEach(p => p.style.transform = 'translateX(-100%)');
 
-  if(open){
+  if (open) {
     overlayEl.classList.add('visible');
-    overlayEl.setAttribute('aria-hidden','false');
+    overlayEl.setAttribute('aria-hidden', 'false');
+
     const p = ensurePanel(open);
-    setTimeout(()=> { p.style.transform = 'translateX(0)'; }, 10);
+    setTimeout(() => { p.style.transform = 'translateX(0)'; }, 10);
   } else {
     overlayEl.classList.remove('visible');
-    overlayEl.setAttribute('aria-hidden','true');
+    overlayEl.setAttribute('aria-hidden', 'true');
   }
+
+  // 保证 sidebar 永远可见在面板之上
+  const sidebar = document.getElementById('sidebar-container');
+  sidebar.style.display = 'flex';
+  sidebar.style.zIndex = '60';
 }
