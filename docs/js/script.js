@@ -13,7 +13,7 @@ buttons.forEach(btn => {
       dynamicPanel.classList.add('hidden');
       panels.forEach(p => p.classList.remove('active'));
 
-      // App temporarily offline when folded
+      // 临时显示离线状态
       setAppOffline();
       return;
     }
@@ -25,7 +25,7 @@ buttons.forEach(btn => {
     const target = document.getElementById(panelId);
     if (target) target.classList.add('active');
 
-    // App online when dynamic panel is expanded
+    // 临时显示在线状态
     setAppOnline();
   });
 });
