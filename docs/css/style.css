@@ -1,4 +1,3 @@
-/* ===== 全局样式 ===== */
 * {
   box-sizing: border-box;
 }
@@ -12,7 +11,7 @@ body {
   overflow: hidden;
 }
 
-/* ===== 左侧工具栏 ===== */
+/* 左侧工具栏 */
 #toolbar {
   width: 70px;
   background: #fff;
@@ -34,22 +33,22 @@ body {
 
 #toolbar .material-icons {
   font-size: 28px;
-  color: #6e6e6e; /* 高级灰色 */
+  color: #6e6e6e;
   transition: color 0.2s;
 }
 
 #toolbar button:hover .material-icons {
-  color: #1DA1F2; /* 高亮颜色 */
+  color: #1DA1F2;
 }
 
-/* ===== 分隔线 ===== */
+/* 分隔线 */
 .divider {
   width: 1px;
   background: #ccc;
   flex-shrink: 0;
 }
 
-/* ===== 动态面板 ===== */
+/* 动态面板 */
 #dynamic-panel {
   width: 300px;
   background: #fff;
@@ -67,7 +66,7 @@ body {
   transform: translateX(-100%);
 }
 
-/* ===== 内容面板 ===== */
+/* 内容面板 */
 .panel-section {
   display: none;
 }
@@ -76,11 +75,11 @@ body {
   display: block;
 }
 
-/* ===== 用户面板 ===== */
+/* 用户面板 */
 .user-header {
   display: flex;
   align-items: center;
-  justify-content: center; /* 水平居中 */
+  justify-content: center;
   gap: 12px;
   margin-top: 20px;
 }
@@ -98,14 +97,14 @@ body {
   border-radius: 50%;
 }
 
-/* 圆点悬浮在头像右下边线，圆心在边线上 */
+/* 圆点悬浮在头像右下边线 */
 .status-dot {
   position: absolute;
   width: 14px;
   height: 14px;
   border-radius: 50%;
   border: 2px solid #fff;
-  bottom: -7px;  /* 半径 */
+  bottom: -7px;
   right: -7px;
 }
 
@@ -117,7 +116,33 @@ body {
   font-size: 18px;
 }
 
-/* ===== 主内容面板 ===== */
+/* 用户信息行 */
+.user-stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 12px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 14px;
+  color: #555;
+}
+
+.stat-count {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #888;
+}
+
+/* 主内容 */
 #main-content {
   flex: 1;
   padding: 20px;
