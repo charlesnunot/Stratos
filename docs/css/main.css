@@ -2,11 +2,21 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  font-family: Arial, sans-serif;
 }
 
 #main-container {
   display: flex;
   width: 100%;
-  height: 100vh; /* 占满整个浏览器高度 */
+  height: 100vh;
   overflow: hidden;
+}
+
+/* 主内容区 */
+#content-container {
+  flex: 1;
+  background: #f9f9f9;
+  padding: 12px;
+  transition: all 0.3s ease; /* 宽度压缩动画 */
+  overflow-y: auto;
 }
