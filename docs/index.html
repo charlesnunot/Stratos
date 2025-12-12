@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,9 +10,23 @@
 <body>
 
   <div id="main-container">
-    <div id="sidebar-container"></div>
-    <div class="left-divider"></div>
+    <!-- 左侧图标栏 -->
+    <div id="sidebar-container">
+      <button class="icon-btn" title="Home"><i class="fas fa-home"></i></button>
+      <button class="icon-btn" title="Search"><i class="fas fa-search"></i></button>
+      <button class="icon-btn" title="Explore"><i class="fas fa-compass"></i></button>
+      <button class="icon-btn" title="Messages"><i class="fas fa-envelope"></i></button>
+      <button class="icon-btn" title="Notifications"><i class="fas fa-bell"></i></button>
+    </div>
 
+    <!-- 中间用户栏 -->
+    <div id="user-panel">
+      <div class="user-item" data-user="User A">User A</div>
+      <div class="user-item" data-user="User B">User B</div>
+      <div class="user-item" data-user="User C">User C</div>
+    </div>
+
+    <!-- 内容栏 -->
     <div class="center-container">
       <div class="main-content">
         <h1>Home Feed</h1>
@@ -22,6 +35,7 @@
       </div>
     </div>
 
+    <!-- 可选右侧信息面板 -->
     <div id="right-panel-container"></div>
   </div>
 
