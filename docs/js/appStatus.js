@@ -1,22 +1,32 @@
-// appStatus.js
+import { setAppOnline, setAppOffline } from "./appStatus.js";
 
-/**
- * 设置 APP 在线（绿色状态点）
- */
-export function setAppOnline() {
-  const dot = document.getElementById("app-status-dot");
-  if (!dot) return;
-  dot.classList.remove("offline");
-  dot.classList.add("online");
-}
+const buttons = document.querySelectorAll('#toolbar .top-icons button');
+const dynamicPanel = document.getElementById('dynamic-panel');
+const panels = dynamicPanel.querySelectorAll('.panel-section');
 
-/**
- * 设置 APP 离线（红色状态点）
- */
-export function setAppOffline() {
-  const dot = document.getElementById("app-status-dot");
-  if (!dot) return;
-  dot.classList.remove("online");
-  dot.classList.add("offline");
-}
+buttons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const panelId = btn.getAttribute('data-panel');
 
+    if (panelId === 'panel-user') {
+      // home → fold dynamic panel
+      dynamicPanel.classList.add('hidden');
+      panels.forEach(p => p.classList.remove('active'));
+
+      // 🔴 用户点击 Home 时表示折叠 → APP 离线
+      setAppOffline();
+
+      return;
+    }
+
+    // show dynamic panel
+    dynamicPanel.classList.remove('hidden');
+    panels.forEach(p => p.classList.remove('active'));
+
+    const target = document.getElementById(panelId);
+    if (target) target.classList.add('active');
+
+    // 🟢 只要展开动态面板 → APP 在线
+    setAppOnline();
+  });
+});
