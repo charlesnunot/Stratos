@@ -1,142 +1,30 @@
-/* =========================================================
-   css/settings.css
-   ========================================================= */
-
-body {
+/* 整体布局（左右分栏） */
+.layout {
+  display: flex;
+  height: 100vh;
   margin: 0;
   padding: 0;
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
-  background: #ffffff;
+  background: #ffffff; /* 全白背景 */
   color: #1c1c1c;
 }
 
-#page-wrapper {
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-}
-
-#settings-container {
-  width: 100%;
-  max-width: 1100px;
-  height: 100vh;
-  display: flex;
-  background: #ffffff;
-}
-
-/* =========================================================
-   Left Menu
-   ========================================================= */
-
-#settings-menu {
-  width: 240px;
-  background: #ffffff;
-  border-right: 1px solid #e6e6e6;
-  padding: 25px 0;
+/* 左侧 Sidebar 容器 */
+.sidebar-wrapper {
+  flex: 1;       /* 占 1 份 */
+  max-width: 16.6667%;
+  min-width: 180px;
+  background: #ffffff; /* 白色背景 */
   display: flex;
   flex-direction: column;
+  padding: 20px; /* 内部 padding */
+  box-sizing: border-box;
 }
 
-.brand {
-  font-size: 22px;
-  font-weight: 700;
-  padding: 0 24px;
-  margin-bottom: 25px;
-}
-
-.menu-category {
-  margin: 18px 24px 6px 24px;
-  font-size: 12px;
-  color: #888;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.menu-item {
-  padding: 12px 24px;
-  font-size: 15px;
-  color: #333;
-  cursor: pointer;
-  transition: 0.1s;
-}
-
-.menu-item:hover {
-  background: #f1f3f4;
-}
-
-.menu-item.active {
-  background: #e8f0fe;
-  color: #1967d2;
-  font-weight: 600;
-}
-
-.menu-item i.icon {
-  margin-right: 10px;
-}
-
-/* Special home button */
-.home-btn {
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-  color: #333;
-}
-
-/* =========================================================
-   Right Content Area
-   ========================================================= */
-
-#settings-content {
-  flex: 1;
-  padding: 40px 50px;
+/* 右侧用户页面 */
+.user-page {
+  flex: 5;       /* 占 5 份 */
+  padding: 40px;
   overflow-y: auto;
-}
-
-/* Loading message */
-#content-loader {
-  font-size: 16px;
-  color: #555;
-  padding: 20px 0;
-}
-
-/* Universal section style */
-.settings-section {
-  display: block;
-  max-width: 700px;
-}
-
-/* Title */
-.settings-section h2 {
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
-
-/* Paragraph intro for any section */
-.settings-section p {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 18px;
-}
-
-/* =========================================================
-   Scrollbar
-   ========================================================= */
-
-#settings-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-#settings-content::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 10px;
-}
-
-#settings-content::-webkit-scrollbar-thumb:hover {
-  background: #b3b3b3;
-}
-
-#settings-content::-webkit-scrollbar-track {
-  background: transparent;
+  background: #ffffff; /* 白色背景 */
+  color: #1c1c1c;
 }
