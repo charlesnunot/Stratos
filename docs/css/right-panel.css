@@ -16,8 +16,8 @@
 
 /* 头像 */
 .user-avatar-wrapper {
-  width: 40px;
-  height: 40px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
