@@ -1,5 +1,5 @@
 // ===== 面板切换 =====
-const buttons = document.querySelectorAll('#toolbar button');
+const buttons = document.querySelectorAll('#toolbar .top-icons button');
 const panels = document.querySelectorAll('.panel-section');
 
 buttons.forEach(btn => {
