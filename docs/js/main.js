@@ -1,9 +1,14 @@
 import { initSidebar } from './sidebar.js';
 import { initUserPanel } from './user-panel.js';
 import { initContent } from './content.js';
+import { initChatPanel } from './chat-panel.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  initSidebar(document.getElementById('sidebar-container'));
-  initUserPanel(document.getElementById('user-panel-container'));
-  initContent(document.getElementById('content-container'));
+  const sidebarContainer = document.getElementById('sidebar-container');
+  const userPanelContainer = document.getElementById('user-panel-container');
+  const contentContainer = document.getElementById('content-container');
+
+  initSidebar(sidebarContainer, userPanelContainer, contentContainer);
+  initUserPanel(userPanelContainer);
+  initContent(contentContainer);
 });
