@@ -39,9 +39,9 @@ body {
 
 /* 垂直分隔线 */
 .divider {
-  width: 1px;
-  background-color: #ddd;
-  height: 100vh; /* 从顶部到底部 */
+  width: 1px;               /* 竖线宽度 */
+  background-color: #ddd;    /* 竖线颜色 */
+  height: 100vh;             /* 占满整个视口高度 */
 }
 
 /* 更多菜单显示 */
