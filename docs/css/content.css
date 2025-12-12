@@ -1,6 +1,0 @@
-#content-container {
-  flex: 1; /* 占剩余空间 */
-  overflow-y: auto;
-  background: #f9f9f9; /* 内容区背景 */
-  padding: 12px;
-}
