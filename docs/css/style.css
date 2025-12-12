@@ -34,9 +34,7 @@ body {
 /* ===== 分隔线 ===== */
 .divider {
   width: 1px;
-  min-width: 1px;
-  background: #ccc;
-  cursor: col-resize;
+  background: #ccc; /* 和工具栏边线一致 */
   flex-shrink: 0;
 }
 
@@ -90,4 +88,3 @@ body {
 .user-card .text span {
   font-weight: bold;
 }
-
