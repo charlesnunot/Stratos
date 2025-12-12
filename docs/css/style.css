@@ -14,13 +14,22 @@ body {
 
 /* ===== 左侧工具栏 ===== */
 #toolbar {
-  width: 60px;
+  width: 70px;
   background: #fff;
   display: flex;
   flex-direction: column;
+  justify-content: space-between; /* 顶部和底部分开 */
   align-items: center;
   padding: 10px 0;
   flex-shrink: 0;
+  height: 100%;
+}
+
+#toolbar .top-icons,
+#toolbar .bottom-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 #toolbar button {
@@ -29,11 +38,20 @@ body {
   margin: 10px 0;
   cursor: pointer;
   padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 #toolbar .material-icons {
   font-size: 28px;
-  color: #1DA1F2; /* 可以改成主色 */
+  color: #6e6e6e; /* 高级灰色 */
+  transition: color 0.2s;
+}
+
+/* 鼠标悬停高亮 */
+#toolbar button:hover .material-icons {
+  color: #1DA1F2; /* 主色高亮 */
 }
 
 /* ===== 分隔线 ===== */
