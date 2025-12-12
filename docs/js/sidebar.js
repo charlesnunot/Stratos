@@ -1,9 +1,5 @@
 import { setState, getState } from './store.js';
 
-/**
- * icons config: label, fa-class, panelName (null = no panel)
- * panelName maps to panel id / content
- */
 const ICONS = [
   { key:'home', label:'Home', icon:'fa-home', panel:null },
   { key:'search', label:'Search', icon:'fa-magnifying-glass', panel:'search' },
@@ -17,24 +13,29 @@ const ICONS = [
 
 export function renderSidebar(container){
   container.innerHTML = '';
+
   ICONS.forEach(it => {
     const d = document.createElement('div');
     d.className = 'sidebar-item';
     d.dataset.key = it.key;
     d.dataset.panel = it.panel || '';
-    d.innerHTML = `<i class="fas ${it.icon}"></i><div class="sidebar-label">${it.label}</div>`;
+
+    // FIX — use FA6 class
+    d.innerHTML = `
+      <i class="fa-solid ${it.icon}"></i>
+      <div class="sidebar-label">${it.label}</div>
+    `;
+
     container.appendChild(d);
 
     d.addEventListener('click', () => {
       if(!it.panel){
-        // no panel; e.g. Home -> maybe navigate
         console.log('nav', it.key);
         return;
       }
-      // toggle panel via store
+
       const current = getState().openPanel;
       setState({ openPanel: current === it.panel ? null : it.panel });
     });
   });
 }
-
