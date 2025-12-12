@@ -1,6 +1,4 @@
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -11,7 +9,7 @@ body {
   overflow: hidden;
 }
 
-/* 左侧工具栏 */
+/* Left Toolbar */
 #toolbar {
   width: 70px;
   background: #fff;
@@ -41,51 +39,43 @@ body {
   color: #1DA1F2;
 }
 
-/* 分隔线 */
+/* Divider */
 .divider {
   width: 1px;
   background: #ccc;
   flex-shrink: 0;
 }
 
-/* 动态面板容器 */
+/* Dynamic Panel */
 #dynamic-panel {
   width: 300px;
   background: #fff;
   overflow: hidden;
   padding: 20px;
   flex-shrink: 0;
-
   transform: translateX(0);
   transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
               width 0.35s, padding 0.35s;
 }
 
-/* 折叠状态 */
+/* Folded */
 #dynamic-panel.hidden {
   width: 0;
   padding: 0;
   transform: translateX(-100%);
 }
 
-/* 内容面板 */
-.panel-section {
-  display: none;
-}
+/* Panel Sections */
+.panel-section { display: none; }
+.panel-section.active { display: block; }
 
-.panel-section.active {
-  display: block;
-}
-
-/* 用户面板内容 */
-.user-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
+/* User Panel */
+.user-header { display: flex; flex-direction: column; align-items: center; }
 
 .avatar-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .avatar {
@@ -95,17 +85,21 @@ body {
 }
 
 .status-dot {
-  position: absolute;
-  right: 0;
-  bottom: 0;
   width: 14px;
   height: 14px;
   border-radius: 50%;
   border: 2px solid #fff;
+  margin-left: 6px;
 }
 
 .status-dot.online { background: #27c93f; }
 .status-dot.offline { background: #ff3b30; }
+
+.status-text {
+  margin-left: 6px;
+  font-size: 14px;
+  color: #6e6e6e;
+}
 
 .nickname {
   margin-top: 10px;
@@ -113,21 +107,9 @@ body {
   font-size: 18px;
 }
 
-/* 主内容 */
+/* Main Content */
 #main-content {
   flex: 1;
   padding: 20px;
   overflow-y: auto;
-}
-
-.status-text {
-  margin-top: 6px;
-  font-size: 10px;
-  color: #888;
-}
-.status-text.online {
-  color: #27c93f; /* 绿色 */
-}
-.status-text.offline {
-  color: #ff3b30; /* 红色 */
 }
