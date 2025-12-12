@@ -1,4 +1,4 @@
-import { initAvatarWrapper } from './AvatarWrapper/AvatarWrapper.js';
+import { initAvatarWrapper, setAppOnline, setAppOffline } from './AvatarWrapper/AvatarWrapper.js';
 import { initNickname } from './Nickname/Nickname.js';
 import { initUserStats } from './UserStats/UserStats.js';
 import { initUserBio } from './UserBio/UserBio.js';
@@ -23,3 +23,5 @@ export function initUserPanel() {
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua..."
   );
 }
+
+
