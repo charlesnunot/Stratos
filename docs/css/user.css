@@ -3,7 +3,9 @@
 /* 整体布局（左右分栏） */
 .layout {
   display: flex;
-  height: 100vh;
+  height: 100vh; /* 占满整个视口高度 */
+  margin: 0;
+  padding: 0;
   background: var(--background-color, #f9f9f9);
   color: var(--text-color, #1c1c1c);
 }
@@ -11,11 +13,19 @@
 /* 左侧 sidebar 容器 - 占 1/6 */
 .sidebar-wrapper {
   flex: 1; /* 占 1 份 */
-  max-width: 16.6667%; /* 可选，确保不超过 1/6 */
+  max-width: 16.6667%; /* 确保不超过 1/6 */
   background: var(--background-color, #ffffff);
-  border-right: 1px solid #ddd;
+  border-right: 1px solid #ddd; /* 竖线 */
   box-sizing: border-box;
-  min-width: 180px; /* 可选，保证小屏幕不太小 */
+  min-width: 180px; /* 小屏幕最小宽度 */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 去掉可能产生空隙的 padding/margin */
+.sidebar-wrapper > * {
+  margin: 0;
+  padding: 0;
 }
 
 /* 右侧用户页面 - 占 5/6 */
