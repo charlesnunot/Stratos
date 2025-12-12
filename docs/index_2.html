@@ -1,1 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stratos Web Homepage</title>
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
 
+  <div id="main-container">
+    <!-- 左侧图标栏 -->
+    <div id="sidebar-container">
+      <button class="icon-btn" title="Home"><i class="fas fa-home"></i></button>
+      <button class="icon-btn" title="Search"><i class="fas fa-search"></i></button>
+      <button class="icon-btn" title="Explore"><i class="fas fa-compass"></i></button>
+      <button class="icon-btn" title="Messages"><i class="fas fa-envelope"></i></button>
+      <button class="icon-btn" title="Notifications"><i class="fas fa-bell"></i></button>
+    </div>
+
+    <!-- 中间用户栏 -->
+    <div id="user-panel">
+      <div class="user-item" data-user="User A">User A</div>
+      <div class="user-item" data-user="User B">User B</div>
+      <div class="user-item" data-user="User C">User C</div>
+    </div>
+
+    <!-- 内容栏 -->
+    <div class="center-container">
+      <div class="main-content">
+        <h1>Home Feed</h1>
+        <div class="post"><h3>User A's Post</h3><p>Sample content...</p></div>
+        <div class="post"><h3>User B's Post</h3><p>Sample content...</p></div>
+      </div>
+    </div>
+
+    <!-- 可选右侧信息面板 -->
+    <div id="right-panel-container"></div>
+  </div>
+
+  <!-- 模态遮罩 -->
+  <div class="modal-mask" id="modal-mask" style="display:none;">
+    <div class="modal" id="login-modal">
+      <h2>Login</h2>
+      <form id="login-form" autocomplete="off">
+        <input type="email" id="login-email" placeholder="Email" required autocomplete="username">
+        <input type="password" id="login-password" placeholder="Password" required autocomplete="new-password">
+        <button type="submit">Login</button>
+      </form>
+      <span class="switch-mode" id="to-register">Don't have an account? Register</span>
+    </div>
+
+    <div class="modal" id="register-modal" style="display:none;">
+      <h2>Register</h2>
+      <form id="register-form" autocomplete="off">
+        <input type="email" id="register-email" placeholder="Email" required autocomplete="username">
+        <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
+        <button type="submit">Register</button>
+      </form>
+      <div id="register-message" style="color:green; margin-top:8px; display:none;"></div>
+      <span class="switch-mode" id="to-login">Already have an account? Login</span>
+    </div>
+
+    <div class="modal" id="email-verification-modal" style="display:none;">
+      <h2>Email Verification Required</h2>
+      <p>Please check your email for the verification link before logging in.</p>
+      <button id="go-to-login">Go to Login</button>
+    </div>
+  </div>
+
+  <!-- Supabase UMD -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- 主逻辑模块 -->
+  <script type="module" src="js/main.js"></script>
+
+</body>
+</html>
