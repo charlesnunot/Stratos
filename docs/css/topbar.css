@@ -1,9 +1,29 @@
-#topbar-container{display:flex;align-items:center;gap:12px;padding-right:16px}
-.topbar-left{display:flex;align-items:center;gap:12px}
-.brand{font-weight:700;color:#0f172a;margin-left:6px}
-.search-box{display:flex;align-items:center;background:#f1f5f9;border-radius:999px;padding:8px 12px;gap:8px;min-width:280px}
-.search-box input{border:none;background:transparent;outline:none;font-size:14px;width:100%}
-.topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
-.topbar-btn{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;transition:background .15s}
-.topbar-btn:hover{background:rgba(15,23,42,0.04);color:#111}
-.badge{display:inline-block;background:var(--primary);color:white;border-radius:999px;padding:3px 7px;font-size:12px}
+.topbar-left .brand{
+  font-weight:bold;
+  font-size:18px;
+}
+
+.search-box{
+  display:flex;
+  align-items:center;
+  border:1px solid #ddd;
+  border-radius:8px;
+  padding:4px 8px;
+  gap:6px;
+}
+
+.search-box input{
+  border:none;
+  outline:none;
+  width:150px;
+}
+
+.topbar-actions{
+  display:flex;
+  gap:12px;
+}
+
+.topbar-btn{
+  cursor:pointer;
+  font-size:18px;
+}
