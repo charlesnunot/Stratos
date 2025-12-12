@@ -1,12 +1,12 @@
-/* index.css */
-
-/* index.css */
+/* =========================================================
+   index.css - 无竖线版
+   ========================================================= */
 
 :root {
   --primary-color: #1DA1F2;    /* 蓝色 */
-  --background-color: #ffffff; /* ← 页面背景：白色 */
+  --background-color: #ffffff; /* 页面背景 */
   --text-color: #111;          
-  --card-bg: #ffffff;          /* 卡片背景：白色 */
+  --card-bg: #ffffff;          /* 卡片背景 */
   --border-color: #E0E0E0;
 }
 
@@ -17,13 +17,6 @@
   box-sizing: border-box;
 }
 
-/* Vertical Divider */
-.vertical-divider {
-  width: 1px;
-  background-color: #f2f2f2;
-  height: 100vh;
-}
-
 /* General body styles */
 body {
   font-family: Arial, sans-serif;
@@ -32,7 +25,7 @@ body {
   align-items: flex-start;
   flex-direction: row;
   height: 100vh;
-  background: #ffffff; /* ← 强制白色背景 */
+  background: var(--background-color);
   color: var(--text-color);
   width: 100%;
 }
@@ -45,18 +38,17 @@ body {
   justify-content: space-between;
   margin: 0 auto;
   padding: 0 10px;
-  background: #ffffff; /* ← 白色 */
+  background: var(--background-color);
 }
 
 /* Sidebar container */
 #sidebar-container {
   flex: 1;
   max-width: 16.66%;
-  background: #ffffff; /* ← 白色 */
+  background: var(--background-color);
   display: flex;
   flex-direction: column;
   padding: 20px;
-  border-right: 1px solid var(--border-color);
   height: 100vh;
 }
 
@@ -64,9 +56,8 @@ body {
 #right-panel-container {
   flex: 1;
   max-width: 16.66%;
-  background: #ffffff; /* ← 白色 */
+  background: var(--background-color);
   color: var(--text-color);
-  border-left: 1px solid var(--border-color);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -85,7 +76,7 @@ body {
   justify-content: flex-start;
   padding: 20px;
   overflow-y: auto;
-  background: #ffffff; /* ← 白色 */
+  background: var(--background-color);
 }
 
 /* Main content section */
@@ -95,7 +86,7 @@ body {
 
 /* Post styling */
 .post {
-  background: #ffffff; /* ← 白色 */
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
@@ -118,7 +109,7 @@ body {
 }
 
 .modal {
-  background: #ffffff; /* ← 白色 */
+  background: var(--card-bg);
   padding: 24px;
   border-radius: 12px;
   width: 320px;
@@ -131,13 +122,13 @@ body {
 .modal input {
   padding: 8px;
   border-radius: 8px;
-  border: 1px solid #E0E0E0;
+  border: 1px solid var(--border-color);
   width: 100%;
   box-sizing: border-box;
   margin-bottom: 8px;
 }
 
-/* 按钮初始深色文字，悬停文字灰色，背景高亮 */
+/* 按钮样式 */
 .modal button {
   padding: 8px;
   border-radius: 8px;
@@ -169,7 +160,8 @@ body {
     flex-direction: column;
   }
 
-  #sidebar-container, #right-panel-container {
+  #sidebar-container,
+  #right-panel-container {
     max-width: 100%;
     flex: none;
   }
