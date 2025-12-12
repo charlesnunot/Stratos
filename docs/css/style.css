@@ -66,10 +66,21 @@ body {
   width: 300px;
   flex: 0 0 300px;
   background: #fff;
-  overflow: auto;
+  overflow: hidden;
   padding: 20px;
-  transition: width 0.3s ease, flex 0.3s ease, padding 0.3s ease;
+  
+  /* 添加滑动动画 */
+  transform: translateX(0);      /* 初始位置 */
+  transition: transform 0.3s ease, width 0.3s ease, padding 0.3s ease;
 }
+
+/* 隐藏状态：右向左滑出 */
+#dynamic-panel.hidden {
+  width: 0;
+  padding: 0;
+  transform: translateX(-100%);
+}
+
 
 
 .panel-section {
