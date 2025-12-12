@@ -5,10 +5,10 @@ buttons.forEach(btn => {
   btn.addEventListener('click', () => {
     const panelId = btn.getAttribute('data-panel');
 
-    if (panelId === 'panel1') { // Home → hide panel
+    if (panelId === 'panel-user') { // Home button → hide panel
       dynamicPanel.classList.add('hidden');
       dynamicPanel.querySelectorAll('.panel-section').forEach(panel => panel.classList.remove('active'));
-    } else {
+    } else { // Show other panels
       dynamicPanel.classList.remove('hidden');
       dynamicPanel.querySelectorAll('.panel-section').forEach(panel => panel.classList.remove('active'));
       const targetPanel = document.getElementById(panelId);
