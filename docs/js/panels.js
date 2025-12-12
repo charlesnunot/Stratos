@@ -8,22 +8,29 @@ const PANELS = {
   messages: { title:'Messages', body:'<p>Messages list</p>' },
   chat: { title:'Chat', body:'<p>Chat channels</p>' },
   profile: { title:'Profile', body:'<p>User profile</p>' },
+  notifications: { title:'Notifications', body:'<p>Notifications</p>' },
+  settings: { title:'Settings', body:'<p>App settings</p>' }
 };
 
 let container = null;
 const panelEls = {};
+let overlayEl = null;
 
 export function initPanels(rootContainer){
   container = rootContainer;
+  overlayEl = document.getElementById('overlay');
+
+  overlayEl.addEventListener('click', () => setState({ openPanel: null }));
   subscribe(handleState);
 }
 
 function ensurePanel(name){
   if(panelEls[name]) return panelEls[name];
+
+  const cfg = PANELS[name];
   const node = document.createElement('div');
   node.className = 'panel';
   node.dataset.title = name;
-  const cfg = PANELS[name];
   node.innerHTML = `
     <div class="panel-header">
       <strong>${cfg.title}</strong>
@@ -31,9 +38,12 @@ function ensurePanel(name){
     </div>
     <div class="panel-body">${cfg.body}</div>
   `;
-  node.querySelector('[data-close]').addEventListener('click', ()=>{
+  
+  node.querySelector('[data-close]').addEventListener('click', () => {
+    // **仅更新状态，不修改 sidebar DOM**
     setState({ openPanel: null });
   });
+
   document.body.appendChild(node);
   panelEls[name] = node;
   return node;
@@ -41,9 +51,16 @@ function ensurePanel(name){
 
 function handleState(state){
   const open = state.openPanel;
-  Object.values(panelEls).forEach(p=>p.classList.remove('open'));
+
+  Object.values(panelEls).forEach(p => p.classList.remove('open'));
   if(open){
-    const p = ensurePanel(open);
-    p.classList.add('open');
+    overlayEl.classList.add('visible');
+    overlayEl.setAttribute('aria-hidden','false');
+
+    const panel = ensurePanel(open);
+    panel.classList.add('open');
+  } else {
+    overlayEl.classList.remove('visible');
+    overlayEl.setAttribute('aria-hidden','true');
   }
 }
