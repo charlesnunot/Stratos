@@ -1,26 +1,41 @@
-/* slide panel base - left side */
-.panel {
-  position: absolute;
-  top: 0;
-  left: var(--sidebar-w);
-  width: var(--panel-w);
-  height: 100%;
-  background: var(--bg);
-  box-shadow: var(--shadow-strong);
-  border-right: 1px solid #e6edf3;
-  transform: translateX(-100%);
-  transition: transform 320ms cubic-bezier(.17,.67,.47,1.28), box-shadow 220ms;
-  z-index: 45;
-  overflow:auto;
+.panel{
+  position:absolute;
+  top:0;
+  right:0;
+  width:var(--panel-w);
+  height:100%;
+  background:var(--bg);
+  border-left:1px solid #ddd;
+  box-shadow:-2px 0 8px rgba(0,0,0,0.1);
+  transform:translateX(100%);
+  transition:transform 0.3s ease;
+  z-index:50;
+  display:flex;
+  flex-direction:column;
 }
 
-/* visible */
-.panel.open { transform: translateX(0); }
+.panel.open{
+  transform:translateX(0);
+}
 
-/* panel header */
-.panel .panel-header { display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #f1f5f9 }
-.panel .panel-body{padding:12px}
+.panel-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px;
+  border-bottom:1px solid #eee;
+  font-weight:bold;
+}
 
-/* overlay with blur */
-#overlay{position:fixed;inset:0;background:rgba(7,12,18,0.18);backdrop-filter:blur(4px);z-index:40;opacity:0;pointer-events:none;transition:opacity .25s}
-#overlay.visible{opacity:1;pointer-events:auto}
+.panel-body{
+  padding:12px;
+  overflow:auto;
+  flex:1;
+}
+
+.close-btn{
+  background:none;
+  border:none;
+  font-size:20px;
+  cursor:pointer;
+}
