@@ -18,15 +18,13 @@ export function initSidebar(container, userPanelContainer, contentContainer) {
     }
   });
 
-  // 点击聊天按钮动态添加聊天面板
   const chatBtn = document.getElementById('chat-btn');
   chatBtn.addEventListener('click', () => {
     import('./chat-panel.js').then(module => {
-      module.initChatPanel(userPanelContainer, contentContainer);
+      module.toggleChatPanel(userPanelContainer, contentContainer);
     });
   });
 
-  // 样式
   container.style.display = 'flex';
   container.style.flexDirection = 'column';
   container.style.gap = '12px';
