@@ -9,23 +9,21 @@ buttons.forEach(btn => {
     const panelId = btn.getAttribute('data-panel');
 
     if (panelId === 'panel-user') {
-      // Home → fold dynamic panel
+      // 点击 Home → 折叠动态面板
       dynamicPanel.classList.add('hidden');
       panels.forEach(p => p.classList.remove('active'));
 
-      // 临时显示离线状态
-      setAppOffline();
+      setAppOffline(); // 红点
       return;
     }
 
-    // Show dynamic panel
+    // 展开动态面板
     dynamicPanel.classList.remove('hidden');
     panels.forEach(p => p.classList.remove('active'));
 
     const target = document.getElementById(panelId);
     if (target) target.classList.add('active');
 
-    // 临时显示在线状态
-    setAppOnline();
+    setAppOnline(); // 绿点
   });
 });
