@@ -1,7 +1,30 @@
-/* sidebar icons (Twitter-like) */
-#sidebar-container{display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px}
-.sidebar-item{width:100%;display:flex;justify-content:center;align-items:center;padding:10px 0;color:var(--muted);cursor:pointer;transition:color .18s,background .18s}
-.sidebar-item i{font-size:20px}
-.sidebar-item:hover{color:var(--primary);background:rgba(29,161,242,0.06)}
-.sidebar-item.active{color:var(--primary);background:rgba(29,161,242,0.08)}
-.sidebar-label{display:none;font-size:12px;color:var(--muted);margin-top:4px}
+#sidebar-container{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding-top:10px;
+}
+
+.sidebar-item{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:12px 0;
+  cursor:pointer;
+  color:#555;
+  transition:color 0.2s;
+  width:100%;
+}
+
+.sidebar-item i{
+  font-size:24px;
+}
+
+.sidebar-item:hover{
+  color:var(--primary);
+}
+
+.sidebar-label{
+  font-size:10px;
+  margin-top:4px;
+}
