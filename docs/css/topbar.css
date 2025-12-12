@@ -7,4 +7,3 @@
 .topbar-btn{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;transition:background .15s}
 .topbar-btn:hover{background:rgba(15,23,42,0.04);color:#111}
 .badge{display:inline-block;background:var(--primary);color:white;border-radius:999px;padding:3px 7px;font-size:12px}
-
