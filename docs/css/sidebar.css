@@ -1,27 +1,32 @@
-#sidebar-container {
-  width: 60px; /* 左栏宽度 */
-  background: #e0e0e0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 20px;
-  border-right: 1px solid var(--border-color);
-  height: 100vh; /* 确保高度撑满 */
-}
+export function initSidebar(container, userPanelContainer, contentContainer) {
+  container.innerHTML = `
+    <button title="Home"><i class="fa-solid fa-house"></i></button>
+    <button title="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+    <button title="Explore"><i class="fa-solid fa-compass"></i></button>
+    <button title="Marketplace"><i class="fa-solid fa-store"></i></button>
+    <button title="Create"><i class="fa-solid fa-plus"></i></button>
+    <button title="Messages"><i class="fa-solid fa-envelope"></i></button>
+    <button id="chat-btn" title="Chat"><i class="fa-solid fa-comment-dots"></i></button>
+    <button title="Profile"><i class="fa-solid fa-user"></i></button>
+  `;
 
-#sidebar-container button {
-  background: none;
-  border: none;
-  margin: 15px 0;
-  font-size: 22px; /* 图标更大一点 */
-  cursor: pointer;
-  color: #555;
-  width: 100%;  /* 保证点击区域完整 */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
+  container.querySelectorAll('button').forEach(btn => {
+    if (btn.id !== 'chat-btn') {
+      btn.addEventListener('click', () => {
+        alert(`Clicked ${btn.title}`);
+      });
+    }
+  });
 
-#sidebar-container button:hover {
-  color: var(--primary-color);
+  const chatBtn = document.getElementById('chat-btn');
+  chatBtn.addEventListener('click', () => {
+    import('./chat-panel.js').then(module => {
+      module.toggleChatPanel(userPanelContainer, contentContainer);
+    });
+  });
+
+  container.style.display = 'flex';
+  container.style.flexDirection = 'column';
+  container.style.gap = '12px';
+  container.style.padding = '12px';
 }
