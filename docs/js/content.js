@@ -1,15 +1,12 @@
 export function initContent(container) {
-  const posts = [
-    { title: 'User A', content: 'Hello, this is a post.' },
-    { title: 'User B', content: 'Another post content here.' },
-    { title: 'User C', content: 'More content...' },
-  ];
-
-  container.innerHTML = posts.map(p => `
-    <div class="post-card">
-      <h3>${p.title}</h3>
-      <p>${p.content}</p>
+  container.innerHTML = `
+    <div class="content-panel">
+      <h3>Main Feed</h3>
+      <p>Posts appear here...</p>
     </div>
-  `).join('');
-}
+  `;
 
+  container.style.flex = '1';
+  container.style.background = '#fff';
+  container.style.padding = '12px';
+}
