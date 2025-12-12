@@ -1,24 +1,24 @@
 const buttons = document.querySelectorAll('#toolbar .top-icons button');
 const dynamicPanel = document.getElementById('dynamic-panel');
+const panels = dynamicPanel.querySelectorAll('.panel-section');
 
 buttons.forEach(btn => {
   btn.addEventListener('click', () => {
+
     const panelId = btn.getAttribute('data-panel');
 
-    // 折叠面板
     if (panelId === 'panel-user') {
+      // home → fold dynamic panel
       dynamicPanel.classList.add('hidden');
-      dynamicPanel.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
       return;
     }
 
-    // 展开面板
+    // show dynamic panel
     dynamicPanel.classList.remove('hidden');
-    dynamicPanel.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
 
-    const targetPanel = document.getElementById(panelId);
-    if (targetPanel) {
-      targetPanel.classList.add('active');
-    }
+    const target = document.getElementById(panelId);
+    if (target) target.classList.add('active');
   });
 });
