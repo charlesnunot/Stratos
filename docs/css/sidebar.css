@@ -1,15 +1,17 @@
-/* sidebar.css */
-
-/* sidebar.css */
+/* =========================================================
+   sidebar.css - 优化版
+   ========================================================= */
 
 /* Sidebar container */
 .sidebar {
-  background: #ffffff; /* ← 改成白色背景 */
-  color: var(--text-color);
+  background: #ffffff; /* 白色背景 */
+  color: #1c1c1c; /* 主文字颜色，深色便于阅读 */
   width: 100%;
   padding: 20px;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
 }
 
 /* Brand name */
@@ -19,22 +21,24 @@
   margin-bottom: 20px;
 }
 
-/* Buttons */
+/* Sidebar buttons */
 .sidebar button {
   background: none;
   border: none;
-  color: var(--text-color);
+  color: inherit;
   font-size: 16px;
   padding: 10px;
   margin-bottom: 10px;
   cursor: pointer;
   text-align: left;
-  transition: all 0.2s;
+  width: 100%;
+  transition: all 0.2s ease;
+  border-radius: 4px;
 }
 
 .sidebar button:hover {
-  background-color: var(--primary-color);
-  color: gray;
+  background-color: var(--primary-color, #e0e0e0); /* 主色或浅灰 */
+  color: #222; /* 悬停文字颜色更清晰 */
 }
 
 /* More Button */
@@ -44,44 +48,57 @@
   align-items: center;
   cursor: pointer;
   font-size: 16px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
 .sidebar .more-button i {
   margin-right: 8px;
 }
 
+.sidebar .more-button:hover {
+  background-color: var(--primary-color, #e0e0e0);
+  color: #222;
+}
+
 /* More Menu */
 .sidebar .more-menu {
   display: none;
   margin-top: 10px;
+  flex-direction: column;
+}
+
+.sidebar .more-menu.show {
+  display: flex;
 }
 
 .sidebar .more-menu a {
   display: block;
-  color: var(--text-color);
+  color: inherit;
   text-decoration: none;
   padding: 10px 0;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  width: 100%;
 }
 
 .sidebar .more-menu a:hover {
-  background-color: var(--primary-color);
-  color: gray;
+  background-color: var(--primary-color, #e0e0e0);
+  color: #222;
+  border-radius: 4px;
 }
 
-/* Show more menu when clicked */
-.sidebar .more-button.active + .more-menu {
-  display: block;
-}
-
-/* Adjust for smaller screens */
+/* Responsive adjustments */
 @media (max-width: 768px) {
   .sidebar {
     padding: 15px;
   }
 
-  .sidebar button {
+  .sidebar button,
+  .sidebar .more-button,
+  .sidebar .more-menu a {
     font-size: 14px;
+    padding: 8px;
   }
 }
-
