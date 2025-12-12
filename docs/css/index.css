@@ -1,5 +1,5 @@
 /* =========================================================
-   index.css - 无竖线版
+   index.css - 左1/6 中3/6 右2/6 带竖线版
    ========================================================= */
 
 :root {
@@ -48,9 +48,10 @@ body {
   background-color: #ddd;
   height: 100vh;
 }
+
 #sidebar-container {
-  flex: 1;
-  max-width: 16.66%;
+  flex: 1;               /* 1份 */
+  max-width: 16.66%;     /* 1/6 */
   background: var(--background-color);
   display: flex;
   flex-direction: column;
@@ -58,10 +59,22 @@ body {
   height: 100vh;
 }
 
+/* Center content area */
+.center-container {
+  flex: 3;               /* 3份 */
+  max-width: 50%;        /* 3/6 */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 20px;
+  overflow-y: auto;
+  background: var(--background-color);
+}
+
 /* Right panel container */
 #right-panel-container {
-  flex: 1;
-  max-width: 33%;
+  flex: 2;               /* 2份 */
+  max-width: 33.33%;     /* 2/6 */
   background: var(--background-color);
   color: var(--text-color);
   padding: 20px;
@@ -70,19 +83,6 @@ body {
   gap: 16px;
   overflow-y: auto;
   height: 100vh;
-}
-
-/* Center content area */
-.center-container {
-  flex: 4;
-  width: 100%;
-  max-width: 66.66%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  padding: 20px;
-  overflow-y: auto;
-  background: var(--background-color);
 }
 
 /* Main content section */
@@ -167,13 +167,9 @@ body {
   }
 
   #sidebar-container,
-  #right-panel-container {
-    max-width: 100%;
-    flex: none;
-  }
-
+  #right-panel-container,
   .center-container {
-    flex: none;
     max-width: 100%;
+    flex: none;
   }
 }
