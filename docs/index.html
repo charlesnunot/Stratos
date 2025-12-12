@@ -36,13 +36,11 @@
   <!-- User Panel -->
   <div id="panel-user" class="panel-section active">
     <div class="user-header">
-      <div class="avatar-column">
+      <div class="avatar-wrapper">
         <img src="https://res.cloudinary.com/dpgkgtb5n/image/upload/v1765341478/qllvyqinyhpqwuzny2zr.png"
-             alt="User Avatar" class="avatar">
-        <div class="status-row">
-          <span id="app-status-dot" class="status-dot offline"></span>
-          <span id="app-status-text" class="status-text">Offline</span>
-        </div>
+             alt="User Avatar"
+             class="avatar">
+        <span id="app-status-dot" class="status-dot offline" title="App Offline"></span>
       </div>
       <div class="nickname">Keyong</div>
     </div>
@@ -65,7 +63,7 @@
   <p>Main content area: posts, articles, stats, etc.</p>
 </div>
 
-<script type="module" src="js/script.js"></script>
 <script type="module" src="js/appStatus.js"></script>
+<script type="module" src="js/script.js"></script>
 </body>
 </html>
