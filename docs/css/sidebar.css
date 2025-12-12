@@ -1,14 +1,27 @@
+/* 左侧栏 */
 #sidebar-container {
   width: 60px;
-  background: #e0e0e0;
+  background: #ffffff; /* 修改为白色背景 */
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-top: 20px;
-  border-right: 1px solid #ccc;
+  position: relative; /* 方便放置右侧竖线 */
   height: 100vh;
 }
 
+/* 左侧栏右边的竖线 */
+#sidebar-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;       /* 竖线宽度 */
+  height: 100%;     /* 贯穿整个容器高度 */
+  background-color: #ccc; /* 竖线颜色 */
+}
+
+/* 图标样式 */
 #sidebar-container .icon {
   font-size: 28px;
   color: #555;
