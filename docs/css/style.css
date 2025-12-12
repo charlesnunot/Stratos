@@ -64,10 +64,13 @@ body {
 /* ===== 中间动态面板 ===== */
 #dynamic-panel {
   width: 300px;
+  flex: 0 0 300px;
   background: #fff;
-  overflow-y: auto;
-  flex-shrink: 0;
+  overflow: auto;
+  padding: 20px;
+  transition: width 0.3s ease, flex 0.3s ease, padding 0.3s ease;
 }
+
 
 .panel-section {
   display: none;
