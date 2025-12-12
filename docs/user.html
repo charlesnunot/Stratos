@@ -1,4 +1,3 @@
-<!-- docs/user.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,23 +15,9 @@
 <body>
   <div class="layout">
 
-    <!-- 左侧 Sidebar -->
-    <div class="sidebar-wrapper">
-      <div id="sidebar-container">
-        <div class="brand">MyApp</div>
-        <button>Dashboard</button>
-        <button>Settings</button>
-        <button>Profile</button>
-
-        <div class="more-button" id="more-btn">
-          <i>+</i> More
-        </div>
-        <div class="more-menu" id="more-menu">
-          <a href="#">Option 1</a>
-          <a href="#">Option 2</a>
-          <a href="#">Option 3</a>
-        </div>
-      </div>
+    <!-- 左侧 Sidebar 容器 -->
+    <div class="sidebar-wrapper" id="sidebar-container">
+      <!-- sidebar.html 会被动态加载到这里 -->
     </div>
 
     <!-- 垂直分隔线 -->
@@ -55,14 +40,25 @@
   </div>
 
   <script>
-    // 更多菜单交互示例
-    const moreBtn = document.getElementById('more-btn');
-    const moreMenu = document.getElementById('more-menu');
+    // 动态加载 sidebar.html
+    fetch('components/sidebar.html')
+      .then(response => response.text())
+      .then(html => {
+        const container = document.getElementById('sidebar-container');
+        container.innerHTML = html;
 
-    moreBtn.addEventListener('click', () => {
-      moreMenu.classList.toggle('show');
-      moreBtn.classList.toggle('active');
-    });
+        // 初始化 More 菜单
+        const moreBtn = container.querySelector('#more-button');
+        const moreMenu = container.querySelector('#more-menu');
+
+        if (moreBtn && moreMenu) {
+          moreBtn.addEventListener('click', () => {
+            moreMenu.classList.toggle('show');
+            moreBtn.classList.toggle('active');
+          });
+        }
+      })
+      .catch(err => console.error('Failed to load sidebar:', err));
   </script>
 </body>
 </html>
