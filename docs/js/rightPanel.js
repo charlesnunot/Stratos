@@ -1,5 +1,5 @@
 // js/rightPanel.js
-// js/rightPanel.js
+
 import { supabase } from './userService.js';
 import { getUser, setUser } from './userManager.js';
 import { subscribeWebMonitor } from './subscribeWebMonitor.js';
