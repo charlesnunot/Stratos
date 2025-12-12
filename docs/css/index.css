@@ -45,7 +45,7 @@ body {
 /* 左侧竖线 */
 .left-divider {
   width: 1px;
-  background-color: #f2f2f2;
+  background-color: #ddd;
   height: 100vh;
 }
 #sidebar-container {
