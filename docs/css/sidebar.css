@@ -1,1 +1,30 @@
+/* ===============================
+   sidebar.css — 图标栏
+================================*/
+#sidebar-container {
+  width: 60px;
+  height: 100%;
+  background: #222;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 12px;
+
+  /* ❗关键：不允许滚动条 */
+  overflow: hidden;
+}
+
+.sidebar-icon {
+  font-size: 22px;
+  padding: 14px 0;
+  width: 100%;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.sidebar-icon:hover {
+  background: #333;
+}
 
