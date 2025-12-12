@@ -69,14 +69,12 @@ body {
   overflow: hidden;
   padding: 20px;
   
-  /* 滑动动画：先慢后快，略带弹性 */
+  /* 基础滑入/滑出动画 */
   transform: translateX(0);
-  transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), 
-              width 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), 
-              padding 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s ease, width 0.3s ease, padding 0.3s ease;
 }
 
-/* 隐藏状态：右向左滑出 */
+/* 隐藏状态：向左滑出 */
 #dynamic-panel.hidden {
   width: 0;
   padding: 0;
