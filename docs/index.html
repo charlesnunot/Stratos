@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Instagram 样式页面</title>
+<title>三列布局示例</title>
 <style>
   body {
     margin: 0;
@@ -12,8 +12,8 @@
     height: 100vh;
   }
 
-  /* 左侧导航栏 */
-  #sidebar {
+  /* 左侧工具栏 */
+  #toolbar {
     width: 60px;
     background: #fff;
     border-right: 1px solid #ccc;
@@ -23,7 +23,7 @@
     padding: 10px 0;
   }
 
-  #sidebar button {
+  #toolbar button {
     background: none;
     border: none;
     margin: 10px 0;
@@ -31,26 +31,11 @@
     font-size: 24px;
   }
 
-  /* 中间容器：右侧面板 + 原中间内容 */
-  #content-wrapper {
-    display: flex;
-    flex: 1;
-    height: 100%;
-  }
-
-  /* 右侧面板（现在在中间） */
-  #sidepanel {
+  /* 中间动态面板 */
+  #dynamic-panel {
     width: 300px;
-    background: #fff;
-    padding: 20px;
-    overflow-y: auto;
-    border-right: 1px solid #ccc; /* 分隔竖线 */
-  }
-
-  /* 中间内容（现在在右边） */
-  #main {
-    flex: 1;
-    background: #f9f9f9;
+    background: #f0f0f0;
+    border-right: 1px solid #ccc;
     padding: 20px;
     overflow-y: auto;
   }
@@ -63,9 +48,17 @@
     display: block;
   }
 
+  /* 最右宽内容面板 */
+  #main-content {
+    flex: 1;
+    background: #fff;
+    padding: 20px;
+    overflow-y: auto;
+  }
+
   /* 用户栏示例 */
   .user-card {
-    background: #fff;
+    background: #eaeaea;
     padding: 10px;
     border-radius: 8px;
     display: flex;
@@ -91,46 +84,34 @@
 </head>
 <body>
 
-<div id="sidebar">
-  <button data-panel="home-panel">🏠</button>
-  <button data-panel="search-panel">🔍</button>
-  <button data-panel="explore-panel">🧭</button>
-  <button data-panel="reels-panel">🎬</button>
-  <button data-panel="messages-panel">✉️</button>
-  <button data-panel="likes-panel">❤️</button>
-  <button data-panel="add-panel">➕</button>
-  <button data-panel="stats-panel">📊</button>
+<!-- 左侧工具栏 -->
+<div id="toolbar">
+  <button data-panel="panel1">🏠</button>
+  <button data-panel="panel2">🔍</button>
+  <button data-panel="panel3">🧭</button>
 </div>
 
-<div id="content-wrapper">
-  <!-- 右侧面板，现在在中间 -->
-  <div id="sidepanel">
-    <div id="home-panel" class="panel-section active">
-      首页面板内容
-    </div>
-    <div id="search-panel" class="panel-section">搜索面板内容</div>
-    <div id="explore-panel" class="panel-section">探索面板内容</div>
-    <div id="reels-panel" class="panel-section">Reels 面板内容</div>
-    <div id="messages-panel" class="panel-section">消息面板内容</div>
-    <div id="likes-panel" class="panel-section">喜欢面板内容</div>
-    <div id="add-panel" class="panel-section">添加面板内容</div>
-    <div id="stats-panel" class="panel-section">分析面板内容</div>
-  </div>
+<!-- 中间动态面板 -->
+<div id="dynamic-panel">
+  <div id="panel1" class="panel-section active">面板 1 内容</div>
+  <div id="panel2" class="panel-section">面板 2 内容</div>
+  <div id="panel3" class="panel-section">面板 3 内容</div>
+</div>
 
-  <!-- 中间内容，现在在右边 -->
-  <div id="main">
-    <div class="user-card">
-      <img src="527a4911-904d-424f-846f-9e01bee7c7b4.png" alt="用户头像">
-      <div class="text">
-        <span>你的便签</span>
-        <small>点击左边图标切换右侧面板内容</small>
-      </div>
+<!-- 最右宽内容面板 -->
+<div id="main-content">
+  <div class="user-card">
+    <img src="527a4911-904d-424f-846f-9e01bee7c7b4.png" alt="用户头像">
+    <div class="text">
+      <span>最右宽内容面板</span>
+      <small>这里始终显示固定内容</small>
     </div>
   </div>
+  <p>这里可以放大量内容，比如帖子列表、文章内容、统计数据等。</p>
 </div>
 
 <script>
-  const buttons = document.querySelectorAll('#sidebar button');
+  const buttons = document.querySelectorAll('#toolbar button');
   const panels = document.querySelectorAll('.panel-section');
 
   buttons.forEach(btn => {
@@ -138,9 +119,7 @@
       const target = btn.getAttribute('data-panel');
       panels.forEach(panel => {
         panel.classList.remove('active');
-        if (panel.id === target) {
-          panel.classList.add('active');
-        }
+        if (panel.id === target) panel.classList.add('active');
       });
     });
   });
