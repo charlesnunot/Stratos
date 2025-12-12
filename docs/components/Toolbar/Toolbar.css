@@ -1,1 +1,29 @@
+#toolbar {
+  width: 70px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+#toolbar button {
+  background: none;
+  border: none;
+  margin: 10px 0;
+  cursor: pointer;
+}
+
+#toolbar .material-icons {
+  font-size: 28px;
+  color: #6e6e6e;
+  transition: color 0.2s;
+}
+
+#toolbar button:hover .material-icons {
+  color: #1DA1F2;
+}
 
