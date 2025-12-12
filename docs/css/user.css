@@ -26,29 +26,3 @@
   background: var(--background-color, #f9f9f9);
   color: var(--text-color, #1c1c1c);
 }
-/* css/user.css */
-
-/* 整体布局（左右分栏） */
-.layout {
-  display: flex;
-  height: 100vh;
-  background: var(--background-color);
-  color: var(--text-color);
-}
-
-/* 左侧 sidebar 容器 */
-.sidebar-wrapper {
-  width: 260px;
-  background: var(--background-color);
-  border-right: 1px solid #ddd;
-  box-sizing: border-box;
-}
-
-/* 右侧用户页面 */
-.user-page {
-  flex: 1;
-  padding: 40px;
-  overflow-y: auto;
-  background: var(--background-color);
-  color: var(--text-color);
-}
