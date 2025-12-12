@@ -1,109 +1,56 @@
-// js/rightPanel.js
-import { supabase } from './userService.js';
-import { getUser, setUser } from './userManager.js';
-import { subscribeWebMonitor } from './subscribeWebMonitor.js';
-import { subscribeUserAvatar } from './subscribeUserAvatar.js';
-import { performLogout } from './logout.js';
-import { initEditNickname } from './editNickname.js';
-import { subscribeUserProfile } from './userProfileSubscriber.js';
+<!-- Stratos/docs/components/right-panel.html-->
+<link rel="stylesheet" href="css/right-panel.css">
 
-export async function initRightPanel() {
-  const avatarClick = document.getElementById("avatar-click-area");
-  const avatarFile = document.getElementById("avatar-file");
-  const avatarImg = document.getElementById("user-avatar");
+<div class="right-panel" id="right-panel">
+  <div class="app-download">
+    <h3>Download Stratos App</h3>
+    <button>iOS</button>
+    <button>Android</button>
+  </div>
 
-  const usernameEl = document.getElementById("username");
-  const appStatusText = document.getElementById("app-status-text");
-  const appStatusDot = document.getElementById("app-status-dot");
+  <div class="user-info" id="user-info" style="display:none;">
+    <div class="user-avatar-wrapper" id="avatar-click-area">
+      <img id="user-avatar" src="https://via.placeholder.com/60" alt="User Avatar">
+      <input type="file" id="avatar-file" accept="image/*" style="display:none;">
+    </div>
 
-  const user = getUser();
-  if (!user || !user.uid) return;
+    <div id="username" class="user-nickname"></div>
 
-  // 初始化昵称编辑 UI
-  initEditNickname(user);
+    <!-- App 在线状态 -->
+    <div id="app-status" class="app-status">
+      <span id="app-status-dot" class="status-dot"></span>
+      <span id="app-status-text">Checking App status...</span>
+    </div>
 
-  /* ----------------------------
-      头像上传
-  ----------------------------- */
-  avatarClick?.addEventListener("click", () => {
-    avatarFile.click();
-  });
+    <div id="app-device-status"></div>
 
-  avatarFile?.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    <!-- Profile Modal -->
+    <div class="profile-modal" id="profile-modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit Profile</h3>
+          <span id="profile-close" class="modal-close">&times;</span>
+        </div>
+    
+        <div class="modal-body">
+          <div class="profile-avatar-wrapper">
+            <img id="profile-avatar" src="https://via.placeholder.com/80" alt="Avatar">
+          </div>
+          <div class="profile-nickname-display" id="profile-nickname-display">Nickname</div>
+    
+          <input type="text" id="profile-nickname-input" placeholder="Enter your nickname">
+    
+          <p class="profile-hint">
+            Please avoid using unusual capitalization, punctuation, special characters, or random words in your nickname.
+          </p>
+        </div>
+    
+        <div class="modal-footer">
+          <button id="profile-save-btn">Save</button>
+        </div>
+      </div>
+    </div>
 
-    avatarImg.src = URL.createObjectURL(file);
-
-    const avatarUrl = await uploadAvatarWeb(file);
-    if (!avatarUrl) {
-      alert("头像上传失败");
-      avatarFile.value = "";
-      return;
-    }
-
-    await updateUserAvatar(user.uid, avatarUrl);
-    avatarImg.src = avatarUrl;
-
-    avatarFile.value = "";
-  });
-
-  /* ----------------------------
-      订阅 Web/App 在线状态
-  ----------------------------- */
-  const unsubscribeWebMonitor = subscribeWebMonitor(user.uid, (data) => {
-    if (!data) return;
-
-    if (data.device === "app") {
-      appStatusText.textContent = `APP: ${data.status}`;
-      appStatusDot.style.backgroundColor =
-        data.status === "online" ? "#2ecc71" : "#888";
-    }
-
-    if (data.device === "web" && data.status === "offline") {
-      performLogout([unsubscribeWebMonitor, unsubscribeAvatar, unsubscribeProfile]);
-    }
-  });
-
-  /* ----------------------------
-      订阅用户头像变化
-  ----------------------------- */
-  const unsubscribeAvatar = subscribeUserAvatar(user.uid, (newUrl) => {
-    if (avatarImg) avatarImg.src = newUrl;
-  });
-
-  /* ----------------------------
-      订阅用户资料变化（昵称、头像等）
-  ----------------------------- */
-  const unsubscribeProfile = subscribeUserProfile(user.uid, (profile) => {
-    if (profile.nickname && usernameEl) {
-      usernameEl.textContent = profile.nickname;
-      const u = getUser();
-      setUser({ ...u, nickname: profile.nickname });
-    }
-
-    if (profile.avatar && avatarImg) {
-      avatarImg.src = profile.avatar;
-      const u = getUser();
-      setUser({ ...u, avatarUrl: profile.avatar });
-    }
-  });
-
-  /* ----------------------------
-      绑定退出按钮
-  ----------------------------- */
-  const logoutBtn = document.getElementById("logout-btn");
-  logoutBtn?.addEventListener("click", async () => {
-    await performLogout([
-      unsubscribeWebMonitor,
-      unsubscribeAvatar,
-      unsubscribeProfile
-    ]);
-  });
-
-  window.addEventListener("beforeunload", () => {
-    unsubscribeWebMonitor();
-    unsubscribeAvatar();
-    unsubscribeProfile();
-  });
-}
+    <button id="logout-btn">Logout</button>
+  </div>
+</div>
