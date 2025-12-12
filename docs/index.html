@@ -1,64 +1,64 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>社交平台三列布局</title>
+<title>Stratos</title>
 <link rel="stylesheet" href="css/style.css">
-<!-- 引入 Material Icons -->
+<!-- Material Icons -->
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
 
-<!-- 左侧工具栏 -->
+<!-- Left Toolbar -->
 <div id="toolbar">
   <div class="top-icons">
-    <button data-panel="panel1" title="首页"><span class="material-icons">home</span></button>
-    <button data-panel="panel2" title="搜索"><span class="material-icons">search</span></button>
-    <button data-panel="panel3" title="发现"><span class="material-icons">explore</span></button>
-    <button data-panel="panel4" title="市场"><span class="material-icons">storefront</span></button>
-    <button data-panel="panel5" title="通知"><span class="material-icons">notifications</span></button>
-    <button data-panel="panel6" title="消息"><span class="material-icons">email</span></button>
-    <button data-panel="panel7" title="添加"><span class="material-icons">add_box</span></button>
-    <button data-panel="panel8" title="用户"><span class="material-icons">person</span></button>
+    <button data-panel="panel1" title="Home"><span class="material-icons">home</span></button>
+    <button data-panel="panel2" title="Search"><span class="material-icons">search</span></button>
+    <button data-panel="panel3" title="Explore"><span class="material-icons">explore</span></button>
+    <button data-panel="panel4" title="Marketplace"><span class="material-icons">storefront</span></button>
+    <button data-panel="panel5" title="Notifications"><span class="material-icons">notifications</span></button>
+    <button data-panel="panel6" title="Messages"><span class="material-icons">email</span></button>
+    <button data-panel="panel7" title="Add"><span class="material-icons">add_box</span></button>
+    <button data-panel="panel8" title="Profile"><span class="material-icons">person</span></button>
   </div>
   <div class="bottom-icon">
-    <button title="更多"><span class="material-icons">more_horiz</span></button>
+    <button title="More"><span class="material-icons">more_horiz</span></button>
   </div>
 </div>
 
-<!-- 左侧工具栏和中间面板分隔线 -->
+<!-- Divider between toolbar and middle panel -->
 <div class="divider"></div>
 
-<!-- 中间动态面板 -->
+<!-- Middle Dynamic Panel -->
 <div id="dynamic-panel">
-  <!-- 默认显示用户栏 -->
+  <!-- Default user panel -->
   <div id="panel-user" class="panel-section active">
     <div class="user-card">
-      <img src="527a4911-904d-424f-846f-9e01bee7c7b4.png" alt="用户头像">
+      <img src="527a4911-904d-424f-846f-9e01bee7c7b4.png" alt="User Avatar">
       <div class="text">
-        <span>当前用户</span>
-        <small>这里显示用户信息</small>
+        <span>Current User</span>
+        <small>User information goes here</small>
       </div>
     </div>
   </div>
 
-  <div id="panel1" class="panel-section">首页内容</div>
-  <div id="panel2" class="panel-section">搜索内容</div>
-  <div id="panel3" class="panel-section">发现内容</div>
-  <div id="panel4" class="panel-section">市场内容</div>
-  <div id="panel5" class="panel-section">通知内容</div>
-  <div id="panel6" class="panel-section">消息内容</div>
-  <div id="panel7" class="panel-section">添加内容</div>
-  <div id="panel8" class="panel-section">用户内容</div>
+  <div id="panel1" class="panel-section">Home Content</div>
+  <div id="panel2" class="panel-section">Search Content</div>
+  <div id="panel3" class="panel-section">Explore Content</div>
+  <div id="panel4" class="panel-section">Marketplace Content</div>
+  <div id="panel5" class="panel-section">Notifications Content</div>
+  <div id="panel6" class="panel-section">Messages Content</div>
+  <div id="panel7" class="panel-section">Add Content</div>
+  <div id="panel8" class="panel-section">Profile Content</div>
 </div>
 
-<!-- 中间动态面板和右侧内容的分隔线 -->
+<!-- Divider between middle panel and right content -->
 <div class="divider"></div>
 
-<!-- 最右宽内容面板 -->
+<!-- Right Main Content Panel -->
 <div id="main-content">
-  <p>这里可以放大量内容，比如帖子列表、文章内容、统计数据等。</p>
+  <p>This area can contain a large amount of content, such as post lists, articles, or statistics.</p>
 </div>
 
 <script src="js/script.js"></script>
