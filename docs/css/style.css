@@ -64,7 +64,7 @@ body {
 .panel-section.active { display: block; }
 
 /* User Header Horizontal Layout */
-.user-header { display: flex; align-items: center; gap: 10px; }
+.user-header { display: flex; flex-direction: column; gap: 10px;margin-top: 20px; }
 
 .avatar-column {
   display: flex;
