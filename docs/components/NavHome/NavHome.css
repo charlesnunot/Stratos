@@ -1,16 +1,16 @@
 .nav-item {
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: transparent;
-  border-radius: 12px;
-  cursor: pointer;
-
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 2px;
+  justify-content: flex-start; /* PC端图标在左 */
+  gap: 8px; /* 图标和文字间距 */
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  text-decoration: none;
+  color: #1c1c1c;
 }
 
 .nav-item:hover {
@@ -27,13 +27,21 @@
 }
 
 .nav-label {
-  font-size: 11px;
-  display: none;
+  font-size: 14px;
+  display: block;
 }
 
-/* Mobile：显示标题 */
+/* ===== 手机端 ===== */
 @media (max-width: 768px) {
+  .nav-item {
+    flex-direction: column; /* 图标上文字下 */
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 6px;
+  }
+
   .nav-label {
-    display: block;
+    font-size: 11px;
   }
 }
