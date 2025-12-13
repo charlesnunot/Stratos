@@ -1,36 +1,13 @@
-.search-container {
+.posts-feed {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 8px;
-  background: #f9f9f9;
 }
 
-.search-bar {
-  display: flex;
-  gap: 4px;
-}
-
-.search-bar input {
-  flex: 1;
-  padding: 6px 8px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-}
-
-.search-bar button {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  background: #1DA1F2;
-  color: white;
-  cursor: pointer;
-}
-
-.search-results .post {
+.post {
   padding: 12px;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
-
