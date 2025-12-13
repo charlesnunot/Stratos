@@ -28,7 +28,7 @@ function mountNavItems() {
   mountNavItem('#nav-home', 'home');
   mountNavItem('#nav-market', 'market');
   mountNavItem('#nav-publish', 'publish');
-  mountNavItem('#nav-messages', 'messages'); // 如果后续需要
+  mountNavItem('#nav-messages', 'messages');
 }
 
 // 挂载单个导航项
@@ -40,54 +40,53 @@ async function mountNavItem(selector, page) {
     case 'home': {
       const { mountNavHome } = await import(new URL('../NavHome/NavHome.js', baseURL));
       mountNavHome(target);
+      target.addEventListener('click', () => loadMainPage('home'));
       break;
     }
     case 'market': {
       const { mountNavMarket } = await import(new URL('../NavMarket/NavMarket.js', baseURL));
       mountNavMarket(target);
+      target.addEventListener('click', () => loadMainPage('market'));
       break;
     }
     case 'publish': {
-      // 确保图标和文字存在
       if (!target.innerHTML) {
         target.innerHTML = `
           <span class="material-symbols-outlined nav-icon">publish</span>
           <span class="nav-label">Publish</span>
         `;
       }
-
-      // 点击挂载 Publish 页面
       target.addEventListener('click', async () => {
         const mainRoot = document.getElementById('main-root');
         if (!mainRoot) return;
-
         mainRoot.innerHTML = '';
-
-        // 动态导入 Publish.js 并挂载
         try {
           const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
           mountPublish(mainRoot);
         } catch (err) {
           console.error('加载 Publish 页面失败:', err);
         }
-
         updateActiveNav('publish');
       });
       break;
     }
     case 'messages': {
-      // 消息图标示例
       if (!target.innerHTML) {
         target.innerHTML = `
           <span class="material-symbols-outlined nav-icon">message</span>
           <span class="nav-label">Messages</span>
         `;
       }
-
-      target.addEventListener('click', () => {
+      target.addEventListener('click', async () => {
         const mainRoot = document.getElementById('main-root');
         if (!mainRoot) return;
-        mainRoot.innerHTML = '<h2>Messages Page</h2><p>这里是消息页面内容</p>';
+        mainRoot.innerHTML = '';
+        try {
+          const { mountMessages } = await import(new URL('../Messages/Messages.js', baseURL));
+          mountMessages(mainRoot);
+        } catch (err) {
+          console.error('加载 Messages 页面失败:', err);
+        }
         updateActiveNav('messages');
       });
       break;
@@ -101,7 +100,6 @@ async function mountNavItem(selector, page) {
 function onSidebarNavigate(e) {
   const { page } = e.detail || {};
   if (!page) return;
-
   loadMainPage(page);
   updateActiveNav(page);
 }
@@ -110,7 +108,6 @@ function onSidebarNavigate(e) {
 async function loadMainPage(page) {
   const mainRoot = document.getElementById('main-root');
   if (!mainRoot) return;
-
   mainRoot.innerHTML = '';
 
   switch (page) {
@@ -125,11 +122,21 @@ async function loadMainPage(page) {
       break;
     }
     case 'publish': {
-      // Publish 页面由点击图标处理
+      try {
+        const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
+        mountPublish(mainRoot);
+      } catch (err) {
+        console.error('加载 Publish 页面失败:', err);
+      }
       break;
     }
     case 'messages': {
-      mainRoot.innerHTML = '<h2>Messages Page</h2><p>这里是消息页面内容</p>';
+      try {
+        const { mountMessages } = await import(new URL('../Messages/Messages.js', baseURL));
+        mountMessages(mainRoot);
+      } catch (err) {
+        console.error('加载 Messages 页面失败:', err);
+      }
       break;
     }
     default:
