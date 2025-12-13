@@ -1,4 +1,3 @@
 // /docs/js/app.js
-import { mountSidebar } from 'components/Sidebar/Sidebar.js';
-
+import { mountSidebar } from '../components/Sidebar/Sidebar.js';
 mountSidebar(document.getElementById('sidebar-root'));
