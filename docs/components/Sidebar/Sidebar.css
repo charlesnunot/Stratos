@@ -5,7 +5,8 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;  /* 修改为左对齐 */
+  padding-left: 12px;       /* 可选：给左边留点间距 */
 }
 
 /* 顶部 */
@@ -13,7 +14,8 @@
   height: 64px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start; /* 左对齐 */
+  padding-left: 12px;           /* 可选 */
 }
 
 /* 导航区 */
@@ -21,6 +23,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
+  align-items: flex-start; /* 左对齐导航按钮 */
 }
 
 /* 底部更多 */
@@ -38,6 +42,9 @@
     flex-direction: row;
     width: 100%;
     height: 100%;
+    align-items: center;       /* 底部导航可居中 */
+    justify-content: flex-start; /* 左对齐导航按钮 */
+    padding-left: 0;           /* 可选 */
   }
 
   #sidebar-top {
@@ -47,11 +54,11 @@
   .sidebar-nav {
     flex: 1;
     flex-direction: row;
-    justify-content: space-around;
+    justify-content: flex-start; /* 左对齐 */
+    gap: 8px;                   /* 可以调整间距 */
   }
 
   #nav-more {
-    display: none; /* 手机端通常放进二级页 */
+    display: none;
   }
 }
-
