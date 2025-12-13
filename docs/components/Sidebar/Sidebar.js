@@ -1,6 +1,5 @@
 export async function mountSidebar(container) {
-  // HTML 相对于 Sidebar.js 自身
-  const html = await fetch('./Sidebar.html').then(res => res.text());
+  const html = await fetch('components/Sidebar.html').then(res => res.text());
   container.innerHTML = html;
 
   // CSS 相对于 Sidebar.js 自身
@@ -18,8 +17,7 @@ async function mountNavItem(selector, page) {
   if (!target) return;
 
   if (page === 'home') {
-    // import 也是相对于 Sidebar.js 文件
-    const { mountNavHome } = await import('../NavHome/NavHome.js');
+    const { mountNavHome } = await import('components/NavHome/NavHome.js');
     mountNavHome(target);
   }
 }
