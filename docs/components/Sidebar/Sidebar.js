@@ -28,7 +28,7 @@ function mountNavItems() {
   mountNavItem('#nav-home', 'home');
   mountNavItem('#nav-market', 'market');
   mountNavItem('#nav-publish', 'publish');
-  mountNavItem('#nav-messages', 'messages');
+  mountNavItem('#nav-messages', 'messages'); // 如果后续需要
 }
 
 // 挂载单个导航项
@@ -48,7 +48,7 @@ async function mountNavItem(selector, page) {
       break;
     }
     case 'publish': {
-      // 插入图标和文字
+      // 确保图标和文字存在
       if (!target.innerHTML) {
         target.innerHTML = `
           <span class="material-symbols-outlined nav-icon">publish</span>
@@ -61,19 +61,22 @@ async function mountNavItem(selector, page) {
         const mainRoot = document.getElementById('main-root');
         if (!mainRoot) return;
 
-        // 清空 main-root
         mainRoot.innerHTML = '';
 
         // 动态导入 Publish.js 并挂载
-        const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
-        mountPublish(mainRoot);
+        try {
+          const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
+          mountPublish(mainRoot);
+        } catch (err) {
+          console.error('加载 Publish 页面失败:', err);
+        }
 
         updateActiveNav('publish');
       });
       break;
     }
     case 'messages': {
-      // 插入图标和文字
+      // 消息图标示例
       if (!target.innerHTML) {
         target.innerHTML = `
           <span class="material-symbols-outlined nav-icon">message</span>
@@ -81,18 +84,10 @@ async function mountNavItem(selector, page) {
         `;
       }
 
-      // 点击挂载 Messages 页面
-      target.addEventListener('click', async () => {
+      target.addEventListener('click', () => {
         const mainRoot = document.getElementById('main-root');
         if (!mainRoot) return;
-
-        // 清空 main-root
-        mainRoot.innerHTML = '';
-
-        // 动态导入 Messages.js 并挂载
-        const { mountMessages } = await import(new URL('../Messages/Messages.js', baseURL));
-        mountMessages(mainRoot);
-
+        mainRoot.innerHTML = '<h2>Messages Page</h2><p>这里是消息页面内容</p>';
         updateActiveNav('messages');
       });
       break;
@@ -130,13 +125,11 @@ async function loadMainPage(page) {
       break;
     }
     case 'publish': {
-      const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
-      mountPublish(mainRoot);
+      // Publish 页面由点击图标处理
       break;
     }
     case 'messages': {
-      const { mountMessages } = await import(new URL('../Messages/Messages.js', baseURL));
-      mountMessages(mainRoot);
+      mainRoot.innerHTML = '<h2>Messages Page</h2><p>这里是消息页面内容</p>';
       break;
     }
     default:
