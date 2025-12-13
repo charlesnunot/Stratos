@@ -5,7 +5,7 @@ const baseURL = new URL('.', import.meta.url);
 export async function mountSidebar(container) {
   if (!container) return;
 
-  // 加载 HTML
+  // 加载 Sidebar HTML
   const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
@@ -19,14 +19,15 @@ export async function mountSidebar(container) {
   // 初始化导航
   mountNavItems();
 
-  // 监听导航事件
+  // 监听 sidebar:navigate 事件
   window.addEventListener('sidebar:navigate', onSidebarNavigate);
 }
 
+// 挂载导航项
 function mountNavItems() {
   mountNavItem('#nav-home', 'home');
   mountNavItem('#nav-market', 'market');
-  mountNavItem('#nav-publish', 'publish'); // Publish 图标点击处理
+  mountNavItem('#nav-publish', 'publish');
 }
 
 // 挂载单个导航项
@@ -46,7 +47,15 @@ async function mountNavItem(selector, page) {
       break;
     }
     case 'publish': {
-      // 点击 Publish 图标时加载 Publish.html 到 main-root
+      // 插入图标和文字
+      if (!target.innerHTML) {
+        target.innerHTML = `
+          <span class="material-symbols-outlined nav-icon">publish</span>
+          <span class="nav-label">Publish</span>
+        `;
+      }
+
+      // 点击挂载 Publish 页面
       target.addEventListener('click', async () => {
         const mainRoot = document.getElementById('main-root');
         if (!mainRoot) return;
@@ -54,32 +63,11 @@ async function mountNavItem(selector, page) {
         // 清空 main-root
         mainRoot.innerHTML = '';
 
-        // 加载 HTML
-        const html = await fetch(new URL('../Publish/Publish.html', baseURL)).then(res => res.text());
-        mainRoot.innerHTML = html;
+        // 动态导入 Publish.js 并挂载
+        const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
+        mountPublish(mainRoot);
 
-        // 加载 CSS
-        loadCSS(new URL('../Publish/Publish.css', baseURL));
-
-        // 获取 DOM 元素
-        const textarea = mainRoot.querySelector('#publish-content');
-        const submitBtn = mainRoot.querySelector('#publish-submit');
-        const feedback = mainRoot.querySelector('#publish-feedback');
-
-        // 绑定按钮逻辑
-        submitBtn.addEventListener('click', () => {
-          const content = textarea.value.trim();
-          if (!content) {
-            feedback.textContent = 'Content cannot be empty.';
-            feedback.style.color = 'red';
-            return;
-          }
-          feedback.textContent = 'Post published!';
-          feedback.style.color = 'green';
-          textarea.value = '';
-        });
-
-        updateActiveNav('publish'); // 更新 Sidebar active 状态
+        updateActiveNav('publish');
       });
       break;
     }
@@ -97,7 +85,7 @@ function onSidebarNavigate(e) {
   updateActiveNav(page);
 }
 
-// 加载 main-root 页面
+// 根据 page 加载 main-root 页面
 async function loadMainPage(page) {
   const mainRoot = document.getElementById('main-root');
   if (!mainRoot) return;
@@ -116,7 +104,7 @@ async function loadMainPage(page) {
       break;
     }
     case 'publish': {
-      // Publish 页面由点击图标处理，不在这里导入 JS
+      // Publish 页面由点击图标处理
       break;
     }
     default:
@@ -124,7 +112,7 @@ async function loadMainPage(page) {
   }
 }
 
-// 更新导航按钮 active 状态
+// 更新导航 active 状态
 function updateActiveNav(activePage) {
   const navItems = document.querySelectorAll('.nav-item');
   navItems.forEach(item => {
