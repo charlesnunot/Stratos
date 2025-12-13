@@ -1,20 +1,21 @@
 const baseURL = new URL('.', import.meta.url);
 
-export async function mountPostsFeed(container, posts) {
+export async function mountSearch(container) {
   // 加载 HTML
-  const html = await fetch(new URL('PostsFeed.html', baseURL)).then(res => res.text());
+  const html = await fetch(new URL('Search.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
   // 加载 CSS
-  loadCSS(new URL('PostsFeed.css', baseURL));
+  loadCSS(new URL('Search.css', baseURL));
 
-  // 渲染帖子
-  const feedContainer = container.querySelector('.posts-feed');
+  // 渲染搜索结果
+  const postsContainer = container.querySelector('.posts-feed');
+  const posts = ['Search Post 1', 'Search Post 2', 'Search Post 3'];
   posts.forEach(post => {
     const div = document.createElement('div');
     div.className = 'post';
     div.textContent = post;
-    feedContainer.appendChild(div);
+    postsContainer.appendChild(div);
   });
 }
 
