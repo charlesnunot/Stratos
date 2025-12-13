@@ -23,7 +23,7 @@ async function mountNavItem(selector, page) {
   if (!target) return;
 
   if (page === 'home') {
-    const { mountNavHome } = await import('components/NavHome/NavHome.js'); 
+    const { mountNavHome } = await import('../NavHome/NavHome.js');
     mountNavHome(target);
   }
 }
