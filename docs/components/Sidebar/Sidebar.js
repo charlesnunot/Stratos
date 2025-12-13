@@ -29,6 +29,7 @@ function mountNavItems() {
   mountNavItem('#nav-market', 'market');
   mountNavItem('#nav-publish', 'publish');
   mountNavItem('#nav-messages', 'messages');
+  mountNavItem('#nav-profile', 'profile'); // 新增 Profile
 }
 
 // 挂载单个导航项
@@ -91,6 +92,27 @@ async function mountNavItem(selector, page) {
       });
       break;
     }
+    case 'profile': {
+      if (!target.innerHTML) {
+        target.innerHTML = `
+          <span class="material-symbols-outlined nav-icon">person</span>
+          <span class="nav-label">Profile</span>
+        `;
+      }
+      target.addEventListener('click', async () => {
+        const mainRoot = document.getElementById('main-root');
+        if (!mainRoot) return;
+        mainRoot.innerHTML = '';
+        try {
+          const { mountProfile } = await import(new URL('../Profile/Profile.js', baseURL));
+          mountProfile(mainRoot);
+        } catch (err) {
+          console.error('加载 Profile 页面失败:', err);
+        }
+        updateActiveNav('profile');
+      });
+      break;
+    }
     default:
       console.warn('未处理的导航项:', page);
   }
@@ -136,6 +158,15 @@ async function loadMainPage(page) {
         mountMessages(mainRoot);
       } catch (err) {
         console.error('加载 Messages 页面失败:', err);
+      }
+      break;
+    }
+    case 'profile': {
+      try {
+        const { mountProfile } = await import(new URL('../Profile/Profile.js', baseURL));
+        mountProfile(mainRoot);
+      } catch (err) {
+        console.error('加载 Profile 页面失败:', err);
       }
       break;
     }
