@@ -1,28 +1,66 @@
 const baseURL = new URL('.', import.meta.url);
 
+let menuEl = null;
+
 export async function mountMore(container, triggerEl) {
   if (!container || !triggerEl) return;
 
+  // 如果已经存在，直接切换显示
+  if (menuEl) {
+    menuEl.classList.toggle('show');
+    return;
+  }
+
   // 加载 HTML
   const html = await fetch(new URL('More.html', baseURL)).then(res => res.text());
-  container.innerHTML = html;
+
+  // 用 wrapper 解析 HTML（⚠️ 不覆盖 container）
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  menuEl = wrapper.firstElementChild;
 
   // 加载 CSS
   loadCSS(new URL('More.css', baseURL));
 
-  const menu = container.querySelector('#more-menu');
-  const settings = container.querySelector('#more-settings');
-  const report = container.querySelector('#more-report');
-  const logout = container.querySelector('#more-logout');
+  // 插入到 body
+  container.appendChild(menuEl);
 
-  // 点击 More 图标切换显示
-  triggerEl.addEventListener('click', () => {
-    menu.classList.toggle('show');
+  const settings = menuEl.querySelector('#more-settings');
+  const report = menuEl.querySelector('#more-report');
+  const logout = menuEl.querySelector('#more-logout');
+
+  // More 按钮点击
+  triggerEl.addEventListener('click', e => {
+    e.stopPropagation();
+    menuEl.classList.toggle('show');
   });
 
-  settings.addEventListener('click', () => alert('Open Settings'));
-  report.addEventListener('click', () => alert('Open Report'));
-  logout.addEventListener('click', () => alert('Logout'));
+  // 点击菜单项
+  settings.addEventListener('click', () => {
+    alert('Open Settings');
+    hide();
+  });
+
+  report.addEventListener('click', () => {
+    alert('Open Report');
+    hide();
+  });
+
+  logout.addEventListener('click', () => {
+    alert('Logout');
+    hide();
+  });
+
+  // 点击空白关闭
+  document.addEventListener('click', e => {
+    if (!menuEl.contains(e.target) && e.target !== triggerEl) {
+      hide();
+    }
+  });
+}
+
+function hide() {
+  if (menuEl) menuEl.classList.remove('show');
 }
 
 // 加载 CSS
@@ -34,4 +72,3 @@ function loadCSS(href) {
   link.href = url;
   document.head.appendChild(link);
 }
-
