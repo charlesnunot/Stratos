@@ -1,27 +1,10 @@
-// docs/components/Home/Home.js
-import { mountTabPage } from '../TabPage/TabPage.js';
+// docs/components/NavHome/NavHome.js
 
-export function mountHome(container) {
-  mountTabPage(container, {
-    tabs: [
-      {
-        key: 'discover',
-        label: 'Discover',
-        module: '../Posts/Discover.js',
-        mount: (m, el) => m.mountDiscover(el)
-      },
-      {
-        key: 'following',
-        label: 'Following',
-        module: '../Posts/Following.js',
-        mount: (m, el) => m.mountFollowing(el)
-      },
-      {
-        key: 'search',
-        label: 'Search',
-        module: '../Posts/Search/Search.js',
-        mount: (m, el) => m.mountSearch(el)
-      }
-    ]
+export function mountNavHome(container) {
+  if (!container) return;
+
+  // 只绑定点击事件，不改 HTML
+  container.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('sidebar:navigate', { detail: { page: 'home' } }));
   });
 }
