@@ -1,7 +1,39 @@
-<button class="nav-item active" data-page="home">
-  <span class="material-symbols-outlined nav-icon">
-    home
-  </span>
-  <span class="nav-label">首页</span>
-</button>
+.nav-item {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  border-radius: 12px;
+  cursor: pointer;
 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item:hover {
+  background: #f0f2f5;
+}
+
+.nav-item.active {
+  background: #e6f0ff;
+}
+
+.nav-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.nav-label {
+  font-size: 11px;
+  display: none;
+}
+
+/* Mobile：显示标题 */
+@media (max-width: 768px) {
+  .nav-label {
+    display: block;
+  }
+}
