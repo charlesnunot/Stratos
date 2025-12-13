@@ -1,6 +1,4 @@
 // docs/components/NavHome/NavHome.js
-
-// 模块作用域获取当前文件 URL
 const baseURL = new URL('.', import.meta.url);
 
 export async function mountNavHome(container) {
@@ -11,7 +9,7 @@ export async function mountNavHome(container) {
   // 加载 CSS
   loadCSS(new URL('NavHome.css', baseURL));
 
-  // 给按钮绑定事件
+  // 给按钮绑定点击事件，触发自定义事件
   const btn = container.querySelector('.nav-item');
   if (btn) {
     btn.addEventListener('click', () => {
@@ -22,7 +20,6 @@ export async function mountNavHome(container) {
   }
 }
 
-// CSS 加载函数
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
