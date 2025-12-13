@@ -1,21 +1,44 @@
 <div class="profile-container">
-  <h2>User Profile</h2>
 
-  <div class="profile-section">
-    <label>Username:</label>
-    <span id="profile-username">Loading...</span>
+  <!-- Upper Section: User Info -->
+  <div class="profile-upper">
+    <div class="profile-avatar">
+      <img id="profile-avatar" src="https://via.placeholder.com/100" alt="User Avatar">
+    </div>
+    <div class="profile-basic-info">
+      <h2 id="profile-username">Loading...</h2>
+      <p id="profile-status">App Status: Online</p>
+      <div class="profile-stats">
+        <span id="profile-followers">Followers: 0</span>
+        <span id="profile-score">Score: 0</span>
+        <span id="profile-likes">Likes: 0</span>
+      </div>
+      <p id="profile-bio">Loading bio...</p>
+    </div>
   </div>
 
-  <div class="profile-section">
-    <label>Email:</label>
-    <span id="profile-email">Loading...</span>
+  <!-- Middle Section: Functional Icons -->
+  <div class="profile-middle">
+    <button class="profile-action" data-action="sales">Sales</button>
+    <button class="profile-action" data-action="orders">Orders</button>
+    <button class="profile-action" data-action="cart">Cart</button>
+    <button class="profile-action" data-action="messages">Messages</button>
   </div>
 
-  <div class="profile-section">
-    <label>Bio:</label>
-    <p id="profile-bio">Loading...</p>
+  <!-- Lower Section: Posts Tabs -->
+  <div class="profile-lower">
+    <div class="profile-post-tabs">
+      <button class="post-tab active" data-type="posts">Posts</button>
+      <button class="post-tab" data-type="products">Products</button>
+      <button class="post-tab" data-type="collections">Collections</button>
+      <button class="post-tab" data-type="shares">Shares</button>
+      <button class="post-tab" data-type="likes">Likes</button>
+    </div>
+
+    <!-- Posts content area -->
+    <div id="profile-posts-area">
+      <p>Select a tab to view content.</p>
+    </div>
   </div>
 
-  <button id="profile-edit-btn">Edit Profile</button>
 </div>
-
