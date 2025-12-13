@@ -57,3 +57,40 @@
   border-radius: 6px;
   background-color: #f9f9f9;
 }
+
+/* =========================
+   Mobile: 单栏模式
+========================= */
+@media (max-width: 768px) {
+  .messages-container {
+    flex-direction: column;
+  }
+
+  .messages-left {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .messages-right {
+    width: 100%;
+    flex: none;
+    padding: 12px;
+    display: none; /* 默认隐藏详情 */
+  }
+
+  #message-detail-area #back-to-list {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    border: none;
+    background-color: #1da1f2;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  #message-detail-area #back-to-list:hover {
+    background-color: #0d95e8;
+  }
+}
