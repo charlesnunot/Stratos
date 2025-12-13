@@ -1,7 +1,0 @@
-/* UserPanel 外层容器样式 */
-#panel-user {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px;
-}
