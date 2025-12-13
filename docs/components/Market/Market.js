@@ -1,6 +1,3 @@
-// docs/components/Market/Market.js
-import { mountTabPage } from '../TabPage/TabPage.js';
-
 export function mountMarket(container) {
   mountTabPage(container, {
     tabs: [
@@ -11,10 +8,10 @@ export function mountMarket(container) {
         mount: (m, el) => m.mountMarketDiscover(el)
       },
       {
-        key: 'trending',
-        label: 'Trending',
-        module: '../Posts/MarketTrending.js',
-        mount: (m, el) => m.mountMarketTrending(el)
+        key: 'following',
+        label: 'Following',
+        module: '../Posts/MarketFollowing.js',
+        mount: (m, el) => m.mountMarketFollowing(el)
       },
       {
         key: 'search',
