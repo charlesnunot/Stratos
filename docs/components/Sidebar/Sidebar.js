@@ -26,12 +26,10 @@ export async function mountSidebar(container) {
 function mountNavItems() {
   mountNavItem('#nav-home', 'home');
   mountNavItem('#nav-market', 'market');
-  mountNavItem('#nav-publish', 'publish');
-  // 后续可继续：
-  // mountNavItem('#nav-messages', 'messages');
-  // mountNavItem('#nav-profile', 'profile');
+  mountNavItem('#nav-publish', 'publish'); // Publish 图标点击处理
 }
 
+// 挂载单个导航项
 async function mountNavItem(selector, page) {
   const target = document.querySelector(selector);
   if (!target) return;
@@ -48,8 +46,41 @@ async function mountNavItem(selector, page) {
       break;
     }
     case 'publish': {
-      const { mountNavPublish } = await import(new URL('../NavPublish/NavPublish.js', baseURL));
-      mountNavPublish(target);
+      // 点击 Publish 图标时加载 Publish.html 到 main-root
+      target.addEventListener('click', async () => {
+        const mainRoot = document.getElementById('main-root');
+        if (!mainRoot) return;
+
+        // 清空 main-root
+        mainRoot.innerHTML = '';
+
+        // 加载 HTML
+        const html = await fetch(new URL('../Publish/Publish.html', baseURL)).then(res => res.text());
+        mainRoot.innerHTML = html;
+
+        // 加载 CSS
+        loadCSS(new URL('../Publish/Publish.css', baseURL));
+
+        // 获取 DOM 元素
+        const textarea = mainRoot.querySelector('#publish-content');
+        const submitBtn = mainRoot.querySelector('#publish-submit');
+        const feedback = mainRoot.querySelector('#publish-feedback');
+
+        // 绑定按钮逻辑
+        submitBtn.addEventListener('click', () => {
+          const content = textarea.value.trim();
+          if (!content) {
+            feedback.textContent = 'Content cannot be empty.';
+            feedback.style.color = 'red';
+            return;
+          }
+          feedback.textContent = 'Post published!';
+          feedback.style.color = 'green';
+          textarea.value = '';
+        });
+
+        updateActiveNav('publish'); // 更新 Sidebar active 状态
+      });
       break;
     }
     default:
@@ -85,8 +116,7 @@ async function loadMainPage(page) {
       break;
     }
     case 'publish': {
-      const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
-      mountPublish(mainRoot);
+      // Publish 页面由点击图标处理，不在这里导入 JS
       break;
     }
     default:
