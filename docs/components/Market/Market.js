@@ -1,10 +1,10 @@
 // docs/components/Market/Market.js
 import { mountTabPage } from '../TabPage/TabPage.js';
 
-export function mountMarket(container) {
+export async function mountMarket(container) {
   if (!container) return;
 
-  mountTabPage(container, {
+  await mountTabPage(container, {
     tabs: [
       {
         key: 'discover',
