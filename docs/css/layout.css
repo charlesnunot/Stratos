@@ -1,104 +1,82 @@
-/* =========================================================
-   Global Variables
-========================================================= */
 :root {
-  --sidebar-width: 72px;     /* PC 左侧工具栏宽度 */
-  --extra-width: 320px;     /* PC 右侧额外区宽度 */
-  --mobile-tab-height: 56px;/* 手机端底部导航高度 */
+  --sidebar-width: 72px;
+  --extra-width: 320px;
   --border-color: #e5e7eb;
-  --bg-main: #ffffff;
 }
 
-/* =========================================================
-   Reset / Base
-========================================================= */
-* {
-  box-sizing: border-box;
-}
-
+/* =========================
+   Base
+========================= */
 body {
   margin: 0;
   font-family: Inter, "Segoe UI", Arial, sans-serif;
-  background: var(--bg-main);
 }
 
-/* =========================================================
-   App Shell Layout (PC Default)
-========================================================= */
+/* =========================
+   App Shell (PC 默认)
+========================= */
 #app-shell {
   display: flex;
   width: 100%;
   height: 100vh;
-  overflow: hidden;
 }
 
-/* =========================================================
-   Sidebar (Left - PC)
-========================================================= */
+/* 左 */
 #sidebar-root {
   width: var(--sidebar-width);
   border-right: 1px solid var(--border-color);
-  background: #ffffff;
   flex-shrink: 0;
 }
 
-/* =========================================================
-   Main Content (Center)
-========================================================= */
+/* 中 */
 #main-root {
   flex: 1;
-  min-width: 0; /* 非常关键：防止内容撑破布局 */
+  min-width: 0;
   border-right: 1px solid var(--border-color);
-  background: #ffffff;
-  overflow: hidden;
 }
 
-/* =========================================================
-   Extra Panel (Right - PC)
-========================================================= */
+/* 右 */
 #extra-root {
   width: var(--extra-width);
-  background: #ffffff;
   flex-shrink: 0;
 }
 
-/* =========================================================
-   Tablet / Small Desktop
-   右侧额外区隐藏
-========================================================= */
+/* =========================
+   小屏 PC：隐藏右侧
+========================= */
 @media (max-width: 1100px) {
   #extra-root {
     display: none;
   }
 }
 
-/* =========================================================
-   Mobile Layout
-========================================================= */
+/* =================================================
+   手机端布局（新增部分）
+================================================= */
 @media (max-width: 768px) {
 
-  /* 整体变为纵向结构 */
+  /* 整体改为纵向 */
   #app-shell {
     flex-direction: column;
   }
 
-  /* 主内容区占满 */
+  /* 主内容区占满屏幕 */
   #main-root {
     flex: 1;
     width: 100%;
     border-right: none;
     overflow-y: auto;
-    padding-bottom: var(--mobile-tab-height);
+    padding-bottom: 56px; /* 给底部工具栏让位 */
   }
 
-  /* Sidebar → 底部导航 */
+  /* 左侧工具栏 → 底部导航 */
   #sidebar-root {
     position: fixed;
     bottom: 0;
     left: 0;
 
     width: 100%;
-    height: var(--mobile-tab-height);
+    height: 56px;
 
     border-right: none;
     border-top: 1px solid var(--border-color);
@@ -107,28 +85,8 @@ body {
     z-index: 1000;
   }
 
-  /* 右侧额外区在手机端不显示 */
+  /* 右侧额外区：手机端不显示 */
   #extra-root {
     display: none !important;
-  }
-}
-
-/* =========================================================
-   Safe Area Support (iOS)
-========================================================= */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  @media (max-width: 768px) {
-    #sidebar-root {
-      padding-bottom: env(safe-area-inset-bottom);
-      height: calc(
-        var(--mobile-tab-height) + env(safe-area-inset-bottom)
-      );
-    }
-
-    #main-root {
-      padding-bottom: calc(
-        var(--mobile-tab-height) + env(safe-area-inset-bottom)
-      );
-    }
   }
 }
