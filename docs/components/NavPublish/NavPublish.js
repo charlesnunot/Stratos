@@ -23,12 +23,13 @@ export async function mountNavPublish(container) {
   }
 }
 
+// CSS 加载函数
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
+
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = url;
   document.head.appendChild(link);
 }
-
