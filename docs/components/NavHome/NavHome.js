@@ -1,9 +1,17 @@
+// docs/components/NavHome/NavHome.js
+
+// 模块作用域获取当前文件 URL
+const baseURL = new URL('.', import.meta.url);
+
 export async function mountNavHome(container) {
-  const html = await fetch('./NavHome.html').then(res => res.text());
+  // 加载 HTML
+  const html = await fetch(new URL('NavHome.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
-  loadCSS('./NavHome.css');
+  // 加载 CSS
+  loadCSS(new URL('NavHome.css', baseURL));
 
+  // 给按钮绑定事件
   const btn = container.querySelector('.nav-item');
   if (btn) {
     btn.addEventListener('click', () => {
@@ -14,10 +22,12 @@ export async function mountNavHome(container) {
   }
 }
 
+// CSS 加载函数
 function loadCSS(href) {
-  if (document.querySelector(`link[href="${href}"]`)) return;
+  const url = href.toString();
+  if (document.querySelector(`link[href="${url}"]`)) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = href;
+  link.href = url;
   document.head.appendChild(link);
 }
