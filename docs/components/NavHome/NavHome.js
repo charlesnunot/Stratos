@@ -1,13 +1,11 @@
 export async function mountNavHome(container) {
-  // HTML
-  const html = await fetch('./NavHome.html')  // 相对于 NavHome.js
-    .then(res => res.text());
+  const htmlUrl = new URL('./NavHome.html', import.meta.url);
+  const cssUrl  = new URL('./NavHome.css', import.meta.url);
+
+  const html = await fetch(htmlUrl).then(res => res.text());
   container.innerHTML = html;
+  loadCSS(cssUrl.href);
 
-  // CSS
-  loadCSS('./NavHome.css');  // 相对于 NavHome.js
-
-  // 点击事件
   const btn = container.querySelector('.nav-item');
   if (btn) {
     btn.addEventListener('click', () => {
