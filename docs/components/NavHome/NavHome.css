@@ -5,25 +5,26 @@
   gap: 8px;                  /* 图标和文字间距 */
   padding: 6px 12px;
   border-radius: 8px;
-  background: transparent;
-  border: none;
+  background: transparent;   /* 去掉按钮背景 */
+  border: none;              /* 去掉按钮边框 */
   cursor: pointer;
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   color: #1c1c1c;
+  text-decoration: none;     /* 避免下划线 */
 }
 
 .nav-item:hover {
-  background: #f0f2f5;
+  background: #f0f2f5;       /* 悬停高亮，可保留 */
 }
 
 .nav-item.active {
-  background: #e6f0ff;
+  background: #e6f0ff;       /* 激活高亮，可保留 */
 }
 
 .nav-icon {
   font-size: 24px;
   line-height: 1;
-  flex-shrink: 0; /* 避免图标被压缩 */
+  flex-shrink: 0; /* 图标不被压缩 */
 }
 
 .nav-label {
