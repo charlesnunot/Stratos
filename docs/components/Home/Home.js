@@ -7,28 +7,26 @@ export async function mountHome(container) {
   const html = await fetch(new URL('Home.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
-  // 可选加载 CSS
+  // 加载 CSS
   loadCSS(new URL('Home.css', baseURL));
 
-  // 挂载默认标签内容（Discover）
+  // 默认激活 Discover tab
+  const defaultTab = container.querySelector('.home-tab[data-tab="discover"]');
+  if (defaultTab) defaultTab.classList.add('active');
   loadTabContent('discover');
 
   // 绑定标题栏点击事件
   const tabs = container.querySelectorAll('.home-tab');
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      // 更新激活状态
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-
-      // 加载对应内容
-      const tabName = tab.dataset.tab;
-      loadTabContent(tabName);
+      loadTabContent(tab.dataset.tab);
     });
   });
 }
 
-// 根据标签名加载内容
+// 根据标签加载内容
 async function loadTabContent(tabName) {
   const contentContainer = document.getElementById('home-content');
   if (!contentContainer) return;
@@ -47,7 +45,7 @@ async function loadTabContent(tabName) {
       break;
     }
     case 'search': {
-      const { mountSearch } = await import(new URL('../Posts/Search.js', baseURL));
+      const { mountSearch } = await import(new URL('../Posts/Search/Search.js', baseURL));
       mountSearch(contentContainer);
       break;
     }
