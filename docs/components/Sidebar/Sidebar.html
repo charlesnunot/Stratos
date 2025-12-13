@@ -1,19 +1,24 @@
 <div class="sidebar-shell">
 
-  <!-- 顶部区域（PC 可放 Logo / 用户头像） -->
+  <!-- 顶部区域（Logo / 用户头像） -->
   <div id="sidebar-top"></div>
 
   <!-- 主导航区域 -->
   <nav class="sidebar-nav">
-    <div id="nav-home"></div>
-    <div id="nav-market"></div>
-    <div id="nav-publish"></div>
-    <div id="nav-messages"></div>
-    <div id="nav-profile"></div>
+    <div id="nav-home" class="nav-item" data-page="home">
+      <span class="material-symbols-outlined nav-icon">home</span>
+      <span class="nav-label">Home</span>
+    </div>
+    <div id="nav-market" class="nav-item" data-page="market">
+      <span class="material-symbols-outlined nav-icon">storefront</span>
+      <span class="nav-label">Market</span>
+    </div>
+    <div id="nav-publish" class="nav-item" data-page="publish"></div>
+    <div id="nav-messages" class="nav-item" data-page="messages"></div>
+    <div id="nav-profile" class="nav-item" data-page="profile"></div>
   </nav>
 
   <!-- 更多 / 溢出 -->
   <div id="nav-more"></div>
 
 </div>
-
