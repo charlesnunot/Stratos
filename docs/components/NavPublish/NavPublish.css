@@ -1,18 +1,22 @@
-/* NavPublish.css */
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 10px 12px;
   cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s;
 }
 
-.nav-item .nav-icon {
-  margin-right: 8px;
+.nav-item.active,
+.nav-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.nav-icon {
   font-size: 24px;
 }
 
-.nav-item.active {
-  background-color: #e6f0ff;
-  border-radius: 6px;
+.nav-label {
+  font-size: 14px;
 }
-
