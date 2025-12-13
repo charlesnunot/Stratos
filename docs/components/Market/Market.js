@@ -12,54 +12,60 @@ export async function mountMarket(container) {
   // 加载 CSS
   loadCSS(new URL('Market.css', baseURL));
 
-  // 初始化各区域
-  mountFilters();
-  mountMarketContent();
+  // 默认激活 Discover
+  const defaultTab = container.querySelector('.market-tab[data-tab="discover"]');
+  if (defaultTab) defaultTab.classList.add('active');
+  loadTabContent('discover');
+
+  // 绑定 tab 点击
+  const tabs = container.querySelectorAll('.market-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      loadTabContent(tab.dataset.tab);
+    });
+  });
 }
 
-/* =========================
-   Filters（占位）
-========================= */
+async function loadTabContent(tabName) {
+  const content = document.getElementById('market-content');
+  if (!content) return;
 
-function mountFilters() {
-  const filtersEl = document.getElementById('market-filters');
-  if (!filtersEl) return;
+  content.innerHTML = '';
 
-  // 先占位，后面可以模块化
-  filtersEl.innerHTML = `
-    <div style="color:#888;font-size:14px;">
-      Filters (coming soon)
-    </div>
-  `;
+  switch (tabName) {
+    case 'discover': {
+      const { mountMarketDiscover } = await import(
+        new URL('../Posts/MarketDiscover.js', baseURL)
+      );
+      mountMarketDiscover(content);
+      break;
+    }
+    case 'trending': {
+      const { mountMarketTrending } = await import(
+        new URL('../Posts/MarketTrending.js', baseURL)
+      );
+      mountMarketTrending(content);
+      break;
+    }
+    case 'search': {
+      const { mountSearch } = await import(
+        new URL('../Posts/Search/Search.js', baseURL)
+      );
+      mountSearch(content);
+      break;
+    }
+    default:
+      console.warn('未知 Market tab:', tabName);
+  }
 }
-
-/* =========================
-   Content（占位）
-========================= */
-
-function mountMarketContent() {
-  const contentEl = document.getElementById('market-content');
-  if (!contentEl) return;
-
-  // 临时占位
-  contentEl.innerHTML = `
-    <div style="color:#666;">
-      Market content goes here
-    </div>
-  `;
-}
-
-/* =========================
-   Utils
-========================= */
 
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
-
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = url;
   document.head.appendChild(link);
 }
-
