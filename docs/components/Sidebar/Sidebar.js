@@ -40,6 +40,10 @@ async function mountNavItem(selector, page) {
       // 动态导入 NavHome 模块
       const { mountNavHome } = await import(new URL('../NavHome/NavHome.js', baseURL));
       mountNavHome(target);
+      // 给按钮绑定点击事件
+      target.addEventListener('click', () => {
+        navigateToPage(page);
+      });
       break;
     }
     // 可以在这里添加更多 page 的处理逻辑
