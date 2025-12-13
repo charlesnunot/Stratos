@@ -1,1 +1,18 @@
+.profile-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.profile-nav-item:hover {
+  background-color: #f0f0f0;
+}
+
+.profile-nav-item.active {
+  background-color: #1da1f2;
+  color: white;
+}
 
