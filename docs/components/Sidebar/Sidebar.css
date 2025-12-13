@@ -85,11 +85,27 @@
   .sidebar-nav {
     flex: 1;
     flex-direction: row;
-    justify-content: flex-start;
-    gap: 8px;
+    justify-content: space-around; /* 平均分布导航按钮 */
+    gap: 0; /* 按钮之间用 space-around 控制间距 */
+  }
+
+  .nav-item {
+    flex-direction: column;  /* 图标在上文字在下 */
+    align-items: center;     /* 居中对齐 */
+    padding: 4px 0;          /* 上下缩小 padding */
+  }
+
+  .nav-item .nav-icon {
+    font-size: 24px;         /* 图标可适当增大 */
+  }
+
+  .nav-item .nav-label {
+    font-size: 12px;         /* 文本缩小 */
+    margin-top: 2px;         /* 图标与文字间距 */
   }
 
   #sidebar-bottom {
-    display: none;
+    display: none; /* 底部功能在移动端隐藏 */
   }
 }
+
