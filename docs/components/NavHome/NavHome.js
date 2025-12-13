@@ -1,18 +1,21 @@
 export async function mountNavHome(container) {
-  const html = await fetch('./components/NavHome/NavHome.html')
+  // HTML
+  const html = await fetch('./NavHome.html')  // 相对于 NavHome.js 自身目录
     .then(res => res.text());
-
   container.innerHTML = html;
-  loadCSS('./components/NavHome/NavHome.css');
 
+  // CSS
+  loadCSS('./NavHome.css');  // 相对于 NavHome.js 自身目录
+
+  // 点击事件
   const btn = container.querySelector('.nav-item');
-  btn.addEventListener('click', () => {
-    window.dispatchEvent(
-      new CustomEvent('sidebar:navigate', {
-        detail: { page: 'home' }
-      })
-    );
-  });
+  if (btn) {
+    btn.addEventListener('click', () => {
+      window.dispatchEvent(
+        new CustomEvent('sidebar:navigate', { detail: { page: 'home' } })
+      );
+    });
+  }
 }
 
 function loadCSS(href) {
@@ -22,4 +25,3 @@ function loadCSS(href) {
   link.href = href;
   document.head.appendChild(link);
 }
-
