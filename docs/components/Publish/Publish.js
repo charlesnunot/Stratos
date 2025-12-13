@@ -1,44 +1,93 @@
+// docs/components/Publish/Publish.js
 const baseURL = new URL('.', import.meta.url);
 
 export async function mountPublish(container) {
   if (!container) return;
 
-  // 加载 HTML
+  // 加载主 Publish 页面 HTML
   const html = await fetch(new URL('Publish.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
   // 加载 CSS
   loadCSS(new URL('Publish.css', baseURL));
 
-  // 获取 DOM
-  const textarea = container.querySelector('#publish-content');
-  const submitBtn = container.querySelector('#publish-submit');
-  const feedback = container.querySelector('#publish-feedback');
+  const tabNormal = container.querySelector('#tab-normal');
+  const tabProduct = container.querySelector('#tab-product');
+  const contentArea = container.querySelector('#publish-content-area');
 
-  // 绑定发布事件
-  submitBtn.addEventListener('click', () => {
-    const content = textarea.value.trim();
-    if (!content) {
-      feedback.textContent = 'Content cannot be empty.';
-      feedback.style.color = 'red';
-      return;
-    }
+  // 默认加载 Normal Post
+  loadNormalPost();
 
-    // 模拟提交
-    feedback.textContent = 'Post published!';
-    feedback.style.color = 'green';
-    textarea.value = '';
+  // 切换事件
+  tabNormal.addEventListener('click', () => {
+    tabNormal.classList.add('active');
+    tabProduct.classList.remove('active');
+    loadNormalPost();
   });
+
+  tabProduct.addEventListener('click', () => {
+    tabProduct.classList.add('active');
+    tabNormal.classList.remove('active');
+    loadProductPost();
+  });
+
+  // 加载 Normal Post
+  async function loadNormalPost() {
+    contentArea.innerHTML = '';
+    const html = await fetch(new URL('NormalPost.html', baseURL)).then(res => res.text());
+    contentArea.innerHTML = html;
+
+    const textarea = contentArea.querySelector('#normal-content');
+    const submitBtn = contentArea.querySelector('#normal-submit');
+    const feedback = contentArea.querySelector('#normal-feedback');
+
+    submitBtn.addEventListener('click', () => {
+      const content = textarea.value.trim();
+      if (!content) {
+        feedback.textContent = 'Content cannot be empty.';
+        feedback.style.color = 'red';
+        return;
+      }
+      feedback.textContent = 'Normal post published!';
+      feedback.style.color = 'green';
+      textarea.value = '';
+    });
+  }
+
+  // 加载 Product Post
+  async function loadProductPost() {
+    contentArea.innerHTML = '';
+    const html = await fetch(new URL('ProductPost.html', baseURL)).then(res => res.text());
+    contentArea.innerHTML = html;
+
+    const title = contentArea.querySelector('#product-title');
+    const description = contentArea.querySelector('#product-description');
+    const price = contentArea.querySelector('#product-price');
+    const submitBtn = contentArea.querySelector('#product-submit');
+    const feedback = contentArea.querySelector('#product-feedback');
+
+    submitBtn.addEventListener('click', () => {
+      if (!title.value.trim() || !description.value.trim() || !price.value) {
+        feedback.textContent = 'All fields are required.';
+        feedback.style.color = 'red';
+        return;
+      }
+      feedback.textContent = 'Product post published!';
+      feedback.style.color = 'green';
+
+      title.value = '';
+      description.value = '';
+      price.value = '';
+    });
+  }
 }
 
-// CSS 加载函数
+// 加载 CSS
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
-
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = url;
   document.head.appendChild(link);
 }
-
