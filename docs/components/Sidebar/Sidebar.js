@@ -1,5 +1,6 @@
 export async function mountSidebar(container) {
-  const html = await fetch('./Sidebar.html').then(res => res.text());
+  const baseURL = new URL('.', import.meta.url);
+  const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
   // CSS 相对于 Sidebar.js 自身
@@ -17,7 +18,7 @@ async function mountNavItem(selector, page) {
   if (!target) return;
 
   if (page === 'home') {
-    const { mountNavHome } = await import('../NavHome/NavHome.js');
+    loadCSS(new URL('Sidebar.css', baseURL));
     mountNavHome(target);
   }
 }
