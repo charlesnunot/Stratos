@@ -1,1 +1,35 @@
+.publish-container {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#publish-content {
+  width: 100%;
+  resize: vertical;
+  padding: 8px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+#publish-submit {
+  width: 100px;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background-color: #1da1f2;
+  color: #fff;
+  cursor: pointer;
+}
+
+#publish-submit:hover {
+  background-color: #0d95e8;
+}
+
+#publish-feedback {
+  color: green;
+  font-size: 13px;
+}
 
