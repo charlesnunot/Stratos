@@ -1,22 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Social Platform Layout</title>
-<link rel="stylesheet" href="components/Toolbar/Toolbar.css">
-<link rel="stylesheet" href="components/UserPanel/UserPanel.css">
-<link rel="stylesheet" href="components/DynamicPanel/DynamicPanel.css">
-<link rel="stylesheet" href="components/MainContent/MainContent.css">
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-</head>
-<body>
-  <div id="toolbar"></div>
-  <div class="divider"></div>
-  <div id="dynamic-panel"></div>
-  <div class="divider"></div>
-  <div id="main-content"></div>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>App Shell</title>
 
-  <script type="module" src="js/script.js"></script>
+  <!-- 只引入全局结构样式 -->
+  <link rel="stylesheet" href="css/layout.css" />
+</head>
+
+<body>
+  <div id="app-shell">
+
+    <!-- 左侧工具栏挂载点 -->
+    <aside id="sidebar-root"></aside>
+
+    <!-- 中间内容区挂载点 -->
+    <main id="main-root"></main>
+
+    <!-- 右侧额外区挂载点 -->
+    <aside id="extra-root"></aside>
+
+  </div>
+
+  <!-- 应用入口 -->
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
