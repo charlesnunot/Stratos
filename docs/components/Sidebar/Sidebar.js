@@ -2,7 +2,7 @@
 
 export async function mountSidebar(container) {
   // 1. 挂载 Sidebar HTML
-  const html = await fetch('./Sidebar.html')  // 相对于 Sidebar.js
+  const html = await fetch('components/Sidebar/Sidebar.html')
     .then(res => res.text());
   container.innerHTML = html;
 
@@ -23,7 +23,7 @@ async function mountNavItem(selector, page) {
   if (!target) return;
 
   if (page === 'home') {
-    const { mountNavHome } = await import('../NavHome/NavHome.js'); // 相对于 Sidebar.js
+    const { mountNavHome } = await import('components/NavHome/NavHome.js'); 
     mountNavHome(target);
   }
 }
