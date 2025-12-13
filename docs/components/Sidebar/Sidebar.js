@@ -26,8 +26,8 @@ export async function mountSidebar(container) {
 function mountNavItems() {
   mountNavItem('#nav-home', 'home');
   mountNavItem('#nav-market', 'market');
+  mountNavItem('#nav-publish', 'publish');
   // 后续可继续：
-  // mountNavItem('#nav-publish', 'publish');
   // mountNavItem('#nav-messages', 'messages');
   // mountNavItem('#nav-profile', 'profile');
 }
@@ -45,6 +45,11 @@ async function mountNavItem(selector, page) {
     case 'market': {
       const { mountNavMarket } = await import(new URL('../NavMarket/NavMarket.js', baseURL));
       mountNavMarket(target);
+      break;
+    }
+    case 'publish': {
+      const { mountNavPublish } = await import(new URL('../NavPublish/NavPublish.js', baseURL));
+      mountNavPublish(target);
       break;
     }
     default:
@@ -77,6 +82,11 @@ async function loadMainPage(page) {
     case 'market': {
       const { mountMarket } = await import(new URL('../Market/Market.js', baseURL));
       mountMarket(mainRoot);
+      break;
+    }
+    case 'publish': {
+      const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
+      mountPublish(mainRoot);
       break;
     }
     default:
