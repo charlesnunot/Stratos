@@ -1,1 +1,11 @@
+.logo-container {
+  font-size: 18px;
+  font-weight: bold;
+  color: #1c1c1c;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* 左对齐 */
+  padding: 0 12px;
+  height: 100%;
+}
 
