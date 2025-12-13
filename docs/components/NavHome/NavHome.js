@@ -1,10 +1,12 @@
+// docs/components/NavHome/NavHome.js
 export async function mountNavHome(container) {
-  const htmlUrl = new URL('./NavHome.html', import.meta.url);
-  const cssUrl  = new URL('./NavHome.css', import.meta.url);
-
-  const html = await fetch(htmlUrl).then(res => res.text());
+  // HTML
+  const html = await fetch('components/NavHome/NavHome.html')
+    .then(res => res.text());
   container.innerHTML = html;
-  loadCSS(cssUrl.href);
+
+  // CSS
+  loadCSS('components/NavHome/NavHome.css');
 
   const btn = container.querySelector('.nav-item');
   if (btn) {
