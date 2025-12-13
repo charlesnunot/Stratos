@@ -1,10 +1,11 @@
-const baseURL = new URL('.', import.meta.url);
+// Discover.js
+import { mountPostsFeed } from './PostsFeed.js';
 
 export function mountDiscover(container) {
-  container.innerHTML = `
-    <div class="post">Discover Post 1</div>
-    <div class="post">Discover Post 2</div>
-    <div class="post">Discover Post 3</div>
-  `;
+  const posts = [
+    'Discover Post 1',
+    'Discover Post 2',
+    'Discover Post 3'
+  ];
+  mountPostsFeed(container, posts);
 }
-
