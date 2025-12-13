@@ -1,7 +1,7 @@
 // docs/components/Posts/MarketFollowing.js
 import { mountPostsFeed } from './PostsFeed.js';
 
-export function mountMarketFollowing(container) {
+export function mountFollowing(container) {
   const posts = [
     'Market Following Item 1',
     'Market Following Item 2',
@@ -10,4 +10,3 @@ export function mountMarketFollowing(container) {
 
   mountPostsFeed(container, posts);
 }
-
