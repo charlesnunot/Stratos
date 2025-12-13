@@ -1,1 +1,27 @@
+.app-download-page {
+  padding: 24px;
+  background-color: #fff;
+  border-radius: 8px;
+}
+
+.download-buttons {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn.ios { background-color: #1da1f2; }
+.btn.ios:hover { background-color: #0d95e8; }
+
+.btn.android { background-color: #3ddc84; }
+.btn.android:hover { background-color: #28a745; }
 
