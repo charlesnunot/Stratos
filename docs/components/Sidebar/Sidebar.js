@@ -1,5 +1,4 @@
 export async function mountSidebar(container) {
-  // const html = await fetch('components/Sidebar/Sidebar.html').then(res => res.text());
   const html = await fetch('./Sidebar.html').then(res => res.text());
   container.innerHTML = html;
 
