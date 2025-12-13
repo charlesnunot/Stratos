@@ -1,11 +1,10 @@
-// docs/components/Posts/MarketFollowing.js
 import { mountPostsFeed } from './PostsFeed.js';
 
-export function mountFollowing(container) {
+export function mountMarketFollowing(container) {
   const posts = [
-    'Market Following Item 1',
-    'Market Following Item 2',
-    'Market Following Item 3'
+    { title: 'Market Following 1', author: 'Shop X', time: '1d ago', excerpt: 'Details about following item 1' },
+    { title: 'Market Following 2', author: 'Shop Y', time: '2d ago', excerpt: 'Details about following item 2' },
+    { title: 'Market Following 3', author: 'Shop Z', time: '3d ago', excerpt: 'Details about following item 3' }
   ];
 
   mountPostsFeed(container, posts);
