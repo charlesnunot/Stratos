@@ -47,26 +47,11 @@ async function mountNavItem(selector, page) {
   const target = document.querySelector(selector);
   if (!target) return;
 
-  switch (page) {
-    case 'home': {
-      const { mountNavHome } = await import(
-        new URL('../NavHome/NavHome.js', baseURL)
-      );
-      mountNavHome(target);
-      break;
-    }
-
-    case 'market': {
-      const { mountNavMarket } = await import(
-        new URL('../NavMarket/NavMarket.js', baseURL)
-      );
-      mountNavMarket(target);
-      break;
-    }
-
-    default:
-      console.warn('未处理的导航项:', page);
-  }
+  // 绑定点击事件，触发自定义事件
+  target.addEventListener('click', () => {
+    const event = new CustomEvent('sidebar:navigate', { detail: { page } });
+    window.dispatchEvent(event);
+  });
 }
 
 /* =========================
@@ -89,7 +74,7 @@ async function loadMainPage(page) {
   const mainRoot = document.getElementById('main-root');
   if (!mainRoot) return;
 
-  mainRoot.innerHTML = '';
+  mainRoot.innerHTML = ''; // 清空内容
 
   switch (page) {
     case 'home': {
