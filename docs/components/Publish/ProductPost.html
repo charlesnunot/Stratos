@@ -1,91 +1,16 @@
-const baseURL = new URL('.', import.meta.url);
+<!-- docs/components/Publish/ProductPost.html -->
+<div class="product-post-container">
+  <h3>Create a Product Post</h3>
+  
+  <label for="product-title">Title:</label>
+  <input type="text" id="product-title" placeholder="Product title" />
 
-export async function mountPublish(container) {
-  if (!container) return;
+  <label for="product-description">Description:</label>
+  <textarea id="product-description" placeholder="Product description" rows="4"></textarea>
 
-  // 加载主页面 HTML
-  const html = await fetch(new URL('Publish.html', baseURL)).then(res => res.text());
-  container.innerHTML = html;
+  <label for="product-price">Price:</label>
+  <input type="number" id="product-price" placeholder="0.00" />
 
-  // 加载 CSS
-  loadCSS(new URL('Publish.css', baseURL));
-
-  const tabNormal = container.querySelector('#tab-normal');
-  const tabProduct = container.querySelector('#tab-product');
-  const contentArea = container.querySelector('#publish-content-area');
-
-  // 默认加载 Normal Post
-  loadNormalPost();
-
-  // 切换事件
-  tabNormal.addEventListener('click', () => {
-    tabNormal.classList.add('active');
-    tabProduct.classList.remove('active');
-    loadNormalPost();
-  });
-
-  tabProduct.addEventListener('click', () => {
-    tabProduct.classList.add('active');
-    tabNormal.classList.remove('active');
-    loadProductPost();
-  });
-
-  async function loadNormalPost() {
-    contentArea.innerHTML = '';
-    const html = await fetch(new URL('NormalPost.html', baseURL)).then(res => res.text());
-    contentArea.innerHTML = html;
-
-    // 绑定按钮事件
-    const submitBtn = contentArea.querySelector('#normal-submit');
-    const textarea = contentArea.querySelector('#normal-content');
-    const feedback = contentArea.querySelector('#normal-feedback');
-
-    submitBtn.addEventListener('click', () => {
-      const content = textarea.value.trim();
-      if (!content) {
-        feedback.textContent = 'Content cannot be empty.';
-        feedback.style.color = 'red';
-        return;
-      }
-      feedback.textContent = 'Normal post published!';
-      feedback.style.color = 'green';
-      textarea.value = '';
-    });
-  }
-
-  async function loadProductPost() {
-    contentArea.innerHTML = '';
-    const html = await fetch(new URL('ProductPost.html', baseURL)).then(res => res.text());
-    contentArea.innerHTML = html;
-
-    const title = contentArea.querySelector('#product-title');
-    const description = contentArea.querySelector('#product-description');
-    const price = contentArea.querySelector('#product-price');
-    const submitBtn = contentArea.querySelector('#product-submit');
-    const feedback = contentArea.querySelector('#product-feedback');
-
-    submitBtn.addEventListener('click', () => {
-      if (!title.value.trim() || !description.value.trim() || !price.value) {
-        feedback.textContent = 'All fields are required.';
-        feedback.style.color = 'red';
-        return;
-      }
-      feedback.textContent = 'Product post published!';
-      feedback.style.color = 'green';
-
-      title.value = '';
-      description.value = '';
-      price.value = '';
-    });
-  }
-}
-
-// 加载 CSS 函数
-function loadCSS(href) {
-  const url = href.toString();
-  if (document.querySelector(`link[href="${url}"]`)) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = url;
-  document.head.appendChild(link);
-}
+  <button id="product-submit">Publish</button>
+  <div id="product-feedback"></div>
+</div>
