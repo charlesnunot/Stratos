@@ -1,7 +1,21 @@
 <div class="messages-container">
-  <h2>Messages</h2>
-  <ul id="messages-list">
-    <li>No messages yet.</li>
-  </ul>
-</div>
+  <div class="messages-left">
+    <div class="messages-tabs">
+      <button id="tab-system" class="active">System</button>
+      <button id="tab-dynamic">Dynamic</button>
+      <button id="tab-chat">Chat</button>
+    </div>
 
+    <!-- 消息列表挂载点 -->
+    <div id="messages-list-area">
+      <!-- 具体列表由 JS 动态挂载 -->
+    </div>
+  </div>
+
+  <div class="messages-right">
+    <!-- 消息内容挂载点 -->
+    <div id="message-detail-area">
+      <p>Select a message to view details.</p>
+    </div>
+  </div>
+</div>
