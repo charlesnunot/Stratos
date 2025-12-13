@@ -1,11 +1,10 @@
-// docs/components/NavHome/NavHome.js
-
+// /docs/components/NavHome/NavHome.js
 export async function mountNavHome(container) {
-  const html = await fetch('/docs/components/NavHome/NavHome.html')
+  const html = await fetch('/Stratos/docs/components/NavHome/NavHome.html')
     .then(res => res.text());
   container.innerHTML = html;
 
-  loadCSS('/docs/components/NavHome/NavHome.css');
+  loadCSS('/Stratos/docs/components/NavHome/NavHome.css');
 
   const btn = container.querySelector('.nav-item');
   if (btn) {
