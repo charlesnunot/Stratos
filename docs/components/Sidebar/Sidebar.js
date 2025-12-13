@@ -7,51 +7,84 @@ const baseURL = new URL('.', import.meta.url);
 export async function mountSidebar(container) {
   if (!container) return;
 
-  // 加载 Sidebar.html
+  // 1️⃣ 加载 Sidebar HTML
   const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
-  // 加载 Sidebar.css
+  // 2️⃣ 加载 Sidebar CSS
   loadCSS(new URL('Sidebar.css', baseURL));
 
-  // 挂载顶部 Logo
+  // 3️⃣ 挂载顶部 Logo
   const topEl = document.getElementById('sidebar-top');
   mountLogo(topEl);
 
-  // 初始化导航项
+  // 4️⃣ 初始化导航项
   mountNavItems();
 }
 
+// 初始化导航按钮
 function mountNavItems() {
   mountNavItem('#nav-home', 'home');
-  // 可在这里添加其他导航项挂载，例如：
+  // 可以在这里继续挂载其他导航项，例如：
   // mountNavItem('#nav-market', 'market');
-  // mountNavItem('#nav-publish', 'publish');
-  // mountNavItem('#nav-messages', 'messages');
   // mountNavItem('#nav-profile', 'profile');
 }
 
+// 挂载单个导航按钮
 async function mountNavItem(selector, page) {
   const target = document.querySelector(selector);
   if (!target) return;
 
   switch (page) {
     case 'home': {
-      // 动态导入 NavHome 模块
+      // 动态加载模块（如果有页面特定内容）
       const { mountNavHome } = await import(new URL('../NavHome/NavHome.js', baseURL));
       mountNavHome(target);
+
       // 给按钮绑定点击事件
       target.addEventListener('click', () => {
         navigateToPage(page);
       });
+
       break;
     }
-    // 可以在这里添加更多 page 的处理逻辑
-    // case 'market': ...
+    // 可继续添加其他导航按钮
   }
 }
 
-// CSS 加载函数
+// 页面跳转及激活状态更新
+function navigateToPage(page) {
+  switch (page) {
+    case 'home':
+      // 如果是多页面，可直接跳转
+      window.location.href = '/index.html';
+      break;
+
+    // 如果是 SPA，可使用前端路由
+    // case 'market': router.navigate('/market'); break;
+
+    default:
+      console.warn('未知页面:', page);
+  }
+
+  // 更新导航激活状态
+  updateActiveNav(page);
+}
+
+// 更新导航按钮的 active 样式
+function updateActiveNav(activePage) {
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => {
+    const page = item.dataset.page;
+    if (page === activePage) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+}
+
+// CSS 加载函数（防重复）
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
