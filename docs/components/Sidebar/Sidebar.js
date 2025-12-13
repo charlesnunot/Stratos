@@ -1,7 +1,7 @@
 // docs/components/Sidebar/Sidebar.js
 import { mountLogo } from '../Logo/Logo.js';
 
-// 模块作用域获取当前文件 URL
+// 当前模块 URL
 const baseURL = new URL('.', import.meta.url);
 
 export async function mountSidebar(container) {
@@ -22,10 +22,10 @@ export async function mountSidebar(container) {
   mountNavItems();
 }
 
-// 初始化导航按钮
+// 挂载导航按钮
 function mountNavItems() {
   mountNavItem('#nav-home', 'home');
-  // 可以在这里继续挂载其他导航项，例如：
+  // 可以继续挂载其他导航按钮，例如：
   // mountNavItem('#nav-market', 'market');
   // mountNavItem('#nav-profile', 'profile');
 }
@@ -37,54 +37,51 @@ async function mountNavItem(selector, page) {
 
   switch (page) {
     case 'home': {
-      // 动态加载模块（如果有页面特定内容）
       const { mountNavHome } = await import(new URL('../NavHome/NavHome.js', baseURL));
       mountNavHome(target);
 
-      // 给按钮绑定点击事件
+      // 点击按钮时加载内容到 main-root
       target.addEventListener('click', () => {
-        navigateToPage(page);
+        loadMainPage(page);
+        updateActiveNav(page);
       });
 
+      // 页面初始默认显示 Home
+      loadMainPage(page);
+      updateActiveNav(page);
       break;
     }
     // 可继续添加其他导航按钮
   }
 }
 
-// 页面跳转及激活状态更新
-function navigateToPage(page) {
+// 加载 main-root 内容
+async function loadMainPage(page) {
+  const mainRoot = document.getElementById('main-root');
+  if (!mainRoot) return;
+
+  mainRoot.innerHTML = ''; // 清空现有内容
+
   switch (page) {
-    case 'home':
-      // 如果是多页面，可直接跳转
-      window.location.href = '/index.html';
+    case 'home': {
+      const { mountHome } = await import(new URL('../Home/Home.js', baseURL));
+      mountHome(mainRoot);
       break;
-
-    // 如果是 SPA，可使用前端路由
-    // case 'market': router.navigate('/market'); break;
-
-    default:
-      console.warn('未知页面:', page);
+    }
+    // case 'market': ...
   }
-
-  // 更新导航激活状态
-  updateActiveNav(page);
 }
 
-// 更新导航按钮的 active 样式
+// 更新导航按钮激活状态
 function updateActiveNav(activePage) {
   const navItems = document.querySelectorAll('.nav-item');
   navItems.forEach(item => {
     const page = item.dataset.page;
-    if (page === activePage) {
-      item.classList.add('active');
-    } else {
-      item.classList.remove('active');
-    }
+    item.classList.toggle('active', page === activePage);
   });
 }
 
-// CSS 加载函数（防重复）
+// CSS 加载函数
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
