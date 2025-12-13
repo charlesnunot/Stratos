@@ -1,10 +1,10 @@
+const baseURL = new URL('.', import.meta.url);
 export async function mountSidebar(container) {
-  const baseURL = new URL('.', import.meta.url);
   const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
   // CSS 相对于 Sidebar.js 自身
-  loadCSS('./Sidebar.css');
+  loadCSS(new URL('Sidebar.css', baseURL));
 
   mountNavItems();
 }
@@ -18,7 +18,7 @@ async function mountNavItem(selector, page) {
   if (!target) return;
 
   if (page === 'home') {
-    loadCSS(new URL('Sidebar.css', baseURL));
+    const { mountNavHome } = await import(new URL('../NavHome/NavHome.js', baseURL));
     mountNavHome(target);
   }
 }
