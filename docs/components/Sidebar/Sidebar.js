@@ -1,21 +1,18 @@
 // docs/components/Sidebar/Sidebar.js
 
 export async function mountSidebar(container) {
-  // 1. 挂载 Sidebar HTML
-  const html = await fetch('components/Sidebar/Sidebar.html')
+  // 用 GitHub Pages 上的相对网站根路径
+  const html = await fetch('/docs/components/Sidebar/Sidebar.html')
     .then(res => res.text());
   container.innerHTML = html;
 
-  // 2. 挂载 CSS
-  loadCSS('./Sidebar.css'); // 相对于 Sidebar.js
+  loadCSS('/docs/components/Sidebar/Sidebar.css');
 
-  // 3. 挂载导航项
   mountNavItems();
 }
 
 function mountNavItems() {
   mountNavItem('#nav-home', 'home');
-  // 后续可以挂载其他 nav
 }
 
 async function mountNavItem(selector, page) {
@@ -23,7 +20,7 @@ async function mountNavItem(selector, page) {
   if (!target) return;
 
   if (page === 'home') {
-    const { mountNavHome } = await import('../NavHome/NavHome.js');
+    const { mountNavHome } = await import('/docs/components/NavHome/NavHome.js');
     mountNavHome(target);
   }
 }
