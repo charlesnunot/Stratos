@@ -1,4 +1,3 @@
-// docs/components/Messages/Messages.js
 const baseURL = new URL('.', import.meta.url);
 
 export async function mountMessages(container) {
@@ -18,7 +17,7 @@ export async function mountMessages(container) {
   const listArea = container.querySelector('#messages-list-area');
   const detailArea = container.querySelector('#message-detail-area');
 
-  // 消息数据（可以改成从 API 获取）
+  // 消息数据（示例，可替换 API 获取）
   const messageData = {
     system: [
       { id: 1, title: 'System Update', content: 'System will restart at 3AM.' },
@@ -34,13 +33,10 @@ export async function mountMessages(container) {
     ]
   };
 
-  // 当前 tab
   let currentTab = 'system';
-
-  // 默认加载 System 消息
   loadMessageList(currentTab);
 
-  // Tab 切换事件
+  // Tab 切换
   tabSystem.addEventListener('click', () => switchTab('system'));
   tabDynamic.addEventListener('click', () => switchTab('dynamic'));
   tabChat.addEventListener('click', () => switchTab('chat'));
@@ -54,11 +50,16 @@ export async function mountMessages(container) {
     tabChat.classList.toggle('active', type === 'chat');
 
     loadMessageList(type);
+
+    // 移动端切换tab时确保显示列表
+    if (window.innerWidth <= 768) {
+      container.querySelector('.messages-left').style.display = 'flex';
+      container.querySelector('.messages-right').style.display = 'none';
+    }
   }
 
   function loadMessageList(type) {
-    listArea.innerHTML = ''; // 清空列表
-
+    listArea.innerHTML = '';
     const messages = messageData[type] || [];
 
     if (messages.length === 0) {
@@ -79,18 +80,15 @@ export async function mountMessages(container) {
       li.style.borderBottom = '1px solid #eee';
       li.style.cursor = 'pointer';
 
-      // 点击显示详情
       li.addEventListener('click', () => {
         showMessageDetail(msg);
         // 高亮选中
-        const siblings = ul.querySelectorAll('li');
-        siblings.forEach(s => s.style.backgroundColor = '');
+        ul.querySelectorAll('li').forEach(s => s.style.backgroundColor = '');
         li.style.backgroundColor = '#e0f0ff';
       });
 
       ul.appendChild(li);
 
-      // 默认选中第一条
       if (index === 0) {
         li.style.backgroundColor = '#e0f0ff';
         showMessageDetail(msg);
@@ -101,10 +99,26 @@ export async function mountMessages(container) {
   }
 
   function showMessageDetail(msg) {
+    const isMobile = window.innerWidth <= 768;
+
+    if (isMobile) {
+      container.querySelector('.messages-left').style.display = 'none';
+      container.querySelector('.messages-right').style.display = 'block';
+    }
+
     detailArea.innerHTML = `
+      ${isMobile ? '<button id="back-to-list">&lt; Back</button>' : ''}
       <h3>${msg.title}</h3>
       <p>${msg.content}</p>
     `;
+
+    if (isMobile) {
+      const backBtn = detailArea.querySelector('#back-to-list');
+      backBtn.addEventListener('click', () => {
+        container.querySelector('.messages-left').style.display = 'flex';
+        container.querySelector('.messages-right').style.display = 'none';
+      });
+    }
   }
 }
 
