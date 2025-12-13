@@ -1,7 +1,12 @@
 <div class="publish-container">
-  <h2>Create a new post</h2>
-  <textarea id="publish-content" placeholder="What's on your mind?" rows="6"></textarea>
-  <button id="publish-submit">Publish</button>
-  <div id="publish-feedback"></div>
-</div>
+  <!-- 顶部选择 Normal / Product -->
+  <div class="publish-tabs">
+    <button id="tab-normal" class="active">Normal Post</button>
+    <button id="tab-product">Product Post</button>
+  </div>
 
+  <!-- 挂载点 -->
+  <div id="publish-content-area">
+    <!-- NormalPost 或 ProductPost 内容将动态挂载到这里 -->
+  </div>
+</div>
