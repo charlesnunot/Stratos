@@ -223,4 +223,3 @@ function loadCSS(href) {
   link.href = url;
   document.head.appendChild(link);
 }
-
