@@ -1,7 +1,6 @@
-// docs/components/NavHome/NavHome.js
 export async function mountNavHome(container) {
   // HTML
-  const html = await fetch('components/NavHome/NavHome.html')  // 相对于 NavHome.js
+  const html = await fetch('./NavHome.html')  // 相对于 NavHome.js
     .then(res => res.text());
   container.innerHTML = html;
 
