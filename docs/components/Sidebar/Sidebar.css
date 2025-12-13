@@ -53,13 +53,16 @@
 
 /* 底部按钮单独调整 */
 #nav-app-download {
-  background-color: #1da1f2;
-  color: white;
-  justify-content: center;
+  color: #555;
+}
+
+#nav-app-download .nav-icon {
+  font-size: 20px;
 }
 
 #nav-app-download:hover {
-  background-color: #0d95e8;
+  background-color: #f0f0f0;
+  color: #111;
 }
 
 /* =========================
