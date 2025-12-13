@@ -1,10 +1,11 @@
-const baseURL = new URL('.', import.meta.url);
+// Following.js
+import { mountPostsFeed } from './PostsFeed.js';
 
 export function mountFollowing(container) {
-  container.innerHTML = `
-    <div class="post">Following Post 1</div>
-    <div class="post">Following Post 2</div>
-    <div class="post">Following Post 3</div>
-  `;
+  const posts = [
+    'Following Post 1',
+    'Following Post 2',
+    'Following Post 3'
+  ];
+  mountPostsFeed(container, posts);
 }
-
