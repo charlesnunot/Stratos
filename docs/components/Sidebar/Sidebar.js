@@ -28,6 +28,7 @@ function mountNavItems() {
   mountNavItem('#nav-home', 'home');
   mountNavItem('#nav-market', 'market');
   mountNavItem('#nav-publish', 'publish');
+  mountNavItem('#nav-messages', 'messages');
 }
 
 // 挂载单个导航项
@@ -71,6 +72,31 @@ async function mountNavItem(selector, page) {
       });
       break;
     }
+    case 'messages': {
+      // 插入图标和文字
+      if (!target.innerHTML) {
+        target.innerHTML = `
+          <span class="material-symbols-outlined nav-icon">message</span>
+          <span class="nav-label">Messages</span>
+        `;
+      }
+
+      // 点击挂载 Messages 页面
+      target.addEventListener('click', async () => {
+        const mainRoot = document.getElementById('main-root');
+        if (!mainRoot) return;
+
+        // 清空 main-root
+        mainRoot.innerHTML = '';
+
+        // 动态导入 Messages.js 并挂载
+        const { mountMessages } = await import(new URL('../Messages/Messages.js', baseURL));
+        mountMessages(mainRoot);
+
+        updateActiveNav('messages');
+      });
+      break;
+    }
     default:
       console.warn('未处理的导航项:', page);
   }
@@ -104,7 +130,13 @@ async function loadMainPage(page) {
       break;
     }
     case 'publish': {
-      // Publish 页面由点击图标处理
+      const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
+      mountPublish(mainRoot);
+      break;
+    }
+    case 'messages': {
+      const { mountMessages } = await import(new URL('../Messages/Messages.js', baseURL));
+      mountMessages(mainRoot);
       break;
     }
     default:
