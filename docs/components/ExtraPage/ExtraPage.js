@@ -1,61 +1,59 @@
-import { getCurrentUser, onAuthChange, signOut } from '../../store/supabase.js'
+const baseURL = new URL('.', import.meta.url);
 
-export function mountExtraPage(container) {
-  import('./ExtraPage.html').then(res => {
-    container.innerHTML = res.default || res
-    initExtraPage()
-  })
+/**
+ * 挂载 ExtraPage 到容器
+ */
+export async function mountExtraPage(container) {
+  if (!container) return;
+
+  // 1️⃣ 加载 HTML
+  const html = await fetch(new URL('ExtraPage.html', baseURL)).then(res => res.text());
+  container.innerHTML = html;
+
+  // 2️⃣ 加载 CSS
+  loadCSS(new URL('ExtraPage.css', baseURL));
+
+  // 3️⃣ 初始化事件绑定
+  initExtraPageEvents();
 }
 
-function initExtraPage() {
-  const guestExtra = document.querySelector('.guest-extra')
-  const userInfo = document.querySelector('.user-info')
-  const userDataSection = document.getElementById('user-data-section')
-  const userEmailEl = document.getElementById('user-email')
-  const userAvatarEl = document.getElementById('user-avatar')
-  const userNicknameEl = document.getElementById('user-nickname')
+/**
+ * 初始化 ExtraPage 事件
+ */
+function initExtraPageEvents() {
+  // 注册/登录点击
+  const registerText = document.getElementById('register-text');
+  const loginText = document.getElementById('login-text');
 
-  function updateUserUI(user) {
-    if (user) {
-      guestExtra.style.display = 'none'
-      userInfo.style.display = 'block'
-      userDataSection.style.display = 'block'
-
-      userEmailEl.textContent = user.email
-      userAvatarEl.src = user.user_metadata?.avatar_url || 'https://via.placeholder.com/80'
-      userNicknameEl.textContent = user.user_metadata?.nickname || 'Anonymous'
-    } else {
-      guestExtra.style.display = 'flex'
-      userInfo.style.display = 'none'
-      userDataSection.style.display = 'none'
-    }
-  }
-
-  // 初始化当前用户状态
-  getCurrentUser().then(updateUserUI)
-
-  // 监听登录状态变化
-  onAuthChange((event, session) => {
-    updateUserUI(session?.user || null)
-  })
+  if (registerText) registerText.addEventListener('click', () => openRegisterModal());
+  if (loginText) loginText.addEventListener('click', () => openLoginModal());
 
   // 登出按钮
-  const logoutBtn = document.getElementById('logout-btn')
+  const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
-      await signOut()
-    })
+      const { signOut } = await import('../../store/supabase.js');
+      await signOut();
+    });
   }
 
-  // 注册/登录点击事件
-  const registerText = document.getElementById('register-text')
-  if (registerText) registerText.addEventListener('click', () => openRegisterModal())
-  const loginText = document.getElementById('login-text')
-  if (loginText) loginText.addEventListener('click', () => openLoginModal())
-
-  // 底部条款点击事件
-  document.getElementById('terms-link')?.addEventListener('click', () => showModal('Terms'))
-  document.getElementById('community-link')?.addEventListener('click', () => showModal('Community Guidelines'))
-  document.getElementById('privacy-link')?.addEventListener('click', () => showModal('Privacy Policy'))
+  // 点击条款/隐私/社区公约
+  document.querySelectorAll('.policy-link').forEach(el => {
+    el.addEventListener('click', () => {
+      const policy = el.dataset.policy;
+      alert(`显示弹窗: ${policy}`);
+    });
+  });
 }
 
+/**
+ * 动态加载 CSS
+ */
+function loadCSS(href) {
+  const url = href.toString();
+  if (document.querySelector(`link[href="${url}"]`)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = url;
+  document.head.appendChild(link);
+}
