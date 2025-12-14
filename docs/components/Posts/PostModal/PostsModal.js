@@ -12,9 +12,11 @@ export async function initPostModal(postsArray, startIndex = 0) {
     loadCSS(new URL('PostsModal.css', import.meta.url));
 
     modal = document.querySelector('.post-modal');
+
     modal.querySelector('.modal-close').addEventListener('click', () => modal.style.display = 'none');
     modal.querySelector('.modal-prev').addEventListener('click', () => showPost(currentIndex - 1));
     modal.querySelector('.modal-next').addEventListener('click', () => showPost(currentIndex + 1));
+
     modal.addEventListener('click', e => {
       if (e.target === modal) modal.style.display = 'none';
     });
@@ -34,10 +36,13 @@ export async function initPostModal(postsArray, startIndex = 0) {
 function showPost(index) {
   if (!posts || posts.length === 0) return;
 
-  if (index < 0) index = posts.length - 1;
-  if (index >= posts.length) index = 0;
-  currentIndex = index;
+  // 超出范围自动关闭模态
+  if (index < 0 || index >= posts.length) {
+    modal.style.display = 'none';
+    return;
+  }
 
+  currentIndex = index;
   const post = posts[currentIndex];
   const titleEl = modal.querySelector('.modal-title');
   const contentEl = modal.querySelector('.modal-content');
@@ -45,7 +50,8 @@ function showPost(index) {
 
   titleEl.textContent = post.type === 'product' ? post.product_posts?.title || post.title : post.title || '';
   contentEl.textContent = post.type === 'product' && post.product_posts
-    ? (post.product_posts.description || post.content || '') + `\n价格: ${post.product_posts.price ?? '-'} 元, 库存: ${post.product_posts.stock ?? '-'}` 
+    ? (post.product_posts.description || post.content || '') +
+      `\n价格: ${post.product_posts.price ?? '-'} 元, 库存: ${post.product_posts.stock ?? '-'}`
     : post.content || '';
 
   imagesContainer.innerHTML = '';
