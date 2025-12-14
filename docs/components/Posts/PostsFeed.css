@@ -1,15 +1,18 @@
-/* docs/components/Posts/PostsFeed.css */
+/* ===== docs/components/Posts/PostsFeed.css ===== */
 
 .posts-feed {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;        /* 允许换行 */
   gap: 12px;
   padding: 8px;
   background: #f9f9f9;
+  justify-content: flex-start;
 }
 
-/* 普通帖子和商品帖子的统一卡片样式 */
+/* 每个卡片默认宽度：每行3个 */
 .post {
+  flex: 1 1 calc(33.333% - 8px);
+  box-sizing: border-box;
   padding: 12px;
   border-radius: 8px;
   background: #fff;
@@ -65,4 +68,20 @@
   margin-left: 8px;
   color: #555;
   font-weight: 500;
+}
+
+/* ===== 响应式调整 ===== */
+
+/* 手机端：每行2个卡片 */
+@media (max-width: 768px) {
+  .post {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+/* 超小屏手机：每行1个卡片 */
+@media (max-width: 480px) {
+  .post {
+    flex: 1 1 100%;
+  }
 }
