@@ -1,3 +1,5 @@
+// docs/store/userManager.js
+
 // 用户前端状态管理
 let currentUser = null
 const listeners = new Set()
