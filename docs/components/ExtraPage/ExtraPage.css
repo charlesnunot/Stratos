@@ -1,13 +1,13 @@
 #extra-page {
   padding: 16px;
-  width: 320px;
+  width: 280px;
   box-sizing: border-box;
   border-left: 1px solid #e0e0e0;
   background-color: #f9f9f9;
   font-family: "Segoe UI", Arial, sans-serif;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   min-height: 100vh;
 }
 
@@ -17,78 +17,97 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 16px;
+  gap: 12px;
+  padding: 20px;
   background-color: #ffffff;
   border: 1px solid #ddd;
   border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
   text-align: center;
 }
 
-.guest-actions span {
-  color: #1DA1F2;
+.guest-actions {
+  font-size: 14px;
   cursor: pointer;
-  text-decoration: underline;
+  color: #1DA1F2;
 }
 
 .guest-note {
   font-size: 12px;
   color: #666;
+  margin: 0;
 }
 
-/* 已登录区 */
-.user-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.user-info .welcome-text {
+/* 用户信息区 */
+.user-info p.welcome-text {
   font-size: 14px;
-  font-weight: 500;
-}
-
-.user-info button {
-  padding: 6px 12px;
-  background-color: #1DA1F2;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
+  color: #333;
+  margin: 0 0 8px 0;
 }
 
 /* 用户基础数据区 */
-.user-data {
+#user-data-section .user-data {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
 }
 
-.user-data .avatar {
+#user-data-section .user-data img.avatar {
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
+}
+
+#user-data-section .user-data p {
+  margin: 0;
+  font-size: 14px;
+  color: #333;
 }
 
 /* 系统推送区 */
 .feed-list {
-  list-style: none;
-  padding: 0;
+  padding-left: 16px;
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+}
+
+.feed-list li {
+  list-style: disc;
+  margin-bottom: 6px;
 }
 
 /* 底部条款/版权 */
 .policy-link {
+  font-size: 12px;
   color: #1DA1F2;
   cursor: pointer;
-  text-decoration: underline;
-  font-size: 12px;
 }
 
-footer, .copyright {
-  font-size: 10px;
-  color: #999;
-  margin-top: 8px;
+.policy-link:hover {
+  text-decoration: underline;
+}
+
+#footer-section {
+  font-size: 12px;
+  color: #666;
+  margin-top: auto;
+}
+
+#footer-section p {
+  margin: 4px 0;
+}
+
+/* 按钮样式 */
+.user-info button {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #fff;
+  background-color: #1DA1F2;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.user-info button:hover {
+  background-color: #0d8ddb;
 }
