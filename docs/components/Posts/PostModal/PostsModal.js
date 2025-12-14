@@ -1,39 +1,45 @@
-const baseURL = new URL('./', import.meta.url);
-
 let modal = null;
+let posts = [];
+let currentIndex = 0;
 
-export async function initPostModal(post) {
+export async function initPostModal(postsArray, startIndex = 0) {
+  posts = postsArray;
+  currentIndex = startIndex;
+
   if (!modal) {
-    // 创建 modal 容器
-    const html = await fetch(new URL('PostsModal.html', baseURL)).then(res => res.text());
+    const html = await fetch(new URL('PostsModal.html', import.meta.url)).then(res => res.text());
     document.body.insertAdjacentHTML('beforeend', html);
-
-    // 加载 CSS
-    loadCSS(new URL('PostsModal.css', baseURL));
+    loadCSS(new URL('PostsModal.css', import.meta.url));
 
     modal = document.querySelector('.post-modal');
-
-    const closeBtn = modal.querySelector('.modal-close');
-    closeBtn.addEventListener('click', () => {
-      modal.style.display = 'none';
-    });
-
-    // 点击空白关闭
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.style.display = 'none');
+    modal.querySelector('.modal-prev').addEventListener('click', () => showPost(currentIndex - 1));
+    modal.querySelector('.modal-next').addEventListener('click', () => showPost(currentIndex + 1));
     modal.addEventListener('click', e => {
       if (e.target === modal) modal.style.display = 'none';
     });
   }
 
-  // 填充帖子数据
-  modal.querySelector('.modal-title').textContent = post.title || '';
-  modal.querySelector('.modal-content').textContent = post.content || '';
+  showPost(currentIndex);
+  modal.style.display = 'flex';
+}
 
-  if (post.type === 'product' && post.product_posts) {
-    const p = post.product_posts;
-    modal.querySelector('.modal-title').textContent = p.title || post.title;
-    modal.querySelector('.modal-content').textContent =
-      (p.description || post.content) + `\n价格: ${p.price ?? '-'} 元, 库存: ${p.stock ?? '-'}`;
-  }
+function showPost(index) {
+  if (!posts || posts.length === 0) return;
+
+  if (index < 0) index = posts.length - 1;
+  if (index >= posts.length) index = 0;
+  currentIndex = index;
+
+  const post = posts[currentIndex];
+
+  // 标题
+  modal.querySelector('.modal-title').textContent = post.type === 'product' ? post.product_posts?.title || post.title : post.title || '';
+
+  // 内容/描述
+  modal.querySelector('.modal-content').textContent = post.type === 'product' && post.product_posts
+    ? (post.product_posts.description || post.content || '') + `\n价格: ${post.product_posts.price ?? '-'} 元, 库存: ${post.product_posts.stock ?? '-'}`
+    : post.content || '';
 
   // 图片
   const imagesContainer = modal.querySelector('.modal-images');
@@ -45,10 +51,9 @@ export async function initPostModal(post) {
     img.alt = 'post image';
     imagesContainer.appendChild(img);
   });
-
-  modal.style.display = 'flex';
 }
 
+// 动态加载 CSS
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
