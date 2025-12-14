@@ -1,5 +1,10 @@
+import { AuthModal } from '../AuthModal/AuthModal.js';
+
 const baseURL = new URL('.', import.meta.url);
 
+/**
+ * 挂载 ExtraPage 到容器
+ */
 export async function mountExtraPage(container) {
   if (!container) return;
 
@@ -14,13 +19,16 @@ export async function mountExtraPage(container) {
   initExtraPageEvents();
 }
 
+/**
+ * 初始化事件绑定
+ */
 function initExtraPageEvents() {
-  // 注册/登录点击
+  // 注册/登录点击，打开 AuthModal
   const registerText = document.getElementById('register-text');
   const loginText = document.getElementById('login-text');
 
-  if (registerText) registerText.addEventListener('click', () => openRegisterModal());
-  if (loginText) loginText.addEventListener('click', () => openLoginModal());
+  if (registerText) registerText.addEventListener('click', () => AuthModal.open('register'));
+  if (loginText) loginText.addEventListener('click', () => AuthModal.open('login'));
 
   // 点击条款/隐私/社区公约
   document.querySelectorAll('.policy-link').forEach(el => {
@@ -73,7 +81,9 @@ export function hideUserInfo() {
   userDataSection.style.display = 'none';
 }
 
-// 动态加载 CSS
+/**
+ * 动态加载 CSS
+ */
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
