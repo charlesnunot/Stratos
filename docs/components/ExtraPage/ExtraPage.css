@@ -7,7 +7,7 @@
   flex-direction: column;
   gap: 16px;
   min-height: 100vh;
-  background: #ffffff; /* 白色背景 */
+  background: #F9F9F9; 
 }
 
 /* 注册/登录区 */
