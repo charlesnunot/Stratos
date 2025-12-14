@@ -1,71 +1,96 @@
 #extra-page {
+  padding: 16px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 16px;
   font-family: "Segoe UI", Arial, sans-serif;
 }
 
-section {
+/* =========================
+   Extra Sections
+========================= */
+.extra-section {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-/* 游客注册登录区 */
-.guest-extra {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 24px;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+/* Guest / Auth */
+.guest-extra p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
 }
-
 .guest-actions span {
-  color: #1DA1F2;
-  text-decoration: underline;
   cursor: pointer;
+  color: #1DA1F2;
+  font-weight: 500;
+}
+.guest-actions span:hover {
+  text-decoration: underline;
+}
+.guest-note {
+  font-size: 12px;
+  color: #999;
 }
 
-/* 用户基础数据区 */
-.user-card {
+/* 用户基础数据 */
+.user-data {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  background: #fff;
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
-
-.user-card img {
-  width: 80px;
-  height: 80px;
+.user-data .avatar {
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
 }
-
-.user-stats {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: #666;
+.user-data p {
+  margin: 0;
+  font-size: 14px;
+  color: #333;
 }
 
 /* 系统推送区 */
-#notifications-section {
+.feed-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
+}
+.feed-list li {
+  font-size: 14px;
+  color: #444;
+  cursor: pointer;
+}
+.feed-list li:hover {
+  color: #1DA1F2;
 }
 
-/* 底部条款区 */
-.footer-links span {
-  font-size: 10px;
-  color: #999;
+/* 底部条款 */
+.policy-link {
+  font-size: 12px;
+  color: #888;
   cursor: pointer;
+}
+.policy-link:hover {
   text-decoration: underline;
 }
-
+#footer-section p {
+  margin: 0;
+  text-align: center;
+}
+#footer-section .copyright {
+  font-size: 10px;
+  color: #aaa;
+  text-align: center;
+  margin-top: 4px;
+}
