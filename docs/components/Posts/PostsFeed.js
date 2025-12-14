@@ -20,24 +20,35 @@ export async function mountPostsFeed(container, posts) {
   });
 }
 
-// 创建单条卡片，兼容对象或字符串
+/**
+ * 创建单条卡片，兼容普通帖子和商品帖子
+ */
 function createPostCard(post) {
   const card = document.createElement('article');
   card.className = 'post';
 
-  let title = '';
-  let author = '';
-  let time = '';
-  let excerpt = '';
+  // 普通帖子字段
+  let title = post.title || '';
+  let author = post.author || 'Unknown';
+  let time = post.time || (post.created_at ? new Date(post.created_at).toLocaleString() : '');
+  let excerpt = post.content || '';
 
-  if (typeof post === 'string') {
-    // 兼容旧的字符串数组
-    title = post;
-  } else if (typeof post === 'object' && post !== null) {
-    title = post.title || '';
-    author = post.author || 'Unknown';
-    time = post.time || '';
-    excerpt = post.excerpt || '';
+  // 商品帖子字段
+  if (post.type === 'product' && post.product_posts) {
+    const p = post.product_posts;
+    title = p.title || title;
+    excerpt = p.description || excerpt;
+    // 拼接价格/库存信息
+    excerpt += `\n价格: ${p.price ?? '-'} 元, 库存: ${p.stock ?? '-'}`;
+  }
+
+  // 处理图片（如果有）
+  let imagesHTML = '';
+  const imgs = post.images || (post.product_posts?.images ?? []);
+  if (imgs.length) {
+    imagesHTML = `<div class="post-images">
+      ${imgs.map(url => `<img src="${url}" alt="post image">`).join('')}
+    </div>`;
   }
 
   card.innerHTML = `
@@ -48,6 +59,7 @@ function createPostCard(post) {
       ${time ? `<span class="post-time">${time}</span>` : ''}
     </div>
     ${excerpt ? `<p class="post-excerpt">${excerpt}</p>` : ''}
+    ${imagesHTML}
   `;
 
   return card;
