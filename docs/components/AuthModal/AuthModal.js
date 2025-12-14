@@ -66,6 +66,18 @@ export const AuthModal = (() => {
     modalContainer.addEventListener('click', (e) => {
       if (e.target === modalContainer) hide();
     });
+
+    // 密码显示/隐藏功能
+    modalContainer.querySelectorAll('.toggle-password').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        const input = toggle.previousElementSibling;
+        if (input.type === 'password') {
+          input.type = 'text';
+        } else {
+          input.type = 'password';
+        }
+      });
+    });
   }
 
   function open(type = 'login') {
@@ -102,4 +114,3 @@ export const AuthModal = (() => {
 
   return { open, hide };
 })();
-
