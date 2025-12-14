@@ -18,6 +18,13 @@ export async function initPostModal(postsArray, startIndex = 0) {
     modal.addEventListener('click', e => {
       if (e.target === modal) modal.style.display = 'none';
     });
+
+    // 键盘左右切换帖子
+    document.addEventListener('keydown', e => {
+      if (!modal || modal.style.display !== 'flex') return;
+      if (e.key === 'ArrowLeft') showPost(currentIndex - 1);
+      if (e.key === 'ArrowRight') showPost(currentIndex + 1);
+    });
   }
 
   showPost(currentIndex);
@@ -32,17 +39,15 @@ function showPost(index) {
   currentIndex = index;
 
   const post = posts[currentIndex];
+  const titleEl = modal.querySelector('.modal-title');
+  const contentEl = modal.querySelector('.modal-content');
+  const imagesContainer = modal.querySelector('.modal-images');
 
-  // 标题
-  modal.querySelector('.modal-title').textContent = post.type === 'product' ? post.product_posts?.title || post.title : post.title || '';
-
-  // 内容/描述
-  modal.querySelector('.modal-content').textContent = post.type === 'product' && post.product_posts
-    ? (post.product_posts.description || post.content || '') + `\n价格: ${post.product_posts.price ?? '-'} 元, 库存: ${post.product_posts.stock ?? '-'}`
+  titleEl.textContent = post.type === 'product' ? post.product_posts?.title || post.title : post.title || '';
+  contentEl.textContent = post.type === 'product' && post.product_posts
+    ? (post.product_posts.description || post.content || '') + `\n价格: ${post.product_posts.price ?? '-'} 元, 库存: ${post.product_posts.stock ?? '-'}` 
     : post.content || '';
 
-  // 图片
-  const imagesContainer = modal.querySelector('.modal-images');
   imagesContainer.innerHTML = '';
   const imgs = post.images || (post.product_posts?.images ?? []);
   imgs.forEach(url => {
