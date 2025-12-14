@@ -1,8 +1,5 @@
 const baseURL = new URL('.', import.meta.url);
 
-/**
- * 挂载 ExtraPage 到容器
- */
 export async function mountExtraPage(container) {
   if (!container) return;
 
@@ -13,17 +10,15 @@ export async function mountExtraPage(container) {
   // 2️⃣ 加载 CSS
   loadCSS(new URL('ExtraPage.css', baseURL));
 
-  // 3️⃣ 初始化事件
+  // 3️⃣ 初始化事件绑定
   initExtraPageEvents();
 }
 
-/**
- * 初始化事件绑定
- */
 function initExtraPageEvents() {
-  // 注册/登录文字点击
+  // 注册/登录点击
   const registerText = document.getElementById('register-text');
   const loginText = document.getElementById('login-text');
+
   if (registerText) registerText.addEventListener('click', () => openRegisterModal());
   if (loginText) loginText.addEventListener('click', () => openLoginModal());
 
@@ -46,8 +41,39 @@ function initExtraPageEvents() {
 }
 
 /**
- * 动态加载 CSS
+ * 显示用户信息和基础数据区
  */
+export function showUserInfo(user) {
+  const userInfo = document.querySelector('#extra-page .user-info');
+  const guestExtra = document.querySelector('#extra-page .guest-extra');
+  const userDataSection = document.getElementById('user-data-section');
+
+  if (!user || !userInfo || !guestExtra || !userDataSection) return;
+
+  guestExtra.style.display = 'none';
+  userInfo.style.display = 'block';
+  userDataSection.style.display = 'block';
+
+  const emailEl = document.getElementById('user-email');
+  if (emailEl) emailEl.textContent = user.email;
+}
+
+/**
+ * 隐藏用户信息和基础数据区
+ */
+export function hideUserInfo() {
+  const userInfo = document.querySelector('#extra-page .user-info');
+  const guestExtra = document.querySelector('#extra-page .guest-extra');
+  const userDataSection = document.getElementById('user-data-section');
+
+  if (!userInfo || !guestExtra || !userDataSection) return;
+
+  guestExtra.style.display = 'flex';
+  userInfo.style.display = 'none';
+  userDataSection.style.display = 'none';
+}
+
+// 动态加载 CSS
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
@@ -55,31 +81,4 @@ function loadCSS(href) {
   link.rel = 'stylesheet';
   link.href = url;
   document.head.appendChild(link);
-}
-
-/**
- * 显示用户信息区
- */
-export function showUserInfo(user) {
-  const userInfo = document.querySelector('#extra-page .user-info');
-  const guestExtra = document.querySelector('#extra-page .guest-extra');
-  if (!userInfo || !guestExtra || !user) return;
-
-  userInfo.style.display = 'block';
-  guestExtra.style.display = 'none';
-
-  const emailEl = document.getElementById('user-email');
-  if (emailEl) emailEl.textContent = user.email;
-}
-
-/**
- * 隐藏用户信息区
- */
-export function hideUserInfo() {
-  const userInfo = document.querySelector('#extra-page .user-info');
-  const guestExtra = document.querySelector('#extra-page .guest-extra');
-  if (!userInfo || !guestExtra) return;
-
-  userInfo.style.display = 'none';
-  guestExtra.style.display = 'flex';
 }
