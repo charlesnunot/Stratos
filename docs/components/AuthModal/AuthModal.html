@@ -2,28 +2,36 @@
   <div class="auth-modal">
     <button class="auth-close">&times;</button>
 
-    <!-- 表单容器 -->
-    <div class="auth-forms">
+    <!-- 弹窗标题 -->
+    <h2 class="auth-title">Stratos</h2>
 
-      <!-- 登录表单 -->
-      <form id="login-form" class="auth-form active">
-        <h3>Login</h3>
-        <input type="email" id="login-email" placeholder="Email" required />
+    <!-- 登录表单 -->
+    <form id="login-form" class="auth-form active">
+      <input type="email" id="login-email" placeholder="Email" required />
+      
+      <div class="password-wrapper">
         <input type="password" id="login-password" placeholder="Password" required />
-        <button type="submit">Login</button>
-        <p class="auth-switch">Don't have an account? <span id="switch-to-register">Register</span></p>
-      </form>
+        <span class="toggle-password">&#128065;</span>
+      </div>
 
-      <!-- 注册表单 -->
-      <form id="register-form" class="auth-form">
-        <h3>Register</h3>
-        <input type="email" id="register-email" placeholder="Email" required />
+      <button type="submit">Login</button>
+
+      <p class="auth-forgot">Forgot password?</p>
+      <p class="auth-switch">Don't have an account? <span id="switch-to-register">Register</span></p>
+    </form>
+
+    <!-- 注册表单 -->
+    <form id="register-form" class="auth-form">
+      <input type="email" id="register-email" placeholder="Email" required />
+      
+      <div class="password-wrapper">
         <input type="password" id="register-password" placeholder="Password" required />
-        <button type="submit">Register</button>
-        <p class="auth-switch">Already have an account? <span id="switch-to-login">Login</span></p>
-      </form>
+        <span class="toggle-password">&#128065;</span>
+      </div>
 
-    </div>
+      <button type="submit">Register</button>
+
+      <p class="auth-switch">Already have an account? <span id="switch-to-login">Login</span></p>
+    </form>
   </div>
 </div>
-
