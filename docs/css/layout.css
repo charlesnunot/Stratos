@@ -39,7 +39,14 @@ body {
 #extra-root {
   width: var(--extra-width);
   flex-shrink: 0;
+
+  padding-left: 16px;   /* 左边距 */
+  padding-right: 16px;  /* 右边距 */
+  padding-top: 16px;    /* 可选：上边距 */
+  padding-bottom: 16px; /* 可选：下边距 */
+  box-sizing: border-box; /* 确保 padding 不影响 width */
 }
+
 
 /* =========================
    小屏 PC：隐藏右侧
