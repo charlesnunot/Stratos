@@ -1,3 +1,4 @@
+// docs/components/Posts/Discover.js
 import { mountPostsFeed } from './PostsFeed.js';
 
 export function mountDiscover(container) {
