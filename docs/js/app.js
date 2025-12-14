@@ -18,10 +18,11 @@ initAuthSubscribers()
 subscribe('userChange', user => {
   const extraContainer = document.getElementById('extra-root')
 
-  // -------------------------
-  // 右侧 Extra 面板
-  // -------------------------
+  // 清空旧内容并移除动画 class
+  extraContainer.classList.remove('active')
+
   if (user) {
+    // 已登录状态
     extraContainer.innerHTML = `
       <p class="welcome-text">Welcome back, ${user.email}</p>
       <button id="logout-btn">Log out</button>
@@ -46,12 +47,15 @@ subscribe('userChange', user => {
         </p>
       </div>
     `
-
-    // 点击注册/登录文字弹窗
+    // 注册/登录文字点击事件
     const registerText = document.getElementById('register-text')
     if (registerText) registerText.addEventListener('click', () => openRegisterModal())
-
     const loginText = document.getElementById('login-text')
     if (loginText) loginText.addEventListener('click', () => openLoginModal())
   }
+
+  // 延迟加 active class 触发淡入动画
+  requestAnimationFrame(() => {
+    extraContainer.classList.add('active')
+  })
 })
