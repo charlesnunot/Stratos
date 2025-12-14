@@ -1,5 +1,11 @@
 // docs/store/state.js
 export const state = {
+  auth: {
+    status: 'checking', // 'checking' | 'guest' | 'authenticated'
+    token: null,
+    uid: null
+  },
+  
   user: {
     uid: null,
     username: null,
