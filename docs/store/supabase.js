@@ -1,21 +1,13 @@
-// docs/store/supabase.js
-
 const SUPABASE_URL = 'https://zquslphbmowkgrdlygza.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_oaojowgzWjzLUAUhA7rjfw_hntjdrcu'
 
-// 1️⃣ 创建唯一 client
+// 创建唯一客户端
 export const supabase = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 )
 
-/* =========================================================
-   Auth – 单一真相源
-   ========================================================= */
-
-/**
- * 获取当前 session（是否登录的唯一判断）
- */
+// 获取当前 session
 export async function getSession() {
   const { data, error } = await supabase.auth.getSession()
   if (error) {
@@ -25,26 +17,20 @@ export async function getSession() {
   return data.session
 }
 
-/**
- * 获取当前用户（可能为 null）
- */
+// 获取当前用户
 export async function getCurrentUser() {
   const session = await getSession()
   return session ? session.user : null
 }
 
-/**
- * 监听登录状态变化（登录 / 退出 / 刷新）
- */
+// 监听登录/登出事件
 export function onAuthChange(callback) {
   return supabase.auth.onAuthStateChange((event, session) => {
     callback(event, session)
   })
 }
 
-/**
- * 主动退出登录
- */
+// 主动登出
 export async function signOut() {
   await supabase.auth.signOut()
 }
