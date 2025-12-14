@@ -1,29 +1,23 @@
-// docs/components/Posts/PostsFeed.js
 import { initPostModal } from './PostModal/PostsModal.js';
 
 const baseURL = new URL('./', import.meta.url);
 
-export async function mountPostsFeed(container, posts) {
+export async function mountPostsFeed(container, postsArray) {
   if (!container) return;
 
-  // 加载 HTML 模板
   const html = await fetch(new URL('PostsFeed.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
-
-  // 加载 CSS
   loadCSS(new URL('PostsFeed.css', baseURL));
 
   const feed = container.querySelector('.posts-feed');
   if (!feed) return;
 
-  posts.forEach(post => {
+  postsArray.forEach((post, i) => {
     const card = createPostCard(post);
     feed.appendChild(card);
 
-    // 点击帖子卡片弹出模态
-    card.addEventListener('click', () => {
-      initPostModal(post);
-    });
+    // 点击卡片弹模态，传入整个帖子数组和当前索引
+    card.addEventListener('click', () => initPostModal(postsArray, i));
   });
 }
 
