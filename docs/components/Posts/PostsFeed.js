@@ -1,8 +1,12 @@
-// docs/components/Posts/PostsFeed.js
+import { openPostModal, initPostModal } from './PostModal/PostsModal.js';
+
 const baseURL = new URL('.', import.meta.url);
 
 export async function mountPostsFeed(container, posts) {
   if (!container) return;
+
+  // 初始化模态弹窗（只需要初始化一次）
+  await initPostModal();
 
   // 加载 HTML 模板
   const html = await fetch(new URL('PostsFeed.html', baseURL)).then(res => res.text());
@@ -14,9 +18,13 @@ export async function mountPostsFeed(container, posts) {
   const feed = container.querySelector('.posts-feed');
   if (!feed) return;
 
-  // 遍历 posts 数据
+  // 遍历 posts 数据，生成卡片
   posts.forEach(post => {
-    feed.appendChild(createPostCard(post));
+    const card = createPostCard(post);
+    feed.appendChild(card);
+
+    // 点击卡片打开模态弹窗
+    card.addEventListener('click', () => openPostModal(post));
   });
 }
 
@@ -38,7 +46,6 @@ function createPostCard(post) {
     const p = post.product_posts;
     title = p.title || title;
     excerpt = p.description || excerpt;
-    // 拼接价格/库存信息
     excerpt += `\n价格: ${p.price ?? '-'} 元, 库存: ${p.stock ?? '-'}`;
   }
 
