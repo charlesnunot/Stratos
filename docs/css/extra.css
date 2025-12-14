@@ -1,7 +1,8 @@
 /* ================== 右侧 Extra 面板 ================== */
 #extra-root {
-  padding: 16px;
-  width: 280px;          /* 固定宽度，和 Sidebar 保持比例 */
+  width: 320px;          /* 固定宽度，可根据 layout.css --extra-width 调整 */
+  flex-shrink: 0;
+  padding: 16px;         /* 左右上下间距 */
   box-sizing: border-box;
   border-left: 1px solid #e0e0e0;
   background-color: #f9f9f9;
@@ -12,43 +13,14 @@
   min-height: 100vh;
 }
 
-/* 已登录状态欢迎信息 */
-#extra-root p {
+/* 已登录状态 */
+.welcome-text {
   font-size: 14px;
   color: #333;
   margin: 0;
 }
 
-/* 游客状态容器 */
-.guest-extra {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 20px;
-  background-color: #ffffff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.guest-extra:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-/* 提示文字 */
-.guest-extra p {
-  font-size: 14px;
-  color: #666;
-  margin: 0;
-}
-
-/* 按钮统一样式 */
-.guest-extra button {
+#extra-root button {
   padding: 8px 16px;
   font-size: 14px;
   font-weight: 500;
@@ -60,16 +32,48 @@
   transition: background-color 0.2s, transform 0.1s;
 }
 
-/* 悬停效果 */
-.guest-extra button:hover {
+#extra-root button:hover {
   background-color: #0d8ddb;
   transform: translateY(-1px);
 }
 
-/* 按钮点击效果 */
-.guest-extra button:active {
+#extra-root button:active {
   transform: translateY(0);
   background-color: #0b7cb3;
+}
+
+/* ------------------- 游客状态 ------------------- */
+.guest-extra {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  text-align: center;
+}
+
+/* 注册/登录文本 */
+.guest-actions {
+  font-size: 14px;
+  color: #1DA1F2;
+  cursor: pointer;
+}
+
+.guest-actions span {
+  text-decoration: underline; /* 模拟可点击文字 */
+  margin: 0 4px;
+}
+
+/* 提示文本 */
+.guest-note {
+  font-size: 10px;      /* 小字体 */
+  color: #666;
+  margin: 0;
 }
 
 /* 响应式处理 */
@@ -79,9 +83,9 @@
     border-left: none;
     border-top: 1px solid #e0e0e0;
     min-height: auto;
+    padding: 12px;
   }
   .guest-extra {
     padding: 16px;
   }
 }
-
