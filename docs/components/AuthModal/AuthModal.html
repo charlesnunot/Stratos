@@ -1,1 +1,29 @@
+<div id="auth-modal" class="auth-modal-overlay" style="display:none;">
+  <div class="auth-modal">
+    <button class="auth-close">&times;</button>
+
+    <!-- 表单容器 -->
+    <div class="auth-forms">
+
+      <!-- 登录表单 -->
+      <form id="login-form" class="auth-form active">
+        <h3>Login</h3>
+        <input type="email" id="login-email" placeholder="Email" required />
+        <input type="password" id="login-password" placeholder="Password" required />
+        <button type="submit">Login</button>
+        <p class="auth-switch">Don't have an account? <span id="switch-to-register">Register</span></p>
+      </form>
+
+      <!-- 注册表单 -->
+      <form id="register-form" class="auth-form">
+        <h3>Register</h3>
+        <input type="email" id="register-email" placeholder="Email" required />
+        <input type="password" id="register-password" placeholder="Password" required />
+        <button type="submit">Register</button>
+        <p class="auth-switch">Already have an account? <span id="switch-to-login">Login</span></p>
+      </form>
+
+    </div>
+  </div>
+</div>
 
