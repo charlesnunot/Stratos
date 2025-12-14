@@ -6,14 +6,14 @@ const baseURL = new URL('.', import.meta.url);
 export async function mountExtraPage(container) {
   if (!container) return;
 
-  // 1️⃣ 加载 HTML 模板
+  // 1️⃣ 加载 HTML
   const html = await fetch(new URL('ExtraPage.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
   // 2️⃣ 加载 CSS
   loadCSS(new URL('ExtraPage.css', baseURL));
 
-  // 3️⃣ 初始化事件绑定
+  // 3️⃣ 初始化事件
   initExtraPageEvents();
 }
 
@@ -21,10 +21,9 @@ export async function mountExtraPage(container) {
  * 初始化事件绑定
  */
 function initExtraPageEvents() {
-  // 注册/登录点击
+  // 注册/登录文字点击
   const registerText = document.getElementById('register-text');
   const loginText = document.getElementById('login-text');
-
   if (registerText) registerText.addEventListener('click', () => openRegisterModal());
   if (loginText) loginText.addEventListener('click', () => openLoginModal());
 
@@ -35,6 +34,15 @@ function initExtraPageEvents() {
       alert(`显示弹窗: ${policy}`);
     });
   });
+
+  // 登出按钮
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      const { signOut } = await import('../../store/supabase.js');
+      await signOut();
+    });
+  }
 }
 
 /**
@@ -50,37 +58,28 @@ function loadCSS(href) {
 }
 
 /**
- * 显示用户信息区（只在用户登录时调用）
+ * 显示用户信息区
  */
 export function showUserInfo(user) {
-  const extraContainer = document.getElementById('extra-page');
-  if (!extraContainer || !user) return;
+  const userInfo = document.querySelector('#extra-page .user-info');
+  const guestExtra = document.querySelector('#extra-page .guest-extra');
+  if (!userInfo || !guestExtra || !user) return;
 
-  // 创建用户信息区
-  const userSection = document.createElement('section');
-  userSection.id = 'user-info-section';
-  userSection.className = 'extra-section';
-  userSection.innerHTML = `
-    <p class="welcome-text">Welcome back, ${user.email}</p>
-    <button id="logout-btn">Log out</button>
-  `;
+  userInfo.style.display = 'block';
+  guestExtra.style.display = 'none';
 
-  extraContainer.prepend(userSection); // 放在顶部
-
-  // 绑定登出事件
-  const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-      const { signOut } = await import('../../store/supabase.js');
-      await signOut();
-    });
-  }
+  const emailEl = document.getElementById('user-email');
+  if (emailEl) emailEl.textContent = user.email;
 }
 
 /**
- * 隐藏用户信息区（用户登出时调用）
+ * 隐藏用户信息区
  */
 export function hideUserInfo() {
-  const userSection = document.getElementById('user-info-section');
-  if (userSection) userSection.remove();
+  const userInfo = document.querySelector('#extra-page .user-info');
+  const guestExtra = document.querySelector('#extra-page .guest-extra');
+  if (!userInfo || !guestExtra) return;
+
+  userInfo.style.display = 'none';
+  guestExtra.style.display = 'flex';
 }
