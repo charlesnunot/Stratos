@@ -48,6 +48,7 @@ async function mountNavItem(selector, page) {
       const { mountNavHome } = await import(new URL('../NavHome/NavHome.js', baseURL));
       mountNavHome(target);
       target.addEventListener('click', () => loadMainPage('home'));
+      target.click();
       break;
     }
 
