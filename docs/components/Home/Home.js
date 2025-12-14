@@ -78,54 +78,69 @@ export async function mountHome(container) {
   // 加载 CSS
   loadCSS(new URL('Home.css', baseURL));
 
-  // 默认激活 Discover tab（如果 HTML 中没有 active，则加上）
-  const defaultTab = container.querySelector('.home-tab[data-tab="discover"]');
-  if (defaultTab && !defaultTab.classList.contains('active')) {
-    defaultTab.classList.add('active');
+  const tabs = container.querySelectorAll('.home-tab');
+  const contentContainer = container.querySelector('#home-content');
+
+  // 缓存每个 tab 内容，避免重复加载
+  const tabCache = {};
+
+  // 找到默认 active tab，如果没有 active，则默认第一个
+  let activeTab = container.querySelector('.home-tab.active');
+  if (!activeTab) {
+    activeTab = tabs[0];
+    if (activeTab) activeTab.classList.add('active');
   }
 
-  // 初始化内容为 Discover
-  loadTabContent('discover');
+  // 初始化默认 tab 内容
+  if (activeTab) await loadTabContent(activeTab.dataset.tab);
 
-  // 绑定标题栏点击事件
-  const tabs = container.querySelectorAll('.home-tab');
+  // 绑定 tab 点击事件
   tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      // 移除所有 tab 的 active
+    tab.addEventListener('click', async () => {
       tabs.forEach(t => t.classList.remove('active'));
-      // 当前点击的 tab 添加 active
       tab.classList.add('active');
-      // 加载对应内容
-      loadTabContent(tab.dataset.tab);
+      await loadTabContent(tab.dataset.tab);
     });
   });
-}
 
-// 根据标签加载内容
-async function loadTabContent(tabName) {
-  const contentContainer = document.getElementById('home-content');
-  if (!contentContainer) return;
+  // 根据 tabName 加载内容
+  async function loadTabContent(tabName) {
+    if (!contentContainer) return;
 
-  contentContainer.innerHTML = ''; // 清空内容
+    // 如果缓存有内容，直接显示
+    if (tabCache[tabName]) {
+      contentContainer.innerHTML = '';
+      contentContainer.appendChild(tabCache[tabName]);
+      return;
+    }
 
-  switch (tabName) {
-    case 'discover': {
-      const { mountDiscover } = await import(new URL('../Posts/Discover.js', baseURL));
-      mountDiscover(contentContainer);
-      break;
+    // 新建一个容器挂载内容
+    const tabContent = document.createElement('div');
+    contentContainer.innerHTML = '';
+    contentContainer.appendChild(tabContent);
+
+    switch (tabName) {
+      case 'discover': {
+        const { mountDiscover } = await import(new URL('../Posts/Discover.js', baseURL));
+        await mountDiscover(tabContent);
+        break;
+      }
+      case 'following': {
+        const { mountFollowing } = await import(new URL('../Posts/Following.js', baseURL));
+        await mountFollowing(tabContent);
+        break;
+      }
+      case 'search': {
+        const { mountSearch } = await import(new URL('../Posts/Search/Search.js', baseURL));
+        await mountSearch(tabContent);
+        break;
+      }
+      default:
+        console.warn('未知标签:', tabName);
     }
-    case 'following': {
-      const { mountFollowing } = await import(new URL('../Posts/Following.js', baseURL));
-      mountFollowing(contentContainer);
-      break;
-    }
-    case 'search': {
-      const { mountSearch } = await import(new URL('../Posts/Search/Search.js', baseURL));
-      mountSearch(contentContainer);
-      break;
-    }
-    default:
-      console.warn('未知标签:', tabName);
+
+    // 缓存这个 tab 内容
+    tabCache[tabName] = tabContent;
   }
 }
 
@@ -138,4 +153,3 @@ function loadCSS(href) {
   link.href = url;
   document.head.appendChild(link);
 }
-
