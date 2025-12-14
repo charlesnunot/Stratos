@@ -1,96 +1,94 @@
 #extra-page {
   padding: 16px;
+  width: 320px;
   box-sizing: border-box;
+  border-left: 1px solid #e0e0e0;
+  background-color: #f9f9f9;
+  font-family: "Segoe UI", Arial, sans-serif;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  font-family: "Segoe UI", Arial, sans-serif;
+  min-height: 100vh;
 }
 
-/* =========================
-   Extra Sections
-========================= */
-.extra-section {
-  background-color: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+/* 注册/登录区 */
+.guest-extra {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  text-align: center;
 }
 
-/* Guest / Auth */
-.guest-extra p {
-  margin: 0;
-  font-size: 14px;
-  color: #666;
-}
 .guest-actions span {
-  cursor: pointer;
   color: #1DA1F2;
-  font-weight: 500;
-}
-.guest-actions span:hover {
+  cursor: pointer;
   text-decoration: underline;
 }
+
 .guest-note {
   font-size: 12px;
-  color: #999;
+  color: #666;
 }
 
-/* 用户基础数据 */
+/* 已登录区 */
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-info .welcome-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.user-info button {
+  padding: 6px 12px;
+  background-color: #1DA1F2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* 用户基础数据区 */
 .user-data {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
+
 .user-data .avatar {
-  width: 60px;
-  height: 60px;
   border-radius: 50%;
-}
-.user-data p {
-  margin: 0;
-  font-size: 14px;
-  color: #333;
 }
 
 /* 系统推送区 */
 .feed-list {
-  margin: 0;
-  padding: 0;
   list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.feed-list li {
-  font-size: 14px;
-  color: #444;
-  cursor: pointer;
-}
-.feed-list li:hover {
+
+/* 底部条款/版权 */
+.policy-link {
   color: #1DA1F2;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 12px;
 }
 
-/* 底部条款 */
-.policy-link {
-  font-size: 12px;
-  color: #888;
-  cursor: pointer;
-}
-.policy-link:hover {
-  text-decoration: underline;
-}
-#footer-section p {
-  margin: 0;
-  text-align: center;
-}
-#footer-section .copyright {
+footer, .copyright {
   font-size: 10px;
-  color: #aaa;
-  text-align: center;
-  margin-top: 4px;
+  color: #999;
+  margin-top: 8px;
 }
