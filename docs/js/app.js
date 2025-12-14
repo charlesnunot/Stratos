@@ -24,8 +24,15 @@ subscribe('userChange', user => {
   if (user) {
     extraContainer.innerHTML = `
       <p>欢迎回来，${user.email}</p>
-      <!-- 可显示用户相关操作按钮 -->
+      <button id="logout-btn">退出登录</button>
     `
+    const logoutBtn = document.getElementById('logout-btn')
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        const { signOut } = await import('../store/supabase.js')
+        await signOut()
+      })
+    }
   } else {
     extraContainer.innerHTML = `
       <div class="guest-extra">
@@ -36,12 +43,9 @@ subscribe('userChange', user => {
     `
 
     const loginExtraBtn = document.getElementById('login-extra-btn')
-    if (loginExtraBtn) {
-      loginExtraBtn.addEventListener('click', () => openLoginModal())
-    }
+    if (loginExtraBtn) loginExtraBtn.addEventListener('click', () => openLoginModal())
+
     const registerBtn = document.getElementById('register-btn')
-    if (registerBtn) {
-      registerBtn.addEventListener('click', () => openRegisterModal())
-    }
+    if (registerBtn) registerBtn.addEventListener('click', () => openRegisterModal())
   }
 })
