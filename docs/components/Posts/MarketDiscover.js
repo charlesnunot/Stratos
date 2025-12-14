@@ -1,11 +1,28 @@
+// docs/components/Posts/MarketDiscover.js
 import { mountPostsFeed } from './PostsFeed.js';
+import { fetchDefaultProductPosts } from '../../store/api.js';
 
-export function mountMarketDiscover(container) {
-  const posts = [
-    { title: 'Market Item 1', author: 'Shop A', time: '1d ago', excerpt: 'Description of item 1' },
-    { title: 'Market Item 2', author: 'Shop B', time: '2d ago', excerpt: 'Description of item 2' },
-    { title: 'Market Item 3', author: 'Shop C', time: '3d ago', excerpt: 'Description of item 3' }
-  ];
+/**
+ * 挂载 Market 页面产品帖子流
+ * @param {HTMLElement} container
+ */
+export async function mountMarketDiscover(container) {
+  if (!container) return;
 
-  mountPostsFeed(container, posts);
+  // 创建 loading 占位
+  container.innerHTML = '<p>Loading market posts...</p>';
+
+  try {
+    // 调用 API 获取产品帖子
+    const posts = await fetchDefaultProductPosts(20, 0);
+
+    // 调试打印
+    console.log('[MarketDiscover] fetched posts =', posts);
+
+    // 渲染帖子
+    mountPostsFeed(container, posts);
+  } catch (err) {
+    console.error('拉取产品帖子失败:', err);
+    container.innerHTML = '<p>无法加载产品帖子</p>';
+  }
 }
