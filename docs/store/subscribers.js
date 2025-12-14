@@ -1,3 +1,4 @@
+// docs/store/subscribers.js
 import { getCurrentUser, onAuthChange } from './supabase.js'
 import { setUser, clearUser } from './userManager.js'
 
