@@ -71,30 +71,28 @@ const baseURL = new URL('.', import.meta.url);
 export async function mountHome(container) {
   if (!container) return;
 
-  // 加载 HTML
+  // 1️⃣ 加载 HTML
   const html = await fetch(new URL('Home.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
-  // 加载 CSS
+  // 2️⃣ 加载 CSS
   loadCSS(new URL('Home.css', baseURL));
 
   const tabs = container.querySelectorAll('.home-tab');
   const contentContainer = container.querySelector('#home-content');
+  if (!contentContainer) return;
 
-  // 缓存每个 tab 内容，避免重复加载
-  const tabCache = {};
-
-  // 找到默认 active tab，如果没有 active，则默认第一个
+  // 3️⃣ 找到默认 active tab
   let activeTab = container.querySelector('.home-tab.active');
   if (!activeTab) {
     activeTab = tabs[0];
-    if (activeTab) activeTab.classList.add('active');
+    activeTab.classList.add('active');
   }
 
-  // 初始化默认 tab 内容
-  if (activeTab) await loadTabContent(activeTab.dataset.tab);
+  // 4️⃣ 立即加载默认 tab 内容
+  await loadTabContent(activeTab.dataset.tab);
 
-  // 绑定 tab 点击事件
+  // 5️⃣ 绑定点击事件
   tabs.forEach(tab => {
     tab.addEventListener('click', async () => {
       tabs.forEach(t => t.classList.remove('active'));
@@ -105,42 +103,27 @@ export async function mountHome(container) {
 
   // 根据 tabName 加载内容
   async function loadTabContent(tabName) {
-    if (!contentContainer) return;
-
-    // 如果缓存有内容，直接显示
-    if (tabCache[tabName]) {
-      contentContainer.innerHTML = '';
-      contentContainer.appendChild(tabCache[tabName]);
-      return;
-    }
-
-    // 新建一个容器挂载内容
-    const tabContent = document.createElement('div');
-    contentContainer.innerHTML = '';
-    contentContainer.appendChild(tabContent);
+    contentContainer.innerHTML = ''; // 每次切换都清空
 
     switch (tabName) {
       case 'discover': {
         const { mountDiscover } = await import(new URL('../Posts/Discover.js', baseURL));
-        await mountDiscover(tabContent);
+        await mountDiscover(contentContainer);
         break;
       }
       case 'following': {
         const { mountFollowing } = await import(new URL('../Posts/Following.js', baseURL));
-        await mountFollowing(tabContent);
+        await mountFollowing(contentContainer);
         break;
       }
       case 'search': {
         const { mountSearch } = await import(new URL('../Posts/Search/Search.js', baseURL));
-        await mountSearch(tabContent);
+        await mountSearch(contentContainer);
         break;
       }
       default:
-        console.warn('未知标签:', tabName);
+        console.warn('未知 tab:', tabName);
     }
-
-    // 缓存这个 tab 内容
-    tabCache[tabName] = tabContent;
   }
 }
 
