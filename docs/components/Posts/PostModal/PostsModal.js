@@ -1,78 +1,54 @@
-const baseURL = new URL('.', import.meta.url);
+const baseURL = new URL('./', import.meta.url);
 
-let modal, backdrop, closeBtn, titleEl, metaEl, excerptEl, imagesEl;
+let modal = null;
 
-/**
- * 初始化模态弹窗，确保 DOM 已插入
- */
-export async function initPostModal() {
-  if (modal) return; // 已初始化过
+export async function initPostModal(post) {
+  if (!modal) {
+    // 创建 modal 容器
+    const html = await fetch(new URL('PostsModal.html', baseURL)).then(res => res.text());
+    document.body.insertAdjacentHTML('beforeend', html);
 
-  // 插入 HTML
-  const html = await fetch(new URL('PostsModal.html', baseURL)).then(r => r.text());
-  document.body.insertAdjacentHTML('beforeend', html);
+    // 加载 CSS
+    loadCSS(new URL('PostsModal.css', baseURL));
 
-  // 加载 CSS
-  loadCSS(new URL('PostsModal.css', baseURL));
+    modal = document.querySelector('.post-modal');
 
-  // 获取 DOM 元素
-  modal = document.getElementById('post-modal');
-  backdrop = document.getElementById('post-modal-backdrop');
-  closeBtn = document.getElementById('post-modal-close');
-  titleEl = document.getElementById('post-modal-title');
-  metaEl = document.getElementById('post-modal-meta');
-  excerptEl = document.getElementById('post-modal-excerpt');
-  imagesEl = document.getElementById('post-modal-images');
+    const closeBtn = modal.querySelector('.modal-close');
+    closeBtn.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
 
-  // 绑定事件
-  if (backdrop) backdrop.addEventListener('click', closePostModal);
-  if (closeBtn) closeBtn.addEventListener('click', closePostModal);
-}
-
-/**
- * 打开帖子模态弹窗
- */
-export function openPostModal(post) {
-  if (!modal) return;
-
-  // 标题
-  let title = post.title || '';
-  if (post.type === 'product' && post.product_posts) title = post.product_posts.title || title;
-
-  // 元信息
-  let author = post.author || '未知';
-  let time = post.created_at ? new Date(post.created_at).toLocaleString() : '';
-  metaEl.textContent = `${author}${author && time ? ' · ' : ''}${time}`;
-
-  // 正文/描述
-  let excerpt = post.content || '';
-  if (post.type === 'product' && post.product_posts) {
-    excerpt = post.product_posts.description || excerpt;
-    excerpt += `\n价格: ${post.product_posts.price ?? '-'} 元, 库存: ${post.product_posts.stock ?? '-'}`;
+    // 点击空白关闭
+    modal.addEventListener('click', e => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
   }
-  excerptEl.textContent = excerpt;
+
+  // 填充帖子数据
+  modal.querySelector('.modal-title').textContent = post.title || '';
+  modal.querySelector('.modal-content').textContent = post.content || '';
+
+  if (post.type === 'product' && post.product_posts) {
+    const p = post.product_posts;
+    modal.querySelector('.modal-title').textContent = p.title || post.title;
+    modal.querySelector('.modal-content').textContent =
+      (p.description || post.content) + `\n价格: ${p.price ?? '-'} 元, 库存: ${p.stock ?? '-'}`;
+  }
 
   // 图片
+  const imagesContainer = modal.querySelector('.modal-images');
+  imagesContainer.innerHTML = '';
   const imgs = post.images || (post.product_posts?.images ?? []);
-  imagesEl.innerHTML = imgs.length
-    ? imgs.map(url => `<img src="${url}" alt="post image">`).join('')
-    : '';
+  imgs.forEach(url => {
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = 'post image';
+    imagesContainer.appendChild(img);
+  });
 
-  // 显示模态
-  modal.classList.add('open');
+  modal.style.display = 'flex';
 }
 
-/**
- * 关闭模态
- */
-export function closePostModal() {
-  if (!modal) return;
-  modal.classList.remove('open');
-}
-
-/**
- * 加载 CSS
- */
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
