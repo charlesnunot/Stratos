@@ -25,7 +25,6 @@ export async function mountDiscover(container) {
       } else {
         // 未登录用户：调用默认帖子流
         posts = await fetchDefaultFeed(20, 0);
-        console.log('[PostsFeed] posts =', posts);
       }
     } catch (err) {
       console.error('拉取帖子失败:', err);
@@ -34,6 +33,7 @@ export async function mountDiscover(container) {
     }
 
     // 渲染帖子
+    console.log('[PostsFeed] posts =', posts);
     mountPostsFeed(container, posts);
   }
 
