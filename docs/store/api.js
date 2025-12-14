@@ -1,3 +1,4 @@
+// docs/store/api.js
 import { supabase } from './supabase.js'
 
 /**
@@ -11,7 +12,6 @@ export async function fetchDefaultPosts(limit = 20, offset = 0) {
     .select(`
       id,
       type,
-      author_id,
       content,
       images,
       tags,
@@ -39,7 +39,16 @@ export async function fetchDefaultPosts(limit = 20, offset = 0) {
   console.log('[API] fetchDefaultPosts ← raw data', data)
   console.log('[API] fetchDefaultPosts ← count', data?.length ?? 0)
 
-  return data ?? []
+  // 返回字段映射成前端统一格式
+  return (data ?? []).map(p => ({
+    ...p,
+    author: 'Unknown', // 不依赖作者
+    likesCount: p.likes_count ?? 0,
+    commentsCount: p.comments_count ?? 0,
+    sharesCount: p.shares_count ?? 0,
+    favoritesCount: p.favorites_count ?? 0,
+    wantsCount: p.wants_count ?? 0,
+  }))
 }
 
 /**
@@ -53,7 +62,6 @@ export async function fetchDefaultProductPosts(limit = 20, offset = 0) {
     .select(`
       id,
       type,
-      author_id,
       created_at,
       score,
       wants_count,
@@ -85,7 +93,16 @@ export async function fetchDefaultProductPosts(limit = 20, offset = 0) {
   console.log('[API] fetchDefaultProductPosts ← raw data', data)
   console.log('[API] fetchDefaultProductPosts ← count', data?.length ?? 0)
 
-  return data ?? []
+  // 返回字段映射成前端统一格式
+  return (data ?? []).map(p => ({
+    ...p,
+    author: 'Unknown', // 不依赖作者
+    likesCount: 0,
+    commentsCount: 0,
+    sharesCount: 0,
+    favoritesCount: 0,
+    wantsCount: p.wants_count ?? 0,
+  }))
 }
 
 /**
