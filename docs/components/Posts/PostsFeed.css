@@ -1,3 +1,5 @@
+/* docs/components/Posts/PostsFeed.css */
+
 .posts-feed {
   display: flex;
   flex-direction: column;
@@ -6,9 +8,61 @@
   background: #f9f9f9;
 }
 
+/* 普通帖子和商品帖子的统一卡片样式 */
 .post {
   padding: 12px;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  word-break: break-word;
+}
+
+/* 帖子标题 */
+.post-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  color: #222;
+}
+
+/* 帖子元信息：作者 + 时间 */
+.post-meta {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* 帖子正文或描述 */
+.post-excerpt {
+  font-size: 0.95rem;
+  color: #333;
+  white-space: pre-wrap; /* 支持换行显示 */
+}
+
+/* 图片区块 */
+.post-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.post-images img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+/* 商品帖子价格/库存信息 */
+.post-excerpt strong {
+  color: #d9534f; /* 红色突出价格 */
+}
+
+.post-excerpt span {
+  margin-left: 8px;
+  color: #555;
+  font-weight: 500;
 }
