@@ -18,6 +18,8 @@ export async function mountPostsFeed(container, posts) {
   posts.forEach(post => {
     feed.appendChild(createPostCard(post));
   });
+  console.log('[PostsFeed] posts =', posts);
+
 }
 
 /**
