@@ -23,8 +23,8 @@ subscribe('userChange', user => {
   // -------------------------
   if (user) {
     extraContainer.innerHTML = `
-      <p>欢迎回来，${user.email}</p>
-      <button id="logout-btn">退出登录</button>
+      <p class="welcome-text">Welcome back, ${user.email}</p>
+      <button id="logout-btn">Log out</button>
     `
     const logoutBtn = document.getElementById('logout-btn')
     if (logoutBtn) {
@@ -34,18 +34,24 @@ subscribe('userChange', user => {
       })
     }
   } else {
+    // 未登录状态
     extraContainer.innerHTML = `
       <div class="guest-extra">
-        <p>当前用户未登录</p>
-        <button id="register-btn">注册</button>
-        <button id="login-extra-btn">登录</button>
+        <p class="guest-actions">
+          <span id="register-text">Register</span> / 
+          <span id="login-text">Login</span>
+        </p>
+        <p class="guest-note">
+          You are currently not logged in
+        </p>
       </div>
     `
 
-    const loginExtraBtn = document.getElementById('login-extra-btn')
-    if (loginExtraBtn) loginExtraBtn.addEventListener('click', () => openLoginModal())
+    // 点击注册/登录文字弹窗
+    const registerText = document.getElementById('register-text')
+    if (registerText) registerText.addEventListener('click', () => openRegisterModal())
 
-    const registerBtn = document.getElementById('register-btn')
-    if (registerBtn) registerBtn.addEventListener('click', () => openRegisterModal())
+    const loginText = document.getElementById('login-text')
+    if (loginText) loginText.addEventListener('click', () => openLoginModal())
   }
 })
