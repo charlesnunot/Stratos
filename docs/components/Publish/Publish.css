@@ -4,8 +4,7 @@
   flex-direction: column;
   gap: 12px;
   font-family: "Segoe UI", Arial, sans-serif;
-  align-items: center;
-  background: #F9F9F9; 
+  align-items: center; 
 }
 
 /* Top Tabs */
