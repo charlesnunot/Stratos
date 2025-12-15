@@ -12,13 +12,14 @@
     rows="5"
   ></textarea>
 
-  <!-- 图片添加 -->
-  <div class="image-add-card" id="add-image">
-    <span class="material-symbols-outlined">add_photo_alternate</span>
-    <span>Add Image</span>
+  <!-- 图片选择 -->
+  <div class="image-picker-scroll" id="image-picker">
+    <div class="image-add-card" id="add-image">
+      <span class="material-symbols-outlined">add</span>
+    </div>
   </div>
 
-  <!-- 功能栏 -->
+  <!-- 功能工具卡片 -->
   <div class="post-tools">
     <button class="tool-btn" id="tool-friends">
       <span class="material-symbols-outlined">alternate_email</span>
@@ -35,14 +36,10 @@
       Public
     </button>
 
-    <input
-      type="text"
-      id="post-tags"
-      placeholder="#tags"
-    />
+    <input type="text" id="post-tags" placeholder="#tags" />
   </div>
 
-  <!-- 提交 -->
+  <!-- 发布按钮 -->
   <div class="post-submit">
     <button id="normal-submit">Publish</button>
     <span id="normal-feedback"></span>
