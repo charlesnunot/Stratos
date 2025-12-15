@@ -12,7 +12,8 @@
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
-  width: 60%;
+  width: 100%;
+  background: #F9F9F9;
 }
 
 .publish-tabs button {
