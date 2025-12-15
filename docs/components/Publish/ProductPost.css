@@ -78,6 +78,40 @@
   color: #1da1f2;
 }
 
+/* Tags */
+.tags-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  border: 1px solid #ddd;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+#tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-item {
+  background: #1da1f2;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+#post-tags {
+  flex: 1;
+  border: none;
+  outline: none;
+  min-width: 80px;
+  font-size: 13px;
+  padding: 2px;
+}
+
 /* Submit */
 .submit-area {
   display: flex;
