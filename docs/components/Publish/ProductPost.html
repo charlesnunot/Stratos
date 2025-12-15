@@ -1,7 +1,18 @@
 <div class="post-container">
 
-  <!-- Content Input -->
-  <textarea id="product-content" placeholder="What's on your mind?"></textarea>
+  <!-- Product Info Section -->
+  <div class="product-info">
+    <input type="text" id="product-title" placeholder="Product Title" />
+    <textarea id="product-description" placeholder="Product Description"></textarea>
+    <input type="number" id="product-price" placeholder="Price (USD)" />
+    <input type="number" id="product-stock" placeholder="Stock Quantity" />
+    <input type="number" id="product-shipping" placeholder="Shipping Fee (USD)" />
+    <input type="url" id="product-link" placeholder="Product Link" />
+    <select id="product-condition">
+      <option value="new">New</option>
+      <option value="used">Used</option>
+    </select>
+  </div>
 
   <!-- Image Picker -->
   <div class="image-picker">
@@ -24,30 +35,6 @@
       <span class="material-symbols-outlined">public</span>
       <span>Public</span>
     </div>
-    <div class="tool-item" id="tool-product-info">
-      <span class="material-symbols-outlined">inventory_2</span>
-      <span>Product Info</span>
-    </div>
-  </div>
-
-  <!-- Product Info Section -->
-  <div class="product-info" id="product-info" style="display:none;">
-    <input type="text" id="product-title" placeholder="Product Title" />
-    <textarea id="product-description" placeholder="Product Description"></textarea>
-    <input type="number" id="product-price" placeholder="Price (USD)" />
-    <input type="number" id="product-stock" placeholder="Stock Quantity" />
-    <input type="number" id="product-shipping" placeholder="Shipping Fee (USD)" />
-    <input type="url" id="product-link" placeholder="Product Link" />
-    <select id="product-condition">
-      <option value="new">New</option>
-      <option value="used">Used</option>
-    </select>
-  </div>
-
-  <!-- Tags -->
-  <div class="tags-container">
-    <div id="tags-display"></div>
-    <input type="text" id="post-tags" placeholder="Add tags..." />
   </div>
 
   <!-- Submit -->
