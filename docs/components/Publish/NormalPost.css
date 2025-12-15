@@ -11,7 +11,135 @@
 
 /* 内容输入框 */
 #normal-content {
+  width: 100%;.normal-post-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  max-width: 600px;
+  margin: auto;
+}
+
+/* 输入框 */
+#normal-content {
   width: 100%;
+  min-height: 140px;
+  padding: 16px;
+  font-size: 15px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  outline: none;
+  transition: all 0.2s;
+}
+#normal-content:focus {
+  border-color: #1da1f2;
+  box-shadow: 0 0 6px rgba(29,161,242,0.3);
+}
+
+/* 图片滚动区 */
+.image-picker-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+.image-picker-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.image-picker-scroll::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.image-card, .image-add-card {
+  min-width: 80px;
+  min-height: 80px;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.image-add-card:hover {
+  border-color: #1da1f2;
+  background: #f0f8ff;
+}
+
+/* 工具按钮 */
+.post-tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: #f5f5f5;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tool-btn:hover {
+  background: #e8e8e8;
+}
+
+.tool-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* Tags 输入 */
+#post-tags {
+  flex: 1;
+  min-width: 120px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  font-size: 13px;
+}
+
+/* 发布按钮 */
+.post-submit {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+#normal-submit {
+  padding: 12px 24px;
+  border-radius: 24px;
+  border: none;
+  background: linear-gradient(90deg, #1da1f2, #0d95e8);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#normal-submit:hover {
+  background: linear-gradient(90deg, #0d95e8, #1da1f2);
+}
+
+#normal-feedback {
+  font-size: 13px;
+  color: green;
+}
+
   resize: vertical;
   min-height: 140px;
   padding: 14px;
