@@ -1,16 +1,16 @@
 <div class="post-container">
 
-  <!-- Content Input -->
-  <textarea id="product-content" placeholder="What's on your mind?"></textarea>
+  <!-- 内容输入 -->
+  <textarea id="normal-content" placeholder="Write something about your product..."></textarea>
 
-  <!-- Image Picker -->
+  <!-- 图片选择 -->
   <div class="image-picker">
     <div class="image-add-card">
       <span class="material-symbols-outlined">add</span>
     </div>
   </div>
 
-  <!-- Tool Bar -->
+  <!-- 工具栏 -->
   <div class="tool-bar">
     <div class="tool-item" id="tool-friends">
       <span class="material-symbols-outlined">alternate_email</span>
@@ -30,14 +30,14 @@
     </div>
   </div>
 
-  <!-- Product Info Section -->
-  <div class="product-info" id="product-info" style="display:none;">
+  <!-- Product Info -->
+  <div class="product-info">
     <input type="text" id="product-title" placeholder="Product Title" />
     <textarea id="product-description" placeholder="Product Description"></textarea>
     <input type="number" id="product-price" placeholder="Price (USD)" />
     <input type="number" id="product-stock" placeholder="Stock Quantity" />
-    <input type="number" id="product-shipping" placeholder="Shipping Fee (USD)" />
-    <input type="url" id="product-link" placeholder="Product Link" />
+    <input type="text" id="product-shipping" placeholder="Shipping Fee" />
+    <input type="text" id="product-link" placeholder="Product Link" />
     <select id="product-condition">
       <option value="new">New</option>
       <option value="used">Used</option>
@@ -50,10 +50,10 @@
     <input type="text" id="post-tags" placeholder="Add tags..." />
   </div>
 
-  <!-- Submit -->
+  <!-- 发布按钮 -->
   <div class="submit-area">
-    <button id="product-submit">Publish</button>
-    <span id="product-feedback"></span>
+    <button id="normal-submit">Publish</button>
+    <span id="normal-feedback"></span>
   </div>
 
 </div>
