@@ -1,5 +1,17 @@
 .product-info input,
 .product-info textarea,
+#product-content {
+  width: 100%;
+  min-height: 160px;
+  padding: 12px;
+  font-size: 16px;
+  line-height: 1.6;
+  border: 1px solid #ccc;
+  outline: none;
+  resize: vertical;
+  border-radius: 4px;
+}
+
 .product-info select {
   width: 100%;
   padding: 8px;
