@@ -1,4 +1,3 @@
-/* ===== 整体容器 ===== */
 .publish-container {
   padding: 16px;
   display: flex;
@@ -7,7 +6,7 @@
   font-family: "Segoe UI", Arial, sans-serif;
 }
 
-/* ===== 顶部选项卡 ===== */
+/* Top Tabs */
 .publish-tabs {
   display: flex;
   gap: 8px;
@@ -32,74 +31,13 @@
   color: #1da1f2;
 }
 
-/* Hover 效果 */
 .publish-tabs button:hover:not(.active) {
   background-color: #eaeaea;
 }
 
-/* ===== 挂载内容区 ===== */
+/* Content Mount Area */
 #publish-content-area {
-  background-color: #ffffff;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-/* ===== Normal Post 样式 ===== */
-.normal-post-container textarea {
-  width: 100%;
-  resize: vertical;
-  padding: 8px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-}
-
-.normal-post-container button {
-  width: 120px;
-  padding: 8px;
-  border: none;
-  border-radius: 6px;
-  background-color: #1da1f2;
-  color: #fff;
-  cursor: pointer;
-}
-
-.normal-post-container button:hover {
-  background-color: #0d95e8;
-}
-
-.normal-post-container #normal-feedback {
-  font-size: 13px;
-}
-
-/* ===== Product Post 样式 ===== */
-.product-post-container input,
-.product-post-container textarea {
-  width: 100%;
-  padding: 8px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-}
-
-.product-post-container button {
-  width: 140px;
-  padding: 8px;
-  border: none;
-  border-radius: 6px;
-  background-color: #1da1f2;
-  color: #fff;
-  cursor: pointer;
-}
-
-.product-post-container button:hover {
-  background-color: #0d95e8;
-}
-
-.product-post-container #product-feedback {
-  font-size: 13px;
 }
