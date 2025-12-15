@@ -16,7 +16,9 @@
   border: 1px solid #ccc;
   outline: none;
   resize: vertical;
+  resize: none;
   border-radius: 4px;
+  resize: none;
 }
 
 #normal-content::placeholder {
