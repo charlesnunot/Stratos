@@ -57,6 +57,21 @@ export async function mountPublish(container) {
     const submitBtn = contentArea.querySelector('#product-submit');
     const feedback = contentArea.querySelector('#product-feedback');
 
+    // 标签功能
+    const tagsInput = contentArea.querySelector('#post-tags');
+    const tagsDisplay = contentArea.querySelector('#tags-display');
+
+    tagsInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && tagsInput.value.trim()) {
+        e.preventDefault();
+        const tag = document.createElement('div');
+        tag.className = 'tag-item';
+        tag.textContent = tagsInput.value.trim();
+        tagsDisplay.appendChild(tag);
+        tagsInput.value = '';
+      }
+    });
+
     submitBtn.addEventListener('click', () => {
       const productData = {
         title: contentArea.querySelector('#product-title')?.value.trim(),
@@ -66,6 +81,7 @@ export async function mountPublish(container) {
         shipping: contentArea.querySelector('#product-shipping')?.value.trim(),
         link: contentArea.querySelector('#product-link')?.value.trim(),
         condition: contentArea.querySelector('#product-condition')?.value,
+        tags: Array.from(tagsDisplay.children).map(tag => tag.textContent)
       };
 
       // 简单校验
@@ -79,11 +95,13 @@ export async function mountPublish(container) {
       feedback.textContent = 'Product post published!';
       feedback.style.color = 'green';
 
-      // 清空输入
+      // 清空输入和标签
       Object.keys(productData).forEach(key => {
+        if (key === 'tags') return;
         const el = contentArea.querySelector(`#product-${key}`);
         if (el) el.value = '';
       });
+      tagsDisplay.innerHTML = '';
     });
   }
 }
