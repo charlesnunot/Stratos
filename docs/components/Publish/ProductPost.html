@@ -1,16 +1,61 @@
-<!-- docs/components/Publish/ProductPost.html -->
-<div class="product-post-container">
-  <h3>Create a Product Post</h3>
-  
-  <label for="product-title">Title:</label>
-  <input type="text" id="product-title" placeholder="Product title" />
+<div class="post-container">
 
-  <label for="product-description">Description:</label>
-  <textarea id="product-description" placeholder="Product description" rows="4"></textarea>
+  <!-- Content Input -->
+  <div class="content-card">
+    <textarea id="product-content" placeholder="What's on your mind?"></textarea>
+  </div>
 
-  <label for="product-price">Price:</label>
-  <input type="number" id="product-price" placeholder="0.00" />
+  <!-- Image Picker -->
+  <div class="image-picker">
+    <div class="image-add-card">
+      <span class="material-symbols-outlined">add</span>
+    </div>
+  </div>
 
-  <button id="product-submit">Publish</button>
-  <div id="product-feedback"></div>
+  <!-- Tool Bar -->
+  <div class="tool-bar">
+    <div class="tool-item" id="tool-friends">
+      <span class="material-symbols-outlined">alternate_email</span>
+      <span>@Friends</span>
+    </div>
+    <div class="tool-item" id="tool-location">
+      <span class="material-symbols-outlined">location_on</span>
+      <span>Location</span>
+    </div>
+    <div class="tool-item" id="tool-visibility">
+      <span class="material-symbols-outlined">public</span>
+      <span>Public</span>
+    </div>
+    <div class="tool-item" id="tool-product-info">
+      <span class="material-symbols-outlined">inventory_2</span>
+      <span>Product Info</span>
+    </div>
+  </div>
+
+  <!-- Product Info Section -->
+  <div class="product-info" id="product-info" style="display:none;">
+    <input type="text" id="product-title" placeholder="Product Title" />
+    <textarea id="product-description" placeholder="Product Description"></textarea>
+    <input type="number" id="product-price" placeholder="Price (USD)" />
+    <input type="number" id="product-stock" placeholder="Stock Quantity" />
+    <input type="number" id="product-shipping" placeholder="Shipping Fee (USD)" />
+    <input type="url" id="product-link" placeholder="Product Link" />
+    <select id="product-condition">
+      <option value="new">New</option>
+      <option value="used">Used</option>
+    </select>
+  </div>
+
+  <!-- Tags -->
+  <div class="tags-container">
+    <div id="tags-display"></div>
+    <input type="text" id="post-tags" placeholder="Add tags..." />
+  </div>
+
+  <!-- Submit -->
+  <div class="submit-area">
+    <button id="product-submit">Publish</button>
+    <span id="product-feedback"></span>
+  </div>
+
 </div>
