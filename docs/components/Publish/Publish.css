@@ -4,6 +4,7 @@
   flex-direction: column;
   gap: 12px;
   font-family: "Segoe UI", Arial, sans-serif;
+  align-items: center;
 }
 
 /* Top Tabs */
@@ -11,6 +12,7 @@
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
+  width: 60%;
 }
 
 .publish-tabs button {
@@ -22,7 +24,6 @@
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
-  border-radius: 4px 4px 0 0;
 }
 
 .publish-tabs button.active {
@@ -40,4 +41,5 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 60%;
 }
