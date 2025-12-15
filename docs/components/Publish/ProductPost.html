@@ -1,14 +1,16 @@
 <div class="post-container">
 
-  <!-- 内容输入 -->
-  <textarea id="normal-content" placeholder="What's on your mind?"></textarea>
+  <!-- Content Input -->
+  <textarea id="product-content" placeholder="What's on your mind?"></textarea>
 
-  <!-- 图片选择 -->
+  <!-- Image Picker -->
   <div class="image-picker">
-    <div class="image-add-card"><span class="material-symbols-outlined">add</span></div>
+    <div class="image-add-card">
+      <span class="material-symbols-outlined">add</span>
+    </div>
   </div>
 
-  <!-- 工具栏 -->
+  <!-- Tool Bar -->
   <div class="tool-bar">
     <div class="tool-item" id="tool-friends">
       <span class="material-symbols-outlined">alternate_email</span>
@@ -28,15 +30,15 @@
     </div>
   </div>
 
-  <!-- Product Info -->
-  <div class="product-info">
-    <input type="text" placeholder="Product Title" />
-    <textarea placeholder="Product Description" rows="3"></textarea>
-    <input type="number" placeholder="Price (USD)" />
-    <input type="number" placeholder="Stock" />
-    <input type="text" placeholder="Shipping Fee" />
-    <input type="text" placeholder="Product URL" />
-    <select>
+  <!-- Product Info Section -->
+  <div class="product-info" id="product-info" style="display:none;">
+    <input type="text" id="product-title" placeholder="Product Title" />
+    <textarea id="product-description" placeholder="Product Description"></textarea>
+    <input type="number" id="product-price" placeholder="Price (USD)" />
+    <input type="number" id="product-stock" placeholder="Stock Quantity" />
+    <input type="number" id="product-shipping" placeholder="Shipping Fee (USD)" />
+    <input type="url" id="product-link" placeholder="Product Link" />
+    <select id="product-condition">
       <option value="new">New</option>
       <option value="used">Used</option>
     </select>
@@ -48,10 +50,10 @@
     <input type="text" id="post-tags" placeholder="Add tags..." />
   </div>
 
-  <!-- 发布按钮 -->
+  <!-- Submit -->
   <div class="submit-area">
-    <button id="normal-submit">Publish</button>
-    <span id="normal-feedback"></span>
+    <button id="product-submit">Publish</button>
+    <span id="product-feedback"></span>
   </div>
 
 </div>
