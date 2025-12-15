@@ -1,10 +1,52 @@
 <!-- docs/components/Publish/NormalPost.html -->
-<div class="normal-post-container">
-  <h3>Create a Normal Post</h3>
-  
-  <label for="normal-content">Content:</label>
-  <textarea id="normal-content" placeholder="What's on your mind?" rows="6"></textarea>
+<link
+  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+  rel="stylesheet"
+/>
 
-  <button id="normal-submit">Publish</button>
-  <div id="normal-feedback"></div>
+<div class="normal-post-container">
+
+  <!-- 内容输入 -->
+  <textarea
+    id="normal-content"
+    placeholder="What's on your mind?"
+    rows="5"
+  ></textarea>
+
+  <!-- 图片添加 -->
+  <div class="image-add-card" id="add-image">
+    <span class="material-symbols-outlined">add</span>
+    <span>Add Image</span>
+  </div>
+
+  <!-- 功能栏 -->
+  <div class="post-tools">
+    <button class="tool-btn" id="tool-friends">
+      <span class="material-symbols-outlined">alternate_email</span>
+      Friends
+    </button>
+
+    <button class="tool-btn" id="tool-location">
+      <span class="material-symbols-outlined">location_on</span>
+      Location
+    </button>
+
+    <button class="tool-btn" id="tool-visibility">
+      <span class="material-symbols-outlined">public</span>
+      Public
+    </button>
+
+    <input
+      type="text"
+      id="post-tags"
+      placeholder="#tags"
+    />
+  </div>
+
+  <!-- 提交 -->
+  <div class="post-submit">
+    <button id="normal-submit">Publish</button>
+    <span id="normal-feedback"></span>
+  </div>
+
 </div>
