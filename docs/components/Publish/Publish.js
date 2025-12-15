@@ -11,7 +11,6 @@ export async function mountPublish(container) {
   const tabProduct = container.querySelector('#tab-product');
   const contentArea = container.querySelector('#publish-content-area');
 
-  // 默认加载 Normal Post
   loadNormalPost();
 
   tabNormal.addEventListener('click', () => {
@@ -27,7 +26,6 @@ export async function mountPublish(container) {
   });
 
   async function loadNormalPost() {
-    contentArea.innerHTML = '';
     const html = await fetch(new URL('NormalPost.html', baseURL)).then(res => res.text());
     contentArea.innerHTML = html;
     loadCSS(new URL('NormalPost.css', baseURL));
@@ -50,7 +48,6 @@ export async function mountPublish(container) {
   }
 
   async function loadProductPost() {
-    contentArea.innerHTML = '';
     const html = await fetch(new URL('ProductPost.html', baseURL)).then(res => res.text());
     contentArea.innerHTML = html;
     loadCSS(new URL('ProductPost.css', baseURL));
@@ -65,7 +62,6 @@ export async function mountPublish(container) {
       productInfoSection.style.display =
         productInfoSection.style.display === 'none' ? 'flex' : 'none';
       productInfoSection.style.flexDirection = 'column';
-      productInfoSection.style.gap = '8px';
     });
 
     submitBtn.addEventListener('click', () => {
@@ -75,7 +71,6 @@ export async function mountPublish(container) {
         feedback.style.color = 'red';
         return;
       }
-      // 读取产品信息
       const productData = {
         title: contentArea.querySelector('#product-title')?.value,
         description: contentArea.querySelector('#product-description')?.value,
