@@ -6,11 +6,12 @@
 <div class="normal-post-container">
 
   <!-- 内容输入 -->
-  <textarea
-    id="normal-content"
-    placeholder="What's on your mind?"
-    rows="5"
-  ></textarea>
+  <div class="content-card">
+    <textarea
+      id="normal-content"
+      placeholder="What's on your mind?"
+    ></textarea>
+  </div>
 
   <!-- 图片选择 -->
   <div class="image-picker-scroll" id="image-picker">
@@ -19,22 +20,22 @@
     </div>
   </div>
 
-  <!-- 功能工具卡片 -->
+  <!-- 功能工具栏 -->
   <div class="post-tools">
-    <button class="tool-btn" id="tool-friends">
+    <div class="tool-card" id="tool-friends">
       <span class="material-symbols-outlined">alternate_email</span>
-      Friends
-    </button>
+      <span>Friends</span>
+    </div>
 
-    <button class="tool-btn" id="tool-location">
+    <div class="tool-card" id="tool-location">
       <span class="material-symbols-outlined">location_on</span>
-      Location
-    </button>
+      <span>Location</span>
+    </div>
 
-    <button class="tool-btn" id="tool-visibility">
+    <div class="tool-card" id="tool-visibility">
       <span class="material-symbols-outlined">public</span>
-      Public
-    </button>
+      <span>Public</span>
+    </div>
 
     <input type="text" id="post-tags" placeholder="#tags" />
   </div>
