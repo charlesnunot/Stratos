@@ -1,51 +1,41 @@
-<link
-  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
-  rel="stylesheet"
-/>
-
-<div class="normal-post-container">
+<div class="post-container">
 
   <!-- 内容输入 -->
   <div class="content-card">
-    <textarea
-      id="normal-content"
-      placeholder="What's on your mind?"
-    ></textarea>
+    <textarea id="normal-content" placeholder="What's on your mind?"></textarea>
   </div>
 
   <!-- 图片选择 -->
-  <div class="image-picker-scroll" id="image-picker">
-    <div class="image-add-card" id="add-image">
+  <div class="image-picker">
+    <div class="image-add-card">
       <span class="material-symbols-outlined">add</span>
     </div>
   </div>
 
   <!-- 工具栏 -->
-  <div class="post-tools">
-    <div class="tool-card" id="tool-friends">
+  <div class="tool-bar">
+    <div class="tool-item" id="tool-friends">
       <span class="material-symbols-outlined">alternate_email</span>
       <span>@Friends</span>
     </div>
-
-    <div class="tool-card" id="tool-location">
+    <div class="tool-item" id="tool-location">
       <span class="material-symbols-outlined">location_on</span>
       <span>Location</span>
     </div>
-
-    <div class="tool-card" id="tool-visibility">
+    <div class="tool-item" id="tool-visibility">
       <span class="material-symbols-outlined">public</span>
       <span>Public</span>
     </div>
   </div>
 
-  <!-- 标签输入 -->
-  <div class="tag-input-container">
+  <!-- Tags -->
+  <div class="tags-container">
     <div id="tags-display"></div>
-    <input type="text" id="post-tags" placeholder="Add tags" />
+    <input type="text" id="post-tags" placeholder="Add tags..." />
   </div>
 
   <!-- 发布按钮 -->
-  <div class="post-submit">
+  <div class="submit-area">
     <button id="normal-submit">Publish</button>
     <span id="normal-feedback"></span>
   </div>
