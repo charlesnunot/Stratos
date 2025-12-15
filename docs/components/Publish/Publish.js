@@ -25,6 +25,7 @@ export async function mountPublish(container) {
     loadProductPost();
   });
 
+  // 普通帖子
   async function loadNormalPost() {
     const html = await fetch(new URL('NormalPost.html', baseURL)).then(res => res.text());
     contentArea.innerHTML = html;
@@ -47,47 +48,47 @@ export async function mountPublish(container) {
     });
   }
 
+  // 产品帖子
   async function loadProductPost() {
     const html = await fetch(new URL('ProductPost.html', baseURL)).then(res => res.text());
     contentArea.innerHTML = html;
     loadCSS(new URL('ProductPost.css', baseURL));
 
-    const textarea = contentArea.querySelector('#product-content');
     const submitBtn = contentArea.querySelector('#product-submit');
     const feedback = contentArea.querySelector('#product-feedback');
 
-    const productInfoBtn = contentArea.querySelector('#tool-product-info');
-    const productInfoSection = contentArea.querySelector('#product-info');
-    productInfoBtn.addEventListener('click', () => {
-      productInfoSection.style.display =
-        productInfoSection.style.display === 'none' ? 'flex' : 'none';
-      productInfoSection.style.flexDirection = 'column';
-    });
-
     submitBtn.addEventListener('click', () => {
-      const content = textarea.value.trim();
-      if (!content) {
-        feedback.textContent = 'Content cannot be empty';
+      const productData = {
+        title: contentArea.querySelector('#product-title')?.value.trim(),
+        description: contentArea.querySelector('#product-description')?.value.trim(),
+        price: contentArea.querySelector('#product-price')?.value.trim(),
+        stock: contentArea.querySelector('#product-stock')?.value.trim(),
+        shipping: contentArea.querySelector('#product-shipping')?.value.trim(),
+        link: contentArea.querySelector('#product-link')?.value.trim(),
+        condition: contentArea.querySelector('#product-condition')?.value,
+      };
+
+      // 简单校验
+      if (!productData.title || !productData.description) {
+        feedback.textContent = 'Product title and description cannot be empty';
         feedback.style.color = 'red';
         return;
       }
-      const productData = {
-        title: contentArea.querySelector('#product-title')?.value,
-        description: contentArea.querySelector('#product-description')?.value,
-        price: contentArea.querySelector('#product-price')?.value,
-        stock: contentArea.querySelector('#product-stock')?.value,
-        shipping: contentArea.querySelector('#product-shipping')?.value,
-        link: contentArea.querySelector('#product-link')?.value,
-        condition: contentArea.querySelector('#product-condition')?.value,
-      };
-      console.log('Published Product Post:', content, productData);
+
+      console.log('Published Product Post:', productData);
       feedback.textContent = 'Product post published!';
       feedback.style.color = 'green';
-      textarea.value = '';
+
+      // 清空输入
+      Object.keys(productData).forEach(key => {
+        const el = contentArea.querySelector(`#product-${key}`);
+        if (el) el.value = '';
+      });
     });
   }
 }
 
+// 动态加载 CSS
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
