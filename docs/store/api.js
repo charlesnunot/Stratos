@@ -172,4 +172,47 @@ export async function getUserProfile(uid) {
   }
 }
 
+/**
+ * 获取用户统计信息：关注、粉丝、获赞
+ */
+export async function getUserStats(uid: string) {
+  if (!uid) return null
+
+  try {
+    // 关注数
+    const { count: following_count } = await supabase
+      .from('follows')
+      .select('id', { count: 'exact', head: true })
+      .eq('follower_id', uid)
+
+    // 粉丝数
+    const { count: followers_count } = await supabase
+      .from('follows')
+      .select('id', { count: 'exact', head: true })
+      .eq('following_id', uid)
+
+    // 获赞数
+    const { data: likesData, error: likesError } = await supabase
+      .from('user_likes')
+      .select('id')
+      .eq('user_id', uid)
+
+    if (likesError) {
+      console.error('获取用户获赞失败', likesError)
+      return null
+    }
+
+    const likes_count = likesData?.length || 0
+
+    return {
+      followers_count: followers_count || 0,
+      following_count: following_count || 0,
+      likes_count
+    }
+  } catch (err) {
+    console.error('获取用户统计异常', err)
+    return null
+  }
+}
+
 
