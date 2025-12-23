@@ -60,25 +60,20 @@ function initUserSubscription() {
  * 显示用户信息
  */
 export function showUserInfo(user) {
-  const userInfo = document.querySelector('#extra-page .user-info')
   const guestExtra = document.querySelector('#extra-page .guest-extra')
   const userDataSection = document.getElementById('user-data-section')
 
   if (!user) return
 
   guestExtra.style.display = 'none'
-  userInfo.style.display = 'block'
   userDataSection.style.display = 'block'
-
-  // Email
-  document.getElementById('user-email').textContent = user.email ?? ''
 
   // Avatar
   userDataSection.querySelector('.avatar').src = user.avatar_url
 
   // Profile
   const profile = user.profile || {}
-  userDataSection.querySelector('.nickname').textContent = profile.nickname || 'No nickname'
+  userDataSection.querySelector('.nickname').textContent = profile.nickname || ''
   userDataSection.querySelector('.role').textContent = profile.role ? `Role: ${profile.role}` : ''
   userDataSection.querySelector('.bio').textContent = profile.bio || ''
 
@@ -94,7 +89,6 @@ export function showUserInfo(user) {
  */
 export function hideUserInfo() {
   document.querySelector('#extra-page .guest-extra').style.display = 'flex'
-  document.querySelector('#extra-page .user-info').style.display = 'none'
   document.getElementById('user-data-section').style.display = 'none'
 }
 
