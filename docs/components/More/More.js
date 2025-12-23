@@ -12,7 +12,7 @@ export async function mountMore(container, triggerEl) {
   if (!container || !triggerEl) return
   triggerElement = triggerEl
 
-  // 如果已经存在，直接切换显示
+  // 如果菜单已存在，直接切换显示
   if (menuEl) {
     menuEl.classList.toggle('show')
     return
@@ -27,13 +27,15 @@ export async function mountMore(container, triggerEl) {
   // 加载 CSS
   loadCSS(new URL('More.css', baseURL))
 
-  // 插入到 body
+  // 插入到 container
   container.appendChild(menuEl)
 
-  // 获取固定菜单项
+  // 获取菜单项
   const settings = menuEl.querySelector('#more-settings')
   const report = menuEl.querySelector('#more-report')
   const authItem = menuEl.querySelector('#more-auth')
+
+  if (!authItem) return
 
   // 固定菜单事件
   settings.addEventListener('click', () => {
@@ -45,33 +47,29 @@ export async function mountMore(container, triggerEl) {
     hide()
   })
 
-  // 点击 More 按钮
+  // More 按钮点击
   triggerEl.addEventListener('click', e => {
     e.stopPropagation()
     menuEl.classList.toggle('show')
   })
 
-  // 点击空白关闭
+  // 点击空白关闭菜单
   document.addEventListener('click', e => {
     if (!menuEl.contains(e.target) && e.target !== triggerEl) hide()
   })
 
-  // 初始化登录状态菜单
-  updateMenuByUser(getUser())
-
-  // 订阅用户状态变化
-  subscribe(user => updateMenuByUser(user))
-
-  // --- 内部函数 ---
+  // --- 登录状态处理函数 ---
   function updateMenuByUser(user) {
+    if (!authItem) return
+
     if (user) {
       authItem.textContent = 'Logout'
       authItem.onclick = async () => {
         hide()
         try {
-          await signOut()          // Supabase 登出
-          clearUser()              // 清空前端用户状态
-          publish('userChange', null) // 发布全局事件
+          await signOut()              // Supabase 登出
+          clearUser()                  // 清空前端状态
+          publish('userChange', null)  // 通知全局
           alert('Logged out successfully')
         } catch (err) {
           console.error('Logout failed', err)
@@ -82,17 +80,24 @@ export async function mountMore(container, triggerEl) {
       authItem.textContent = 'Login'
       authItem.onclick = () => {
         hide()
-        AuthModal.open('login')  // 调用统一登录弹窗
+        AuthModal.open('login')
       }
     }
   }
+
+  // 初始菜单状态
+  updateMenuByUser(getUser())
+
+  // 订阅用户状态变化
+  subscribe(user => updateMenuByUser(user))
 }
 
+// 隐藏菜单
 function hide() {
   if (menuEl) menuEl.classList.remove('show')
 }
 
-// 加载 CSS
+// 动态加载 CSS
 function loadCSS(href) {
   const url = href.toString()
   if (document.querySelector(`link[href="${url}"]`)) return
