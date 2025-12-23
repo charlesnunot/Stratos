@@ -1,5 +1,9 @@
 import { supabase } from './supabase.js'
 
+const DEFAULT_AVATAR =
+  'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg'
+
+
 /**
  * 未登录用户：普通帖子流
  */
@@ -114,3 +118,31 @@ export async function fetchDefaultFeed(limit = 20, offset = 0) {
 
   return allPosts
 }
+
+/**
+ * 获取用户头像（未登录 / 已登录通用）
+ */
+export async function getUserAvatar(uid) {
+  if (!uid) {
+    return DEFAULT_AVATAR
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('user_avatars')
+      .select('avatar_url')
+      .eq('uid', uid)
+      .single()
+
+    if (error || !data?.avatar_url) {
+      console.warn('[API] getUserAvatar fallback', { uid, error })
+      return DEFAULT_AVATAR
+    }
+
+    return data.avatar_url
+  } catch (err) {
+    console.error('[API] getUserAvatar ❌ error', err)
+    return DEFAULT_AVATAR
+  }
+}
+
