@@ -1,7 +1,7 @@
 // docs/store/subscribers.js
 import { getCurrentUser, onAuthChange } from './supabase.js'
 import { setUser, clearUser } from './userManager.js'
-import { getUserAvatar } from './api.js'   // ✅ 新增这一行
+import { getUserAvatar } from './api.js'   
 
 // 全局事件容器
 const events = {}
