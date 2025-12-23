@@ -62,8 +62,14 @@ export function showUserInfo(user) {
   userInfo.style.display = 'block';
   userDataSection.style.display = 'block';
 
+  // 邮箱
   const emailEl = document.getElementById('user-email');
   if (emailEl) emailEl.textContent = user.email;
+  // ✅ 头像（核心）
+  const avatarImg = userDataSection.querySelector('img.avatar');
+  if (avatarImg && user.avatar_url) {
+    avatarImg.src = user.avatar_url;
+  }
 }
 
 /**
