@@ -1,6 +1,8 @@
+// docs/components/More/More.js
 import { signOut } from '../../store/supabase.js'
 import { clearUser, getUser } from '../../store/userManager.js'
 import { publish, subscribe } from '../../store/subscribers.js'
+import { AuthModal } from '../AuthModal/AuthModal.js'
 
 const baseURL = new URL('.', import.meta.url)
 let menuEl = null
@@ -62,23 +64,25 @@ export async function mountMore(container, triggerEl) {
 
   // --- 内部函数 ---
   function updateMenuByUser(user) {
-    authItem.textContent = user ? 'Logout' : 'Login'
-    authItem.onclick = async () => {
-      hide()
-      if (user) {
-        // 登出
+    if (user) {
+      authItem.textContent = 'Logout'
+      authItem.onclick = async () => {
+        hide()
         try {
-          await signOut()
-          clearUser()
-          publish('userChange', null)
+          await signOut()          // Supabase 登出
+          clearUser()              // 清空前端用户状态
+          publish('userChange', null) // 发布全局事件
           alert('Logged out successfully')
         } catch (err) {
           console.error('Logout failed', err)
           alert('Logout failed')
         }
-      } else {
-        // 未登录时跳转登录弹窗或页面
-        window.dispatchEvent(new CustomEvent('openLoginModal'))
+      }
+    } else {
+      authItem.textContent = 'Login'
+      authItem.onclick = () => {
+        hide()
+        AuthModal.open('login')  // 调用统一登录弹窗
       }
     }
   }
