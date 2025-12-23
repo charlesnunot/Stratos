@@ -1,7 +1,7 @@
 // docs/store/subscribers.js
 import { getCurrentUser, onAuthChange } from './supabase.js'
 import { setUser, clearUser } from './userManager.js'
-import { getUserAvatar } from './api.js'   
+import { getUserProfile, getUserAvatar } from './api.js'
 
 // 全局事件容器
 const events = {}
@@ -19,19 +19,33 @@ export function publish(eventName, payload) {
   events[eventName].forEach(cb => cb(payload))
 }
 
+/**
+ * 构建前端统一 User 结构
+ */
+async function buildEnhancedUser(authUser) {
+  if (!authUser) return null
+
+  const uid = authUser.id
+
+  const [profile, avatar] = await Promise.all([
+    getUserProfile(uid),
+    getUserAvatar(uid)
+  ])
+
+  return {
+    ...authUser,
+    profile,                // user_profiles 表
+    avatar_url: avatar      // 头像（有 fallback）
+  }
+}
+
 // 初始化用户状态订阅
 export async function initAuthSubscribers() {
-  // 1️⃣ 页面刷新 / 启动时
-  const user = await getCurrentUser()
+  // 1️⃣ 页面刷新 / 启动
+  const authUser = await getCurrentUser()
 
-  if (user) {
-    const avatar = await getUserAvatar(user.id)
-
-    const enhancedUser = {
-      ...user,
-      avatar_url: avatar
-    }
-
+  if (authUser) {
+    const enhancedUser = await buildEnhancedUser(authUser)
     setUser(enhancedUser)
     publish('userChange', enhancedUser)
   } else {
@@ -39,16 +53,10 @@ export async function initAuthSubscribers() {
     publish('userChange', null)
   }
 
-  // 2️⃣ 监听登录 / 登出
+  // 2️⃣ 登录 / 登出监听
   onAuthChange(async (event, session) => {
     if (event === 'SIGNED_IN') {
-      const avatar = await getUserAvatar(session.user.id)
-
-      const enhancedUser = {
-        ...session.user,
-        avatar_url: avatar
-      }
-
+      const enhancedUser = await buildEnhancedUser(session.user)
       setUser(enhancedUser)
       publish('userChange', enhancedUser)
     }
