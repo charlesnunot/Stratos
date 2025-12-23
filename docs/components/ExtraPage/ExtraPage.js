@@ -63,15 +63,15 @@ export function showUserInfo(user) {
 
   // Profile
   const profile = user.profile || {}
+  userDataSection.querySelector('.nickname').textContent = profile.nickname || 'No nickname'
+  userDataSection.querySelector('.role').textContent = profile.role ? `Role: ${profile.role}` : ''
+  userDataSection.querySelector('.bio').textContent = profile.bio || ''
 
-  userDataSection.querySelector('.nickname').textContent =
-    profile.nickname || 'No nickname'
-
-  userDataSection.querySelector('.role').textContent =
-    profile.role ? `Role: ${profile.role}` : ''
-
-  userDataSection.querySelector('.bio').textContent =
-    profile.bio || ''
+  // Stats
+  const stats = user.stats || {}
+  userDataSection.querySelector('.followers-count').textContent = stats.followers_count ?? 0
+  userDataSection.querySelector('.following-count').textContent = stats.following_count ?? 0
+  userDataSection.querySelector('.likes-count').textContent = stats.likes_count ?? 0
 }
 
 /**
