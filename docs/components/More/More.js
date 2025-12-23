@@ -1,7 +1,7 @@
 // docs/components/More/More.js
 import { signOut } from '../../store/supabase.js'
-import { clearUser, getUser } from '../../store/userManager.js'
-import { publish, subscribe } from '../../store/subscribers.js'
+import { clearUser, getUser, subscribe as subscribeUser } from '../../store/userManager.js'
+import { publish } from '../../store/subscribers.js'
 import { AuthModal } from '../AuthModal/AuthModal.js'
 
 const baseURL = new URL('.', import.meta.url)
@@ -42,6 +42,7 @@ export async function mountMore(container, triggerEl) {
     alert('Open Settings')
     hide()
   })
+
   report.addEventListener('click', () => {
     alert('Open Report')
     hide()
@@ -58,7 +59,9 @@ export async function mountMore(container, triggerEl) {
     if (!menuEl.contains(e.target) && e.target !== triggerEl) hide()
   })
 
-  // --- 登录状态处理函数 ---
+  // -----------------------------
+  // 登录状态渲染
+  // -----------------------------
   function updateMenuByUser(user) {
     if (!authItem) return
 
@@ -67,9 +70,9 @@ export async function mountMore(container, triggerEl) {
       authItem.onclick = async () => {
         hide()
         try {
-          await signOut()              // Supabase 登出
-          clearUser()                  // 清空前端状态
-          publish('userChange', null)  // 通知全局
+          await signOut()
+          clearUser()
+          publish('userChange', null)
           alert('Logged out successfully')
         } catch (err) {
           console.error('Logout failed', err)
@@ -85,11 +88,13 @@ export async function mountMore(container, triggerEl) {
     }
   }
 
-  // 初始菜单状态
+  // 初始状态（页面刚加载）
   updateMenuByUser(getUser())
 
-  // 订阅用户状态变化
-  subscribe(user => updateMenuByUser(user))
+  // ✅ 关键修复：订阅 userManager
+  subscribeUser(user => {
+    updateMenuByUser(user)
+  })
 }
 
 // 隐藏菜单
