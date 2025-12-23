@@ -147,3 +147,29 @@ export async function getUserAvatar(uid) {
   }
 }
 
+/**
+ * 获取用户 Profile（user_profiles）
+ */
+export async function getUserProfile(uid) {
+  if (!uid) return null
+
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('uid', uid)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[API] getUserProfile ❌ error', error)
+      return null
+    }
+
+    return data
+  } catch (err) {
+    console.error('[API] getUserProfile ❌ exception', err)
+    return null
+  }
+}
+
+
