@@ -1,26 +1,22 @@
 #extra-page {
   padding: 16px;
-  width: 100%;;
+  width: 100%;
   box-sizing: border-box;
   font-family: "Segoe UI", Arial, sans-serif;
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-height: 100vh;
-  background: #F9F9F9; 
+  background: #F9F9F9;
 }
 
-/* 注册/登录区 */
+/* 注册 / 登录区 */
 .guest-extra {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   text-align: center;
-  padding: 0;
-  background: none;
-  border: none;
-  box-shadow: none;
 }
 
 .guest-buttons {
@@ -59,14 +55,12 @@
 .guest-note {
   font-size: 12px;
   color: #666;
-  margin: 0;
 }
 
 /* 用户信息区 */
-.user-info p.welcome-text {
+.user-info .welcome-text {
   font-size: 14px;
-  color: #333;
-  margin: 0 0 8px 0;
+  margin-bottom: 8px;
 }
 
 .user-info button {
@@ -74,8 +68,8 @@
   font-size: 12px;
   color: #fff;
   background-color: #1DA1F2;
-  border: none;
   border-radius: 6px;
+  border: none;
   cursor: pointer;
 }
 
@@ -83,7 +77,7 @@
   background-color: #0d8ddb;
 }
 
-/* 用户基础数据区 */
+/* 用户数据区 */
 #user-data-section .user-data {
   display: flex;
   flex-direction: column;
@@ -91,30 +85,39 @@
   gap: 6px;
 }
 
-#user-data-section .user-data img.avatar {
+#user-data-section img.avatar {
   width: 60px;
   height: 60px;
   border-radius: 50%;
 }
 
-#user-data-section .user-data p {
+#user-data-section p {
   margin: 0;
   font-size: 14px;
   color: #333;
 }
 
-/* 系统推送区 */
+#user-data-section .role {
+  font-size: 12px;
+  color: #888;
+}
+
+#user-data-section .bio {
+  font-size: 12px;
+  color: #555;
+  text-align: center;
+}
+
+/* Feed */
 .feed-list {
   padding-left: 16px;
-  margin: 0;
 }
 
 .feed-list li {
-  list-style: disc;
   margin-bottom: 6px;
 }
 
-/* 底部条款/版权 */
+/* Footer */
 .policy-link {
   font-size: 12px;
   color: #1DA1F2;
@@ -126,11 +129,7 @@
 }
 
 #footer-section {
+  margin-top: auto;
   font-size: 12px;
   color: #666;
-  margin-top: auto;
-}
-
-#footer-section p {
-  margin: 4px 0;
 }
