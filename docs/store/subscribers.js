@@ -27,7 +27,7 @@ async function buildEnhancedUser(authUser) {
 
   const uid = authUser.id
 
-  const [profile, avatar] = await Promise.all([
+  const [profile, avatar, stats] = await Promise.all([
     getUserProfile(uid),
     getUserAvatar(uid),
     getUserStats(uid)
