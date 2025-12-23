@@ -1,5 +1,8 @@
 // docs/components/AuthModal/AuthModal.js
-import { signIn, signUp } from '../../store/supabase.js'
+import { signIn, signUp, getCurrentUser } from '../../store/supabase.js'
+import { setUser } from '../../store/userManager.js'
+import { publish } from '../../store/subscribers.js'
+import { getUserProfile, getUserAvatar, getUserStats } from '../../store/api.js'
 
 const baseURL = new URL('.', import.meta.url)
 
@@ -54,6 +57,7 @@ export const AuthModal = (() => {
 
       try {
         await signIn(email, password)
+        await syncUserState()   // ✅ 关键：同步 SPA 用户状态
         loginForm.reset()
         hide()
       } catch (err) {
@@ -72,8 +76,9 @@ export const AuthModal = (() => {
 
       try {
         await signUp(email, password)
+        await syncUserState()   // ✅ 注册后同样同步
         registerForm.reset()
-        alert('Registration successful! Please check your email.')
+        alert('Registration successful!')
         hide()
       } catch (err) {
         alert(err.message || 'Register failed')
@@ -92,6 +97,32 @@ export const AuthModal = (() => {
         input.type = input.type === 'password' ? 'text' : 'password'
       })
     })
+  }
+
+  // =============================
+  // 🔑 核心：登录后同步 SPA 状态
+  // =============================
+  async function syncUserState() {
+    const authUser = await getCurrentUser()
+    if (!authUser) return
+
+    const uid = authUser.id
+
+    const [profile, avatar, stats] = await Promise.all([
+      getUserProfile(uid),
+      getUserAvatar(uid),
+      getUserStats(uid)
+    ])
+
+    const enhancedUser = {
+      ...authUser,
+      profile,
+      avatar_url: avatar,
+      stats
+    }
+
+    setUser(enhancedUser)
+    publish('userChange', enhancedUser)
   }
 
   function open(type = 'login') {
