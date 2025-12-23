@@ -1,4 +1,5 @@
 import { AuthModal } from '../AuthModal/AuthModal.js'
+import { subscribe as subscribeUserChange } from '../../store/subscribers.js'
 
 const baseURL = new URL('.', import.meta.url)
 
@@ -13,6 +14,7 @@ export async function mountExtraPage(container) {
 
   loadCSS(new URL('ExtraPage.css', baseURL))
   initExtraPageEvents()
+  initUserSubscription()
 }
 
 /**
@@ -38,6 +40,19 @@ function initExtraPageEvents() {
   document.getElementById('logout-btn')?.addEventListener('click', async () => {
     const { signOut } = await import('../../store/supabase.js')
     await signOut()
+  })
+}
+
+/**
+ * 订阅用户变化
+ */
+function initUserSubscription() {
+  subscribeUserChange(user => {
+    if (user) {
+      showUserInfo(user)
+    } else {
+      hideUserInfo()
+    }
   })
 }
 
