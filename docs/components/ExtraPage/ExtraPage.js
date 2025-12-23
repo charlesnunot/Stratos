@@ -60,7 +60,7 @@ function initUserSubscription() {
 /**
  * 显示用户信息
  */
-export async function showUserInfo(user) {
+export function showUserInfo(user) {
   const guestExtra = document.querySelector('#extra-page .guest-extra')
   const userDataSection = document.getElementById('user-data-section')
 
@@ -72,32 +72,23 @@ export async function showUserInfo(user) {
   // Avatar
   const avatarEl = userDataSection.querySelector('.avatar')
   avatarEl.src = user.avatar_url
+  // 点击头像跳转 Profile
   avatarEl.style.cursor = 'pointer'
-
-  // 点击头像跳转 Profile 页面
-  avatarEl.addEventListener('click', async () => {
-    const { loadMainPage, updateActiveNav } = await import('../../components/Sidebar/Sidebar.js')
-    loadMainPage('profile')
-    updateActiveNav('profile')
+  avatarEl.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('sidebar:navigate', { detail: { page: 'profile' } }))
   })
 
-  // Profile 显示昵称/角色/简介
+  // Profile
   const profile = user.profile || {}
   const nicknameEl = userDataSection.querySelector('.nickname')
-  const roleEl = userDataSection.querySelector('.role')
-  const bioEl = userDataSection.querySelector('.bio')
-
   nicknameEl.textContent = profile.nickname || ''
   nicknameEl.style.cursor = 'pointer'
-  // 点击昵称也跳转 Profile
-  nicknameEl.addEventListener('click', async () => {
-    const { loadMainPage, updateActiveNav } = await import('../../components/Sidebar/Sidebar.js')
-    loadMainPage('profile')
-    updateActiveNav('profile')
+  nicknameEl.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('sidebar:navigate', { detail: { page: 'profile' } }))
   })
 
-  roleEl.textContent = profile.role ? `Role: ${profile.role}` : ''
-  bioEl.textContent = profile.bio || ''
+  userDataSection.querySelector('.role').textContent = profile.role ? `Role: ${profile.role}` : ''
+  userDataSection.querySelector('.bio').textContent = profile.bio || ''
 
   // Stats
   const stats = user.stats || {}
