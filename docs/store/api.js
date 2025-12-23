@@ -1,3 +1,4 @@
+// docs/store/api.js
 import { supabase } from './supabase.js'
 
 const DEFAULT_AVATAR =
