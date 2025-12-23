@@ -29,7 +29,6 @@ export async function fetchDefaultPosts(limit = 20, offset = 0) {
       score
     `)
     .eq('is_deleted', false)
-    // 用 ilike 放宽大小写匹配
     .ilike('visibility', 'public')
     .ilike('moderation_status', 'approved')
     .eq('type', 'normal')
@@ -124,9 +123,7 @@ export async function fetchDefaultFeed(limit = 20, offset = 0) {
  * 获取用户头像（未登录 / 已登录通用）
  */
 export async function getUserAvatar(uid) {
-  if (!uid) {
-    return DEFAULT_AVATAR
-  }
+  if (!uid) return DEFAULT_AVATAR
 
   try {
     const { data, error } = await supabase
@@ -175,7 +172,7 @@ export async function getUserProfile(uid) {
 /**
  * 获取用户统计信息：关注、粉丝、获赞
  */
-export async function getUserStats(uid: string) {
+export async function getUserStats(uid) {
   if (!uid) return null
 
   try {
@@ -214,5 +211,3 @@ export async function getUserStats(uid: string) {
     return null
   }
 }
-
-
