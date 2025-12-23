@@ -1,6 +1,7 @@
 // docs/store/subscribers.js
 import { getCurrentUser, onAuthChange } from './supabase.js'
 import { setUser, clearUser } from './userManager.js'
+import { getUserAvatar } from './api.js'   // ✅ 新增这一行
 
 // 全局事件容器
 const events = {}
@@ -20,22 +21,38 @@ export function publish(eventName, payload) {
 
 // 初始化用户状态订阅
 export async function initAuthSubscribers() {
-  // 启动时同步当前用户状态
+  // 1️⃣ 页面刷新 / 启动时
   const user = await getCurrentUser()
+
   if (user) {
-    setUser(user)
-    publish('userChange', user)
+    const avatar = await getUserAvatar(user.id)
+
+    const enhancedUser = {
+      ...user,
+      avatar_url: avatar
+    }
+
+    setUser(enhancedUser)
+    publish('userChange', enhancedUser)
   } else {
     clearUser()
     publish('userChange', null)
   }
 
-  // 监听登录/登出事件
-  onAuthChange((event, session) => {
+  // 2️⃣ 监听登录 / 登出
+  onAuthChange(async (event, session) => {
     if (event === 'SIGNED_IN') {
-      setUser(session.user)
-      publish('userChange', session.user)
+      const avatar = await getUserAvatar(session.user.id)
+
+      const enhancedUser = {
+        ...session.user,
+        avatar_url: avatar
+      }
+
+      setUser(enhancedUser)
+      publish('userChange', enhancedUser)
     }
+
     if (event === 'SIGNED_OUT') {
       clearUser()
       publish('userChange', null)
