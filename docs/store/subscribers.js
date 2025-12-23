@@ -1,7 +1,7 @@
 // docs/store/subscribers.js
 import { getCurrentUser, onAuthChange } from './supabase.js'
 import { setUser, clearUser } from './userManager.js'
-import { getUserProfile, getUserAvatar } from './api.js'
+import { getUserProfile, getUserAvatar , getUserStats} from './api.js'
 
 // 全局事件容器
 const events = {}
@@ -29,13 +29,15 @@ async function buildEnhancedUser(authUser) {
 
   const [profile, avatar] = await Promise.all([
     getUserProfile(uid),
-    getUserAvatar(uid)
+    getUserAvatar(uid),
+    getUserStats(uid)
   ])
 
   return {
     ...authUser,
     profile,                // user_profiles 表
-    avatar_url: avatar      // 头像（有 fallback）
+    avatar_url: avatar,      // 头像（有 fallback）
+    stats           // { followers_count, following_count, likes_count }
   }
 }
 
