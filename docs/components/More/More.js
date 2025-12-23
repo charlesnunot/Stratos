@@ -1,3 +1,8 @@
+// docs/components/More/More.js
+import { signOut } from '../../store/supabase.js'
+import { clearUser, setUser } from '../../store/userManager.js'
+import { publish } from '../../store/subscribers.js'
+
 const baseURL = new URL('.', import.meta.url);
 
 let menuEl = null;
@@ -46,9 +51,18 @@ export async function mountMore(container, triggerEl) {
     hide();
   });
 
-  logout.addEventListener('click', () => {
-    alert('Logout');
+  // 退出登录
+  logout.addEventListener('click', async () => {
     hide();
+    try {
+      await signOut();      // Supabase 登出
+      clearUser();          // 清空前端用户状态
+      publish('userChange', null); // 发布全局事件
+      alert('Logged out successfully');
+    } catch (err) {
+      console.error('Logout failed', err);
+      alert('Logout failed');
+    }
   });
 
   // 点击空白关闭
