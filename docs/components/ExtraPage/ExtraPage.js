@@ -1,3 +1,4 @@
+// docs/components/ExtraPage/ExtraPage.js
 import { AuthModal } from '../AuthModal/AuthModal.js'
 import { subscribe as subscribeUserChange } from '../../store/subscribers.js'
 
@@ -59,7 +60,7 @@ function initUserSubscription() {
 /**
  * 显示用户信息
  */
-export function showUserInfo(user) {
+export async function showUserInfo(user) {
   const guestExtra = document.querySelector('#extra-page .guest-extra')
   const userDataSection = document.getElementById('user-data-section')
 
@@ -69,13 +70,34 @@ export function showUserInfo(user) {
   userDataSection.style.display = 'block'
 
   // Avatar
-  userDataSection.querySelector('.avatar').src = user.avatar_url
+  const avatarEl = userDataSection.querySelector('.avatar')
+  avatarEl.src = user.avatar_url
+  avatarEl.style.cursor = 'pointer'
 
-  // Profile
+  // 点击头像跳转 Profile 页面
+  avatarEl.addEventListener('click', async () => {
+    const { loadMainPage, updateActiveNav } = await import('../../components/Sidebar/Sidebar.js')
+    loadMainPage('profile')
+    updateActiveNav('profile')
+  })
+
+  // Profile 显示昵称/角色/简介
   const profile = user.profile || {}
-  userDataSection.querySelector('.nickname').textContent = profile.nickname || ''
-  userDataSection.querySelector('.role').textContent = profile.role ? `Role: ${profile.role}` : ''
-  userDataSection.querySelector('.bio').textContent = profile.bio || ''
+  const nicknameEl = userDataSection.querySelector('.nickname')
+  const roleEl = userDataSection.querySelector('.role')
+  const bioEl = userDataSection.querySelector('.bio')
+
+  nicknameEl.textContent = profile.nickname || ''
+  nicknameEl.style.cursor = 'pointer'
+  // 点击昵称也跳转 Profile
+  nicknameEl.addEventListener('click', async () => {
+    const { loadMainPage, updateActiveNav } = await import('../../components/Sidebar/Sidebar.js')
+    loadMainPage('profile')
+    updateActiveNav('profile')
+  })
+
+  roleEl.textContent = profile.role ? `Role: ${profile.role}` : ''
+  bioEl.textContent = profile.bio || ''
 
   // Stats
   const stats = user.stats || {}
