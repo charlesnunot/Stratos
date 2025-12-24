@@ -12,18 +12,17 @@
   width: 50%;  /* PC端占父容器宽度50% */
   max-width: 600px; /* 可选最大宽度 */
   background: #F9F9F9;
-  border-radius: 12px;
+  border-radius: 12px;   /* 卡片整体圆角 */
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
 .post:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+  /* 阴影去掉，保留平面效果 */
 }
 
 /* 头部 */
@@ -64,6 +63,7 @@
   aspect-ratio: 3/4; /* 黄金比竖图 */
   overflow: hidden;
   background: #eee;
+  border-radius: 12px; /* 四个角都圆 */
 }
 
 .post-image img {
@@ -71,6 +71,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  border-radius: 12px; /* 四角圆 */
 }
 
 /* 操作栏 */
