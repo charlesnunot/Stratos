@@ -2,48 +2,13 @@
 import { getUser } from '../../store/userManager.js'
 import { createNormalPost, createProductPost } from '../../store/postApi.js'
 import { getUserFollowers } from '../../store/api.js'
+import { openFriendsModal } from './FriendsModal.js'
+import { openLocationModal } from './LocationModal.js'
 
 const baseURL = new URL('.', import.meta.url)
 
 export async function mountPublish(container) {
   if (!container) return
-
-  // -----------------------------
-  // 提升 selectedLocation 和 locationContainer 到 mountPublish 作用域
-  // -----------------------------
-  let selectedLocation = null
-  let locationContainer = null
-
-  // -----------------------------
-  // renderLocationTag 函数放在 mountPublish 内部
-  // -----------------------------
-  function renderLocationTag() {
-    if (!locationContainer) return
-    locationContainer.innerHTML = ''
-    if (!selectedLocation) return
-
-    const tag = document.createElement('div')
-    tag.style.cssText = `
-      display:flex;
-      align-items:center;
-      gap:6px;
-      background:#eef6fd;
-      color:#1da1f2;
-      padding:4px 8px;
-      border-radius:16px;
-      font-size:13px;
-    `
-    tag.innerHTML = `
-      <span class="material-symbols-outlined" style="font-size:16px;">location_on</span>
-      <span>${selectedLocation.name}</span>
-      <span style="cursor:pointer;">×</span>
-    `
-    tag.lastChild.onclick = () => {
-      selectedLocation = null
-      renderLocationTag()
-    }
-    locationContainer.appendChild(tag)
-  }
 
   // -----------------------------
   // 加载 Publish HTML & CSS
@@ -81,21 +46,16 @@ export async function mountPublish(container) {
     const textarea = contentArea.querySelector('#normal-content')
     const submitBtn = contentArea.querySelector('#normal-submit')
     const feedback = contentArea.querySelector('#normal-feedback')
-
     const imageInput = contentArea.querySelector('#normal-images')
     const addCard = contentArea.querySelector('.image-add-card')
     const previewContainer = contentArea.querySelector('#normal-preview')
-
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
-
     const toolFriends = contentArea.querySelector('#tool-friends')
     const toolLocation = contentArea.querySelector('#tool-location')
 
-    // -----------------------------
-    // Location tag 容器初始化
-    // -----------------------------
-    locationContainer = document.createElement('div')
+    let selectedLocation = null
+    const locationContainer = document.createElement('div')
     locationContainer.style.cssText = `
       margin-top:8px;
       display:flex;
@@ -104,21 +64,39 @@ export async function mountPublish(container) {
     `
     contentArea.querySelector('.tool-bar').after(locationContainer)
 
+    function renderLocationTag() {
+      locationContainer.innerHTML = ''
+      if (!selectedLocation) return
+
+      const tag = document.createElement('div')
+      tag.style.cssText = `
+        display:flex;
+        align-items:center;
+        gap:6px;
+        background:#eef6fd;
+        color:#1da1f2;
+        padding:4px 8px;
+        border-radius:16px;
+        font-size:13px;
+      `
+      tag.innerHTML = `
+        <span class="material-symbols-outlined" style="font-size:16px;">location_on</span>
+        <span>${selectedLocation.name}</span>
+        <span style="cursor:pointer;">×</span>
+      `
+      tag.lastChild.onclick = () => {
+        selectedLocation = null
+        renderLocationTag()
+      }
+      locationContainer.appendChild(tag)
+    }
+
     setupTagInput(tagsInput, tagsDisplay)
 
-    // -----------------------------
-    // @Friends
-    // -----------------------------
     toolFriends.addEventListener('click', async () => {
       const user = getUser()
-      console.log('[Friends] current user', user)
-      if (!user) {
-        alert('Please login first')
-        return
-      }
-
+      if (!user) return alert('Please login first')
       const followers = await getUserFollowers(user.id)
-      console.log('[Friends] followers', followers)
       openFriendsModal(followers, textarea)
     })
 
@@ -129,21 +107,13 @@ export async function mountPublish(container) {
       })
     })
 
-    // -----------------------------
-    // 图片逻辑
-    // -----------------------------
     let selectedFiles = []
-
     addCard.addEventListener('click', () => imageInput.click())
-
     imageInput.addEventListener('change', () => {
       selectedFiles = Array.from(imageInput.files).slice(0, 4)
       renderPreviews(selectedFiles, previewContainer)
     })
 
-    // -----------------------------
-    // 提交
-    // -----------------------------
     submitBtn.addEventListener('click', async () => {
       const user = getUser()
       if (!user) {
@@ -151,31 +121,19 @@ export async function mountPublish(container) {
         feedback.style.color = 'red'
         return
       }
-
       const content = textarea.value.trim()
       const tags = Array.from(tagsDisplay.children).map(t => t.textContent)
-
       if (!content) {
         feedback.textContent = 'Content cannot be empty'
         feedback.style.color = 'red'
         return
       }
-
       feedback.textContent = 'Publishing post...'
       feedback.style.color = 'blue'
-
       try {
-        await createNormalPost({
-          content,
-          tags,
-          images: selectedFiles,
-          location: selectedLocation,
-          visibility: 'public'
-        })
-
+        await createNormalPost({ content, tags, images: selectedFiles, location: selectedLocation, visibility: 'public' })
         feedback.textContent = 'Post published!'
         feedback.style.color = 'green'
-
         textarea.value = ''
         tagsDisplay.innerHTML = ''
         selectedFiles = []
@@ -199,20 +157,16 @@ export async function mountPublish(container) {
 
     const submitBtn = contentArea.querySelector('#product-submit')
     const feedback = contentArea.querySelector('#product-feedback')
-
     const imageInput = contentArea.querySelector('#product-images')
     const addCard = contentArea.querySelector('.image-add-card')
     const previewContainer = contentArea.querySelector('#product-preview')
-
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
 
     setupTagInput(tagsInput, tagsDisplay)
 
     let selectedFiles = []
-
     addCard.addEventListener('click', () => imageInput.click())
-
     imageInput.addEventListener('change', () => {
       selectedFiles = Array.from(imageInput.files).slice(0, 4)
       renderPreviews(selectedFiles, previewContainer)
@@ -225,7 +179,6 @@ export async function mountPublish(container) {
         feedback.style.color = 'red'
         return
       }
-
       const productData = {
         title: contentArea.querySelector('#product-title')?.value.trim(),
         description: contentArea.querySelector('#product-description')?.value.trim(),
@@ -237,22 +190,17 @@ export async function mountPublish(container) {
         tags: Array.from(tagsDisplay.children).map(t => t.textContent),
         images: selectedFiles
       }
-
       if (!productData.title || !productData.description) {
         feedback.textContent = 'Title and description required'
         feedback.style.color = 'red'
         return
       }
-
       feedback.textContent = 'Publishing product...'
       feedback.style.color = 'blue'
-
       try {
         await createProductPost(productData)
-
         feedback.textContent = 'Product published!'
         feedback.style.color = 'green'
-
         clearProductForm(contentArea, tagsDisplay)
         selectedFiles = []
         renderPreviews(selectedFiles, previewContainer)
@@ -264,292 +212,75 @@ export async function mountPublish(container) {
       }
     })
   }
+}
 
-  // =========================================================
-  // 图片预览
-  // =========================================================
-  function renderPreviews(files, container) {
-    container.innerHTML = ''
-    files.forEach(file => {
-      const reader = new FileReader()
-      reader.onload = e => {
-        const wrap = document.createElement('div')
-        wrap.className = 'preview-wrapper'
+// =========================================================
+// 图片预览
+// =========================================================
+function renderPreviews(files, container) {
+  container.innerHTML = ''
+  files.forEach(file => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      const wrap = document.createElement('div')
+      wrap.className = 'preview-wrapper'
 
-        const img = document.createElement('img')
-        img.src = e.target.result
-        img.className = 'preview-img'
+      const img = document.createElement('img')
+      img.src = e.target.result
+      img.className = 'preview-img'
 
-        const del = document.createElement('button')
-        del.className = 'preview-del'
-        del.textContent = '×'
-        del.onclick = () => {
-          files.splice(files.indexOf(file), 1)
-          renderPreviews(files, container)
-        }
-
-        wrap.appendChild(img)
-        wrap.appendChild(del)
-        container.appendChild(wrap)
+      const del = document.createElement('button')
+      del.className = 'preview-del'
+      del.textContent = '×'
+      del.onclick = () => {
+        files.splice(files.indexOf(file), 1)
+        renderPreviews(files, container)
       }
-      reader.readAsDataURL(file)
-    })
-  }
 
-  // =========================================================
-  // 标签输入
-  // =========================================================
-  function setupTagInput(input, display) {
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && input.value.trim()) {
-        e.preventDefault()
-        const tag = document.createElement('div')
-        tag.className = 'tag-item'
-        tag.textContent = input.value.trim()
-        display.appendChild(tag)
-        input.value = ''
-      }
-    })
-  }
-
-  // =========================================================
-  // 清空产品表单
-  // =========================================================
-  function clearProductForm(container, tagsDisplay) {
-    const fields = ['title', 'description', 'price', 'stock', 'shipping', 'link']
-    fields.forEach(key => {
-      const el = container.querySelector(`#product-${key}`)
-      if (el) el.value = ''
-    })
-    tagsDisplay.innerHTML = ''
-  }
-
-  // =========================================================
-  // @Friends Modal
-  // =========================================================
-  function openFriendsModal(followers, textarea) {
-    const modal = document.createElement('div')
-    modal.style.cssText = `
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.4);
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      z-index:9999;
-    `
-
-    const box = document.createElement('div')
-    box.style.cssText = `
-      background:#fff;
-      width:320px;
-      max-height:420px;
-      display:flex;
-      flex-direction:column;
-      border-radius:8px;
-      overflow:hidden;
-    `
-
-    const header = document.createElement('div')
-    header.style.cssText = `
-      padding:10px 12px;
-      font-weight:600;
-      border-bottom:1px solid #eee;
-    `
-    header.textContent = 'Mention followers'
-
-    const content = document.createElement('div')
-    content.style.cssText = `
-      padding:8px;
-      flex:1;
-      overflow:auto;
-    `
-
-    const footer = document.createElement('div')
-    footer.style.cssText = `
-      padding:8px;
-      display:flex;
-      justify-content:flex-end;
-      gap:8px;
-      border-top:1px solid #eee;
-    `
-    const cancelBtn = document.createElement('button')
-    cancelBtn.textContent = 'Cancel'
-    cancelBtn.onclick = () => document.body.removeChild(modal)
-
-    const confirmBtn = document.createElement('button')
-    confirmBtn.textContent = 'Confirm'
-    confirmBtn.style.cssText = `
-      background:#1da1f2;
-      color:#fff;
-      border:none;
-      padding:6px 12px;
-      border-radius:6px;
-      cursor:pointer;
-    `
-    footer.append(cancelBtn, confirmBtn)
-
-    if (!followers || followers.length === 0) {
-      const empty = document.createElement('div')
-      empty.style.cssText = `
-        padding:20px;
-        text-align:center;
-        color:#666;
-        font-size:14px;
-      `
-      empty.textContent = "You don’t have any followers yet."
-      content.appendChild(empty)
-
-      box.append(header, content)
-      modal.appendChild(box)
-      modal.onclick = e => e.target === modal && document.body.removeChild(modal)
-      document.body.appendChild(modal)
-      return
+      wrap.appendChild(img)
+      wrap.appendChild(del)
+      container.appendChild(wrap)
     }
+    reader.readAsDataURL(file)
+  })
+}
 
-    const selected = new Set()
-    followers.forEach(f => {
-      const item = document.createElement('div')
-      item.style.cssText = `
-        display:flex;
-        align-items:center;
-        gap:8px;
-        padding:6px;
-        border-radius:6px;
-        cursor:pointer;
-      `
-      item.innerHTML = `
-        <img src="${f.avatar_url}" width="32" height="32" style="border-radius:50%">
-        <span>@${f.username}</span>
-      `
-      item.onclick = () => {
-        if (selected.has(f.username)) {
-          selected.delete(f.username)
-          item.style.background = ''
-        } else {
-          selected.add(f.username)
-          item.style.background = 'rgba(29,161,242,0.12)'
-        }
-      }
-      content.appendChild(item)
-    })
-
-    confirmBtn.onclick = () => {
-      if (selected.size > 0) {
-        textarea.value += ' ' + Array.from(selected).map(u => `@${u}`).join(' ') + ' '
-      }
-      document.body.removeChild(modal)
+// =========================================================
+// 标签输入
+// =========================================================
+function setupTagInput(input, display) {
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && input.value.trim()) {
+      e.preventDefault()
+      const tag = document.createElement('div')
+      tag.className = 'tag-item'
+      tag.textContent = input.value.trim()
+      display.appendChild(tag)
+      input.value = ''
     }
+  })
+}
 
-    box.append(header, content, footer)
-    modal.appendChild(box)
-    modal.onclick = e => e.target === modal && document.body.removeChild(modal)
-    document.body.appendChild(modal)
-  }
+// =========================================================
+// 清空产品表单
+// =========================================================
+function clearProductForm(container, tagsDisplay) {
+  const fields = ['title', 'description', 'price', 'stock', 'shipping', 'link']
+  fields.forEach(key => {
+    const el = container.querySelector(`#product-${key}`)
+    if (el) el.value = ''
+  })
+  tagsDisplay.innerHTML = ''
+}
 
-  // =========================================================
-  // Location Modal
-  // =========================================================
-  function openLocationModal(onSelect) {
-    const modal = document.createElement('div')
-    modal.style.cssText = `
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.4);
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      z-index:9999;
-    `
-
-    const box = document.createElement('div')
-    box.style.cssText = `
-      background:#fff;
-      width:320px;
-      border-radius:8px;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-    `
-
-    const header = document.createElement('div')
-    header.style.cssText = `
-      padding:10px 12px;
-      font-weight:600;
-      border-bottom:1px solid #eee;
-    `
-    header.textContent = 'Add location'
-
-    const content = document.createElement('div')
-    content.style.cssText = `
-      padding:12px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    `
-
-    const input = document.createElement('input')
-    input.placeholder = 'Enter a location'
-    input.style.cssText = `
-      padding:8px;
-      border:1px solid #ccc;
-      border-radius:6px;
-    `
-
-    const manualBtn = document.createElement('button')
-    manualBtn.textContent = 'Confirm'
-    manualBtn.style.cssText = `
-      padding:8px;
-      background:#1da1f2;
-      color:#fff;
-      border:none;
-      border-radius:6px;
-      cursor:pointer;
-    `
-    manualBtn.onclick = () => {
-      if (!input.value.trim()) return
-      onSelect({ name: input.value.trim(), source: 'manual' })
-      document.body.removeChild(modal)
-    }
-
-    const ipBtn = document.createElement('button')
-    ipBtn.textContent = 'Use my location'
-    ipBtn.style.cssText = `
-      padding:8px;
-      background:#f5f8fa;
-      border:1px solid #ccc;
-      border-radius:6px;
-      cursor:pointer;
-    `
-    ipBtn.onclick = async () => {
-      ipBtn.textContent = 'Locating...'
-      try {
-        const res = await fetch('https://ipapi.co/json/')
-        const data = await res.json()
-        const name = [data.city, data.region, data.country_name].filter(Boolean).join(', ')
-        onSelect({ name, source: 'ip' })
-        document.body.removeChild(modal)
-      } catch {
-        ipBtn.textContent = 'Failed to locate'
-      }
-    }
-
-    content.append(input, manualBtn, ipBtn)
-    box.append(header, content)
-    modal.appendChild(box)
-    modal.onclick = e => e.target === modal && document.body.removeChild(modal)
-    document.body.appendChild(modal)
-  }
-
-  // =========================================================
-  // CSS Loader
-  // =========================================================
-  function loadCSS(href) {
-    const url = href.toString()
-    if (document.querySelector(`link[href="${url}"]`)) return
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = url
-    document.head.appendChild(link)
-  }
+// =========================================================
+// CSS Loader
+// =========================================================
+function loadCSS(href) {
+  const url = href.toString()
+  if (document.querySelector(`link[href="${url}"]`)) return
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = url
+  document.head.appendChild(link)
 }
