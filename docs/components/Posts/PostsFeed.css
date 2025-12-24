@@ -1,40 +1,49 @@
-/* ===== Posts Feed ===== */
+/* ===== docs/components/Posts/PostsFeed.css ===== */
 
+/* 帖子流容器 */
 .posts-feed {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   padding: 8px;
   background: #f9f9f9;
+  justify-content: flex-start;
 }
 
-/* ===== 卡片 ===== */
+/* =========================
+   单个帖子卡片（桌面 5 列）
+   ========================= */
 .post {
-  flex: 1 1 calc(20% - 9.6px); /* 每行 5 个 */
+  flex: 1 1 calc(20% - 12px); /* 👈 每行 5 个 */
+  max-width: calc(20% - 12px);
   box-sizing: border-box;
-  border-radius: 12px;
+
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  overflow: hidden;           /* 图片裁剪 */
-  position: relative;
-  cursor: pointer;
+  border-radius: 12px;
+  overflow: hidden; /* 保证图片不溢出 */
+
   display: flex;
   flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .post:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
-/* ===== 图片区域（竖版 + 仅上圆角） ===== */
+/* =========================
+   图片区域（核心优化）
+   ========================= */
 .post-image {
   width: 100%;
-  aspect-ratio: 3 / 4;        /* 竖版内容比例 */
+  aspect-ratio: 4 / 5;          /* 👈 桌面不过高 */
   position: relative;
   overflow: hidden;
   background: #eee;
+
+  /* 只给顶部圆角 */
   border-radius: 12px 12px 0 0;
 }
 
@@ -42,121 +51,82 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.35s ease;
+  display: block;
 }
 
-/* Hover 放大 */
-.post:hover .post-image img {
-  transform: scale(1.06);
-}
-
-/* 渐变遮罩（增强层次感） */
-.post-image::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(0,0,0,0) 60%,
-    rgba(0,0,0,0.25)
-  );
-  pointer-events: none;
-}
-
-/* ===== 悬浮互动（仅覆盖图片区域） ===== */
-.post-hover-actions {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  z-index: 2;
-}
-
-.post:hover .post-hover-actions {
-  opacity: 1;
-}
-
-.post-hover-actions span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 500;
-}
-
-.post-hover-actions .material-symbols-outlined {
-  font-size: 20px;
-}
-
-/* ===== 内容区域 ===== */
-.post-body {
-  padding: 10px;
+/* =========================
+   内容区域
+   ========================= */
+.post-content {
+  padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-/* 描述文字（2 行） */
-.post-excerpt {
-  font-size: 0.95rem;
-  color: #333;
-  line-height: 1.35;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-/* ===== 作者行 ===== */
-.post-author-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.post-author-info {
-  display: flex;
-  align-items: center;
   gap: 6px;
 }
 
-.post-author-info img {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.post-author-name {
-  font-size: 0.85rem;
+/* 标题 */
+.post-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
   color: #222;
-  font-weight: 500;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* 关注 */
-.post-follow {
+/* 作者 / 时间 */
+.post-meta {
   font-size: 0.8rem;
-  color: #1da1f2;
+  color: #777;
+}
+
+/* 正文 / 描述 */
+.post-excerpt {
+  font-size: 0.85rem;
+  color: #333;
+  line-height: 1.45;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* 商品信息强调 */
+.post-excerpt strong {
+  color: #d9534f;
+}
+
+.post-excerpt span {
+  margin-left: 6px;
+  color: #555;
   font-weight: 500;
 }
 
-/* ===== 响应式 ===== */
+/* =========================
+   响应式：平板 / 手机
+   ========================= */
 
-/* 平板 / 手机：2 列 */
+/* 手机 & 小平板：每行 2 个 */
 @media (max-width: 768px) {
   .post {
-    flex: 1 1 calc(50% - 6px);
+    flex: 1 1 calc(50% - 12px);
+    max-width: calc(50% - 12px);
+  }
+
+  .post-image {
+    aspect-ratio: 3 / 4; /* 👈 手机才用真正竖图 */
   }
 }
 
-/* 超小屏：1 列 */
+/* 超小屏：每行 1 个 */
 @media (max-width: 480px) {
   .post {
     flex: 1 1 100%;
+    max-width: 100%;
   }
 }
