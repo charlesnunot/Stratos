@@ -9,9 +9,9 @@
   justify-content: flex-start;
 }
 
-/* 每个卡片默认宽度：每行3个 */
+/* 每个卡片默认宽度：每行5个 */
 .post {
-  flex: 1 1 calc(33.333% - 8px);
+  flex: 1 1 calc(20% - 9.6px); /* 5 个卡片，每行间隙考虑 gap */
   box-sizing: border-box;
   padding: 12px;
   border-radius: 8px;
@@ -21,6 +21,8 @@
   flex-direction: column;
   gap: 8px;
   word-break: break-word;
+  position: relative; /* 用于悬浮图标定位 */
+  cursor: pointer;
 }
 
 /* 帖子标题 */
@@ -29,6 +31,11 @@
   font-weight: 600;
   margin: 0;
   color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* 限制2行显示 */
+  -webkit-box-orient: vertical;
 }
 
 /* 帖子元信息：作者 + 时间 */
@@ -42,6 +49,11 @@
   font-size: 0.95rem;
   color: #333;
   white-space: pre-wrap; /* 支持换行显示 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* 限制2行 */
+  -webkit-box-orient: vertical;
 }
 
 /* 图片区块 */
@@ -53,10 +65,74 @@
 }
 
 .post-images img {
-  width: 100px;
-  height: 100px;
+  width: 100%;
+  aspect-ratio: 4/3; /* 图片宽高比 4:3 */
   object-fit: cover;
   border-radius: 6px;
+}
+
+/* 作者信息行 */
+.post-author-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.post-author-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.post-author-info img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.post-author-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #222;
+}
+
+/* 关注按钮 */
+.post-follow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #1da1f2;
+  cursor: pointer;
+}
+
+/* 悬浮互动图标区域 */
+.post-hover-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.post-hover-actions span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: #fff;
+  background: rgba(0,0,0,0.5);
+  padding: 4px 6px;
+  border-radius: 12px;
+}
+
+/* 鼠标悬停显示 */
+.post:hover .post-hover-actions {
+  opacity: 1;
 }
 
 /* 商品帖子价格/库存信息 */
@@ -75,7 +151,7 @@
 /* 手机端：每行2个卡片 */
 @media (max-width: 768px) {
   .post {
-    flex: 1 1 calc(50% - 8px);
+    flex: 1 1 calc(50% - 6px);
   }
 }
 
