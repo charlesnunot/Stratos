@@ -214,7 +214,9 @@ async function loadMainPage(page) {
       }
 
       case 'publish': {
-        const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL))
+        // const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL))
+        const { mountPublish } = await import(new URL('../../components/Publish/Publish.js', baseURL))
+
 
         mountPublish(mainRoot)
         break
