@@ -1,6 +1,8 @@
 /* ===== docs/components/Posts/PostsFeed.css ===== */
 
-/* 帖子流容器 */
+/* =========================
+   帖子流容器
+   ========================= */
 .posts-feed {
   display: flex;
   flex-wrap: wrap;
@@ -14,16 +16,19 @@
    单个帖子卡片（桌面 5 列）
    ========================= */
 .post {
-  flex: 1 1 calc(20% - 12px); /* 👈 每行 5 个 */
+  /* ⚠️ 关键：禁止 flex 自动拉伸 */
+  flex: 0 0 calc(20% - 12px);
   max-width: calc(20% - 12px);
   box-sizing: border-box;
 
   background: #fff;
   border-radius: 12px;
-  overflow: hidden; /* 保证图片不溢出 */
+  overflow: hidden; /* 图片裁剪关键 */
 
   display: flex;
   flex-direction: column;
+  position: relative;
+
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -34,16 +39,22 @@
 }
 
 /* =========================
-   图片区域（核心优化）
+   图片区域（高度稳定核心）
    ========================= */
 .post-image {
   width: 100%;
-  aspect-ratio: 4 / 5;          /* 👈 桌面不过高 */
+
+  /* ✅ 图片高度 = 卡片宽度 × 比例 */
+  aspect-ratio: 4 / 5;
+
+  /* ✅ 禁止被 flex 内容影响高度 */
+  flex-shrink: 0;
+
   position: relative;
   overflow: hidden;
   background: #eee;
 
-  /* 只给顶部圆角 */
+  /* 只保留顶部圆角 */
   border-radius: 12px 12px 0 0;
 }
 
@@ -108,25 +119,25 @@
 }
 
 /* =========================
-   响应式：平板 / 手机
+   响应式
    ========================= */
 
-/* 手机 & 小平板：每行 2 个 */
+/* 手机 / 小平板：2 列 */
 @media (max-width: 768px) {
   .post {
-    flex: 1 1 calc(50% - 12px);
+    flex: 0 0 calc(50% - 12px);
     max-width: calc(50% - 12px);
   }
 
   .post-image {
-    aspect-ratio: 3 / 4; /* 👈 手机才用真正竖图 */
+    aspect-ratio: 3 / 4; /* 📱 手机竖图更合理 */
   }
 }
 
-/* 超小屏：每行 1 个 */
+/* 超小屏：1 列 */
 @media (max-width: 480px) {
   .post {
-    flex: 1 1 100%;
+    flex: 0 0 100%;
     max-width: 100%;
   }
 }
