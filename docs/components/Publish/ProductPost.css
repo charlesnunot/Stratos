@@ -4,10 +4,9 @@
   gap: 16px;
   width: 100%;
   font-family: "Segoe UI", sans-serif;
-  margin: auto;
 }
 
-/* Product Info Inputs - same style as normal content */
+/* Product Info Inputs */
 .product-info input,
 .product-info textarea,
 .product-info select {
@@ -52,6 +51,35 @@
 .image-add-card:hover {
   border-color: #1da1f2;
   color: #1da1f2;
+}
+
+/* 图片预览 */
+.preview-wrapper {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: inline-block;
+}
+
+.preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.preview-del {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
+  cursor: pointer;
 }
 
 /* Tool Bar */
