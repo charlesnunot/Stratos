@@ -61,12 +61,14 @@ export async function mountPublish(container) {
     // -----------------------------
     toolFriends.addEventListener('click', async () => {
       const user = getUser()
+      console.log('[Friends] current user', user)
       if (!user) {
         alert('Please login first')
         return
       }
 
       const followers = await getUserFollowers(user.id)
+      console.log('[Friends] followers', followers)
       openFriendsModal(followers, textarea)
     })
 
