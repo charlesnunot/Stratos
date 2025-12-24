@@ -43,10 +43,22 @@ export async function mountPublish(container) {
     const submitBtn = contentArea.querySelector('#normal-submit')
     const feedback = contentArea.querySelector('#normal-feedback')
     const imageInput = contentArea.querySelector('#normal-images')
+    const addCard = contentArea.querySelector('.image-add-card')
+    const previewContainer = contentArea.querySelector('#normal-preview')
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
 
     setupTagInput(tagsInput, tagsDisplay)
+
+    // 图片逻辑
+    let selectedFiles = []
+    addCard.addEventListener('click', () => imageInput.click())
+
+    imageInput.addEventListener('change', () => {
+      const files = Array.from(imageInput.files)
+      selectedFiles = files.slice(0, 4)
+      renderPreviews(selectedFiles, previewContainer)
+    })
 
     submitBtn.addEventListener('click', async () => {
       const user = getUser()
@@ -58,7 +70,7 @@ export async function mountPublish(container) {
 
       const content = textarea.value.trim()
       const tags = Array.from(tagsDisplay.children).map(tag => tag.textContent)
-      const files = imageInput?.files ? Array.from(imageInput.files) : []
+      const files = selectedFiles
 
       if (!content) {
         feedback.textContent = 'Content cannot be empty'
@@ -75,7 +87,9 @@ export async function mountPublish(container) {
         feedback.style.color = 'green'
         textarea.value = ''
         tagsDisplay.innerHTML = ''
-        if (imageInput) imageInput.value = ''
+        selectedFiles = []
+        renderPreviews(selectedFiles, previewContainer)
+        imageInput.value = ''
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish post'
@@ -95,10 +109,22 @@ export async function mountPublish(container) {
     const submitBtn = contentArea.querySelector('#product-submit')
     const feedback = contentArea.querySelector('#product-feedback')
     const imageInput = contentArea.querySelector('#product-images')
+    const addCard = contentArea.querySelector('.image-add-card')
+    const previewContainer = contentArea.querySelector('#product-preview')
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
 
     setupTagInput(tagsInput, tagsDisplay)
+
+    // 图片逻辑
+    let selectedFiles = []
+    addCard.addEventListener('click', () => imageInput.click())
+
+    imageInput.addEventListener('change', () => {
+      const files = Array.from(imageInput.files)
+      selectedFiles = files.slice(0, 4)
+      renderPreviews(selectedFiles, previewContainer)
+    })
 
     submitBtn.addEventListener('click', async () => {
       const user = getUser()
@@ -108,7 +134,7 @@ export async function mountPublish(container) {
         return
       }
 
-      const files = imageInput?.files ? Array.from(imageInput.files) : []
+      const files = selectedFiles
       const productData = {
         title: contentArea.querySelector('#product-title')?.value.trim(),
         description: contentArea.querySelector('#product-description')?.value.trim(),
@@ -135,7 +161,9 @@ export async function mountPublish(container) {
         feedback.textContent = 'Product post published!'
         feedback.style.color = 'green'
         clearProductForm(contentArea, tagsDisplay)
-        if (imageInput) imageInput.value = ''
+        selectedFiles = []
+        renderPreviews(selectedFiles, previewContainer)
+        imageInput.value = ''
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish product post'
@@ -171,6 +199,37 @@ export async function mountPublish(container) {
     })
     tagsDisplay.innerHTML = ''
   }
+}
+
+// -----------------------------
+// 渲染图片预览（通用）
+// -----------------------------
+function renderPreviews(selectedFiles, previewContainer) {
+  previewContainer.innerHTML = ''
+  selectedFiles.forEach(file => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      const wrapper = document.createElement('div')
+      wrapper.className = 'preview-wrapper'
+
+      const img = document.createElement('img')
+      img.src = e.target.result
+      img.className = 'preview-img'
+
+      const delBtn = document.createElement('button')
+      delBtn.className = 'preview-del'
+      delBtn.textContent = '×'
+      delBtn.addEventListener('click', () => {
+        selectedFiles.splice(selectedFiles.indexOf(file), 1)
+        renderPreviews(selectedFiles, previewContainer)
+      })
+
+      wrapper.appendChild(img)
+      wrapper.appendChild(delBtn)
+      previewContainer.appendChild(wrapper)
+    }
+    reader.readAsDataURL(file)
+  })
 }
 
 // -----------------------------
