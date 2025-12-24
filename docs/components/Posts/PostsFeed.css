@@ -1,7 +1,7 @@
 .posts-feed {
   display: flex;
-  flex-direction: column;
-  align-items: center; /* 卡片居中 */
+  flex-direction: column;  /* 单列 */
+  align-items: center;     /* 卡片水平居中 */
   gap: 24px;
   padding: 16px;
   background: #f9f9f9;
@@ -9,7 +9,8 @@
 
 /* 单个卡片 */
 .post {
-  width: 50%; /* PC端50% */
+  width: 50%;  /* PC端占父容器宽度50% */
+  max-width: 600px; /* 可选最大宽度 */
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
@@ -57,7 +58,7 @@
   cursor: pointer;
 }
 
-/* 图片区域：竖版黄金比 */
+/* 图片 */
 .post-image {
   width: 100%;
   aspect-ratio: 3/4; /* 黄金比竖图 */
@@ -118,5 +119,6 @@
 @media (max-width: 768px) {
   .post {
     width: 100%; /* 手机端占满宽度 */
+    max-width: 100%;
   }
 }
