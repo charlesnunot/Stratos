@@ -1,9 +1,9 @@
 // docs/components/Publish/Publish.js
 import { getUser } from '../../store/userManager.js'
 import { createNormalPost, createProductPost } from '../../store/postApi.js'
-import { getUserFollowers } from '../../store/api.js'
 import { openFriendsModal } from './FriendsModal.js'
 import { openLocationModal } from './LocationModal.js'
+import { openVisibilityModal } from './VisibilityModal.js'
 
 const baseURL = new URL('.', import.meta.url)
 
@@ -53,7 +53,11 @@ export async function mountPublish(container) {
     const tagsDisplay = contentArea.querySelector('#tags-display')
     const toolFriends = contentArea.querySelector('#tool-friends')
     const toolLocation = contentArea.querySelector('#tool-location')
+    const toolVisibility = contentArea.querySelector('#tool-visibility')
 
+    // -----------------------------
+    // Location
+    // -----------------------------
     let selectedLocation = null
     const locationContainer = document.createElement('div')
     locationContainer.style.cssText = `
@@ -91,15 +95,23 @@ export async function mountPublish(container) {
       locationContainer.appendChild(tag)
     }
 
+    // -----------------------------
+    // Tags 输入
+    // -----------------------------
     setupTagInput(tagsInput, tagsDisplay)
 
+    // -----------------------------
+    // @Friends
+    // -----------------------------
     toolFriends.addEventListener('click', async () => {
       const user = getUser()
       if (!user) return alert('Please login first')
-      const followers = await getUserFollowers(user.id)
-      openFriendsModal(followers, textarea)
+      openFriendsModal(await getUserFollowers(user.id), textarea)
     })
 
+    // -----------------------------
+    // Location 弹窗
+    // -----------------------------
     toolLocation.addEventListener('click', () => {
       openLocationModal(loc => {
         selectedLocation = loc
@@ -107,6 +119,23 @@ export async function mountPublish(container) {
       })
     })
 
+    // -----------------------------
+    // Visibility 弹窗
+    // -----------------------------
+    let currentVisibility = 'public'
+    let visibilityUsers = []
+
+    toolVisibility.addEventListener('click', async () => {
+      openVisibilityModal(currentVisibility, async result => {
+        currentVisibility = result.type
+        if (result.users) visibilityUsers = result.users
+        console.log('Selected visibility:', currentVisibility, 'Users:', visibilityUsers)
+      })
+    })
+
+    // -----------------------------
+    // 图片逻辑
+    // -----------------------------
     let selectedFiles = []
     addCard.addEventListener('click', () => imageInput.click())
     imageInput.addEventListener('change', () => {
@@ -114,6 +143,9 @@ export async function mountPublish(container) {
       renderPreviews(selectedFiles, previewContainer)
     })
 
+    // -----------------------------
+    // 提交普通帖子
+    // -----------------------------
     submitBtn.addEventListener('click', async () => {
       const user = getUser()
       if (!user) {
@@ -128,10 +160,20 @@ export async function mountPublish(container) {
         feedback.style.color = 'red'
         return
       }
+
       feedback.textContent = 'Publishing post...'
       feedback.style.color = 'blue'
+
       try {
-        await createNormalPost({ content, tags, images: selectedFiles, location: selectedLocation, visibility: 'public' })
+        await createNormalPost({
+          content,
+          tags,
+          images: selectedFiles,
+          location: selectedLocation,
+          visibility: currentVisibility,
+          visibleTo: visibilityUsers
+        })
+
         feedback.textContent = 'Post published!'
         feedback.style.color = 'green'
         textarea.value = ''
@@ -139,6 +181,8 @@ export async function mountPublish(container) {
         selectedFiles = []
         renderPreviews(selectedFiles, previewContainer)
         imageInput.value = ''
+        currentVisibility = 'public'
+        visibilityUsers = []
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish post'
@@ -148,7 +192,7 @@ export async function mountPublish(container) {
   }
 
   // =========================================================
-  // 产品帖子
+  // 产品帖子逻辑
   // =========================================================
   async function loadProductPost() {
     const html = await fetch(new URL('ProductPost.html', baseURL)).then(res => res.text())
@@ -224,11 +268,9 @@ function renderPreviews(files, container) {
     reader.onload = e => {
       const wrap = document.createElement('div')
       wrap.className = 'preview-wrapper'
-
       const img = document.createElement('img')
       img.src = e.target.result
       img.className = 'preview-img'
-
       const del = document.createElement('button')
       del.className = 'preview-del'
       del.textContent = '×'
@@ -236,7 +278,6 @@ function renderPreviews(files, container) {
         files.splice(files.indexOf(file), 1)
         renderPreviews(files, container)
       }
-
       wrap.appendChild(img)
       wrap.appendChild(del)
       container.appendChild(wrap)
