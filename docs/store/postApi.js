@@ -68,3 +68,32 @@ export async function createProductPost({ title, description, price, stock, ship
   if (error) throw error
   return { post, product: data }
 }
+
+/**
+ * 获取指定用户的所有帖子
+ * @param {string} userId 用户 UUID
+ * @param {Object} options 选项，可指定 type: 'normal' | 'product' | null
+ * @returns {Promise<Array>} 帖子数组，包含 posts 表的数据，如果是 product 帖子可通过 join 获取 product_posts
+ */
+export async function getPostsByUser(userId, options = {}) {
+  if (!userId) throw new Error('userId is required')
+
+  const { type = null } = options
+
+  // 构建查询
+  let query = supabase
+    .from('posts')
+    .select(`
+      *,
+      product_posts(*)
+    `)
+    .eq('author_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (type) query = query.eq('type', type)
+
+  const { data, error } = await query
+
+  if (error) throw error
+  return data
+}
