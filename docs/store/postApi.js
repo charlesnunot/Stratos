@@ -1,9 +1,12 @@
 // docs/store/postApi.js
-
 import { supabase } from './supabase.js'
+import { getUser } from './userManager.js'  // 🔹 获取当前用户
 
 // 1️⃣ 创建基础帖子（返回 post id）
 export async function createPost({ type, content, images, tags, visibility = 'public', location = null }) {
+  const user = getUser()
+  if (!user) throw new Error('User not logged in')  // 🔹 没登录就不允许发帖
+
   const { data, error } = await supabase
     .from('posts')
     .insert([{
@@ -13,6 +16,7 @@ export async function createPost({ type, content, images, tags, visibility = 'pu
       tags: tags ? JSON.stringify(tags) : null,
       visibility,
       location,
+      author_id: user.id   // 🔹 关键：确保 author_id 不为空
     }])
     .select()
     .single();
