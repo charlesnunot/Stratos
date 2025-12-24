@@ -62,4 +62,3 @@ export async function createProductPost({ title, description, price, stock, ship
   if (error) throw error;
   return { post, product: data };
 }
-
