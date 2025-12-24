@@ -25,67 +25,64 @@ function createPostCard(post) {
   const card = document.createElement('article');
   card.className = 'post';
 
-  /* ========= 图片 ========= */
-  const images = post.images || post.product_posts?.images || [];
-  const imageHTML = images.length
-    ? `<div class="post-image"><img src="${images[0]}" alt="post image" /></div>`
-    : '';
-
-  /* ========= 内容（2行） ========= */
-  let excerpt = post.content || '';
-  if (post.type === 'product' && post.product_posts) {
-    const p = post.product_posts;
-    excerpt = p.description || excerpt;
-  }
-
-  /* ========= 作者 ========= */
   const author = post.author || 'User';
   const avatar = post.author_avatar || 'https://via.placeholder.com/40';
-  const followCount = post.following_count ?? 0;
-
-  /* ========= 悬浮互动 ========= */
   const likes = post.likes_count ?? 0;
   const favorites = post.favorites_count ?? 0;
+  const comments = post.comments_count ?? 0;
   const shares = post.shares_count ?? 0;
+  const content = post.content || '';
+  const translation = post.translation || '';
+  const images = post.images || post.product_posts?.images || [];
+  const imgUrl = images[0] || '';
 
   card.innerHTML = `
-    ${imageHTML}
+    <!-- 头部 -->
+    <div class="post-header">
+      <div class="post-author-info">
+        <img src="${avatar}" alt="avatar" />
+        <span class="post-author-name">${author}</span>
+      </div>
+      <div class="post-menu">
+        <span class="material-symbols-outlined">more_horiz</span>
+      </div>
+    </div>
 
-    <div class="post-content">
-      <p class="post-excerpt">${excerpt}</p>
+    <!-- 图片 -->
+    <div class="post-image">
+      <img src="${imgUrl}" alt="post image" />
+    </div>
 
-      <div class="post-author-row">
-        <div class="post-author-info">
-          <img src="${avatar}" alt="avatar" />
-          <span class="post-author-name">${author}</span>
+    <!-- 操作栏 -->
+    <div class="post-actions">
+      <div class="left-actions">
+        <div class="action">
+          <span class="material-symbols-outlined">favorite</span>${likes}
         </div>
-        <div class="post-follow">关注 ${followCount}</div>
+        <div class="action">
+          <span class="material-symbols-outlined">bookmark</span>${favorites}
+        </div>
+        <div class="action">
+          <span class="material-symbols-outlined">comment</span>${comments}
+        </div>
+      </div>
+      <div class="right-actions">
+        <div class="action">
+          <span class="material-symbols-outlined">share</span>${shares}
+        </div>
       </div>
     </div>
 
-    <div class="post-hover-actions">
-      <div class="action">
-        <span class="material-symbols-outlined">favorite</span>
-        ${likes}
-      </div>
-      <div class="action">
-        <span class="material-symbols-outlined">bookmark</span>
-        ${favorites}
-      </div>
-      <div class="action">
-        <span class="material-symbols-outlined">share</span>
-        ${shares}
-      </div>
-    </div>
+    <!-- 内容 -->
+    <p class="post-excerpt">${content}</p>
+    ${translation ? `<p class="post-translation">${translation}</p>` : ''}
   `;
 
-  // 悬浮显示互动
-  const overlay = card.querySelector('.post-hover-actions');
-  card.addEventListener('mouseenter', () => overlay.style.opacity = '1');
-  card.addEventListener('mouseleave', () => overlay.style.opacity = '0');
+  // TODO: 右上菜单点击逻辑可在这里加 eventListener
 
   return card;
 }
+
 
 
 
