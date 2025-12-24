@@ -211,3 +211,49 @@ export async function getUserStats(uid) {
     return null
   }
 }
+
+/**
+ * 上传多张图片到 Cloudinary，并返回成功上传的 URL 数组，同时支持进度回调
+ * @param {File[]} files 图片文件数组（来自 input[type="file"]）
+ * @param {(percent: number) => void} onProgress 可选回调：0~1，表示整体上传进度
+ * @returns {Promise<string[]>} 成功上传的图片 URL 数组
+ */
+export async function uploadImagesWeb(files, onProgress) {
+  if (!files || files.length === 0) return []
+
+  const CLOUDINARY_CLOUD_NAME = 'dpgkgtb5n'
+  const CLOUDINARY_UPLOAD_PRESET = 'rn_unsigned'
+
+  const limitedFiles = Array.from(files).slice(0, 4) // 限制最多上传 4 张
+  const uploadedUrls = []
+
+  for (let i = 0; i < limitedFiles.length; i++) {
+    const file = limitedFiles[i]
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
+
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`,
+        { method: 'POST', body: formData }
+      )
+      const result = await res.json()
+      if (res.ok && result.secure_url) {
+        uploadedUrls.push(result.secure_url)
+      } else {
+        console.error('Cloudinary 上传失败:', result)
+      }
+    } catch (err) {
+      console.error('上传图片失败:', err)
+    }
+
+    // 调用进度回调
+    if (onProgress) {
+      onProgress((i + 1) / limitedFiles.length)
+    }
+  }
+
+  return uploadedUrls
+}
+
