@@ -254,6 +254,55 @@ export async function uploadImagesWeb(files, onProgress) {
     }
   }
 
+  /**
+ * 获取用户粉丝列表（followers）
+ * @param {string} uid 被关注用户 ID
+ * @param {number} limit
+ * @param {number} offset
+ */
+export async function getUserFollowers(uid, limit = 20, offset = 0) {
+  if (!uid) return []
+
+  try {
+    const { data, error } = await supabase
+      .from('follows')
+      .select(`
+        created_at,
+        follower_id,
+        user_profiles!follows_follower_id_fkey (
+          uid,
+          username,
+          bio
+        ),
+        user_avatars (
+          avatar_url
+        )
+      `)
+      .eq('following_id', uid)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (error) {
+      console.error('[API] getUserFollowers ❌ error', error)
+      return []
+    }
+
+    // 整理返回结构
+    return (data || []).map(item => ({
+      uid: item.follower_id,
+      username: item.user_profiles?.username || 'Unknown',
+      bio: item.user_profiles?.bio || '',
+      avatar_url:
+        item.user_avatars?.avatar_url || DEFAULT_AVATAR,
+      followed_at: item.created_at
+    }))
+  } catch (err) {
+    console.error('[API] getUserFollowers ❌ exception', err)
+    return []
+  }
+}
+
+
   return uploadedUrls
 }
 
