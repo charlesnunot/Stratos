@@ -1,5 +1,5 @@
 import { getUser } from '../store/userManager.js'
-import { createNormalPost, createProductPost } from '../store/postApi.js'
+import { createNormalPost, createProductPost, uploadImagesWeb } from '../store/postApi.js'
 
 const baseURL = new URL('.', import.meta.url)
 
@@ -39,10 +39,10 @@ export async function mountPublish(container) {
     const textarea = contentArea.querySelector('#normal-content')
     const submitBtn = contentArea.querySelector('#normal-submit')
     const feedback = contentArea.querySelector('#normal-feedback')
-
-    // 标签功能
+    const imageInput = contentArea.querySelector('#normal-images') // 新增文件选择 input
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
+
     setupTagInput(tagsInput, tagsDisplay)
 
     submitBtn.addEventListener('click', async () => {
@@ -55,6 +55,7 @@ export async function mountPublish(container) {
 
       const content = textarea.value.trim()
       const tags = Array.from(tagsDisplay.children).map(tag => tag.textContent)
+      const files = imageInput?.files ? Array.from(imageInput.files) : []
 
       if (!content) {
         feedback.textContent = 'Content cannot be empty'
@@ -62,12 +63,18 @@ export async function mountPublish(container) {
         return
       }
 
+      feedback.textContent = 'Uploading images...'
+      feedback.style.color = 'blue'
+
       try {
-        await createNormalPost({ content, tags, visibility: 'public' })
+        await createNormalPost({ content, tags, images: files, visibility: 'public', onProgress: (percent) => {
+          feedback.textContent = `Uploading images: ${Math.round(percent)}%`
+        }})
         feedback.textContent = 'Normal post published!'
         feedback.style.color = 'green'
         textarea.value = ''
         tagsDisplay.innerHTML = ''
+        if (imageInput) imageInput.value = ''
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish post'
@@ -86,10 +93,10 @@ export async function mountPublish(container) {
 
     const submitBtn = contentArea.querySelector('#product-submit')
     const feedback = contentArea.querySelector('#product-feedback')
-
-    // 标签功能
+    const imageInput = contentArea.querySelector('#product-images') // 新增文件选择 input
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
+
     setupTagInput(tagsInput, tagsDisplay)
 
     submitBtn.addEventListener('click', async () => {
@@ -100,6 +107,7 @@ export async function mountPublish(container) {
         return
       }
 
+      const files = imageInput?.files ? Array.from(imageInput.files) : []
       const productData = {
         title: contentArea.querySelector('#product-title')?.value.trim(),
         description: contentArea.querySelector('#product-description')?.value.trim(),
@@ -109,21 +117,26 @@ export async function mountPublish(container) {
         link: contentArea.querySelector('#product-link')?.value.trim(),
         condition: contentArea.querySelector('#product-condition')?.value,
         tags: Array.from(tagsDisplay.children).map(tag => tag.textContent),
-        images: [] // 后续可接入图片上传逻辑
+        images: files
       }
 
-      // 校验
       if (!productData.title || !productData.description) {
         feedback.textContent = 'Product title and description cannot be empty'
         feedback.style.color = 'red'
         return
       }
 
+      feedback.textContent = 'Uploading images...'
+      feedback.style.color = 'blue'
+
       try {
-        await createProductPost(productData)
+        await createProductPost({ ...productData, onProgress: (percent) => {
+          feedback.textContent = `Uploading images: ${Math.round(percent)}%`
+        }})
         feedback.textContent = 'Product post published!'
         feedback.style.color = 'green'
         clearProductForm(contentArea, tagsDisplay)
+        if (imageInput) imageInput.value = ''
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish product post'
