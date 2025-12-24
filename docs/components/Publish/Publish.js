@@ -9,7 +9,7 @@ export async function mountPublish(container) {
   if (!container) return
 
   // -----------------------------
-  // 加载 Publish HTML & CSS
+  // Load Publish HTML & CSS
   // -----------------------------
   const html = await fetch(new URL('Publish.html', baseURL)).then(res => res.text())
   container.innerHTML = html
@@ -34,7 +34,7 @@ export async function mountPublish(container) {
   })
 
   // =========================================================
-  // 普通帖子
+  // Normal Post
   // =========================================================
   async function loadNormalPost() {
     const html = await fetch(new URL('NormalPost.html', baseURL)).then(res => res.text())
@@ -54,12 +54,15 @@ export async function mountPublish(container) {
 
     const toolFriends = contentArea.querySelector('#tool-friends')
     const toolLocation = contentArea.querySelector('#tool-location')
-    
-    // 当前选中的 location
-    let selectedLocation = null
-    // Location tag 容器
-    const locationContainer = document.createElement('div')
 
+    setupTagInput(tagsInput, tagsDisplay)
+
+    // -----------------------------
+    // Location state (LOCAL)
+    // -----------------------------
+    let selectedLocation = null
+
+    const locationContainer = document.createElement('div')
     locationContainer.style.cssText = `
       margin-top:8px;
       display:flex;
@@ -68,24 +71,53 @@ export async function mountPublish(container) {
     `
     contentArea.querySelector('.tool-bar').after(locationContainer)
 
-    setupTagInput(tagsInput, tagsDisplay)
+    function renderLocationTag() {
+      locationContainer.innerHTML = ''
+      if (!selectedLocation) return
+
+      const tag = document.createElement('div')
+      tag.style.cssText = `
+        display:flex;
+        align-items:center;
+        gap:6px;
+        background:#eef6fd;
+        color:#1da1f2;
+        padding:4px 8px;
+        border-radius:16px;
+        font-size:13px;
+      `
+
+      tag.innerHTML = `
+        <span class="material-symbols-outlined" style="font-size:16px;">location_on</span>
+        <span>${selectedLocation.name}</span>
+        <span style="cursor:pointer;">×</span>
+      `
+
+      tag.lastChild.onclick = () => {
+        selectedLocation = null
+        renderLocationTag()
+      }
+
+      locationContainer.appendChild(tag)
+    }
 
     // -----------------------------
     // @Friends
     // -----------------------------
     toolFriends.addEventListener('click', async () => {
       const user = getUser()
-      console.log('[Friends] current user', user)
       if (!user) {
         alert('Please login first')
         return
       }
 
       const followers = await getUserFollowers(user.id)
-      console.log('[Friends] followers', followers)
       openFriendsModal(followers, textarea)
     })
 
+    // -----------------------------
+    // Location
+    // -----------------------------
     toolLocation.addEventListener('click', () => {
       openLocationModal(loc => {
         selectedLocation = loc
@@ -94,7 +126,7 @@ export async function mountPublish(container) {
     })
 
     // -----------------------------
-    // 图片逻辑
+    // Images
     // -----------------------------
     let selectedFiles = []
 
@@ -106,7 +138,7 @@ export async function mountPublish(container) {
     })
 
     // -----------------------------
-    // 提交
+    // Submit
     // -----------------------------
     submitBtn.addEventListener('click', async () => {
       const user = getUser()
@@ -143,8 +175,10 @@ export async function mountPublish(container) {
         textarea.value = ''
         tagsDisplay.innerHTML = ''
         selectedFiles = []
-        renderPreviews(selectedFiles, previewContainer)
         imageInput.value = ''
+        renderPreviews([], previewContainer)
+        selectedLocation = null
+        renderLocationTag()
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish post'
@@ -154,7 +188,7 @@ export async function mountPublish(container) {
   }
 
   // =========================================================
-  // 产品帖子
+  // Product Post（保持不变）
   // =========================================================
   async function loadProductPost() {
     const html = await fetch(new URL('ProductPost.html', baseURL)).then(res => res.text())
@@ -213,14 +247,12 @@ export async function mountPublish(container) {
 
       try {
         await createProductPost(productData)
-
         feedback.textContent = 'Product published!'
         feedback.style.color = 'green'
-
         clearProductForm(contentArea, tagsDisplay)
         selectedFiles = []
-        renderPreviews(selectedFiles, previewContainer)
         imageInput.value = ''
+        renderPreviews([], previewContainer)
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish product'
@@ -231,11 +263,10 @@ export async function mountPublish(container) {
 }
 
 // =========================================================
-// 图片预览（支持删除）
+// Helpers（无状态）
 // =========================================================
 function renderPreviews(files, container) {
   container.innerHTML = ''
-
   files.forEach(file => {
     const reader = new FileReader()
     reader.onload = e => {
@@ -254,17 +285,13 @@ function renderPreviews(files, container) {
         renderPreviews(files, container)
       }
 
-      wrap.appendChild(img)
-      wrap.appendChild(del)
+      wrap.append(img, del)
       container.appendChild(wrap)
     }
     reader.readAsDataURL(file)
   })
 }
 
-// =========================================================
-// 标签输入
-// =========================================================
 function setupTagInput(input, display) {
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && input.value.trim()) {
@@ -278,9 +305,6 @@ function setupTagInput(input, display) {
   })
 }
 
-// =========================================================
-// 清空产品表单
-// =========================================================
 function clearProductForm(container, tagsDisplay) {
   const fields = ['title', 'description', 'price', 'stock', 'shipping', 'link']
   fields.forEach(key => {
@@ -289,289 +313,6 @@ function clearProductForm(container, tagsDisplay) {
   })
   tagsDisplay.innerHTML = ''
 }
-
-function renderLocationTag() {
-  locationContainer.innerHTML = ''
-  if (!selectedLocation) return
-
-  const tag = document.createElement('div')
-  tag.style.cssText = `
-    display:flex;
-    align-items:center;
-    gap:6px;
-    background:#eef6fd;
-    color:#1da1f2;
-    padding:4px 8px;
-    border-radius:16px;
-    font-size:13px;
-  `
-
-  tag.innerHTML = `
-    <span class="material-symbols-outlined" style="font-size:16px;">location_on</span>
-    <span>${selectedLocation.name}</span>
-    <span style="cursor:pointer;">×</span>
-  `
-
-  tag.lastChild.onclick = () => {
-    selectedLocation = null
-    renderLocationTag()
-  }
-
-  locationContainer.appendChild(tag)
-}
-
-// =========================================================
-// @Friends Modal
-// =========================================================
-function openFriendsModal(followers, textarea) {
-  const modal = document.createElement('div')
-  modal.style.cssText = `
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.4);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    z-index:9999;
-  `
-
-  const box = document.createElement('div')
-  box.style.cssText = `
-    background:#fff;
-    width:320px;
-    max-height:420px;
-    display:flex;
-    flex-direction:column;
-    border-radius:8px;
-    overflow:hidden;
-  `
-
-  // ---------- Header ----------
-  const header = document.createElement('div')
-  header.style.cssText = `
-    padding:10px 12px;
-    font-weight:600;
-    border-bottom:1px solid #eee;
-  `
-  header.textContent = 'Mention followers'
-
-  // ---------- Content ----------
-  const content = document.createElement('div')
-  content.style.cssText = `
-    padding:8px;
-    flex:1;
-    overflow:auto;
-  `
-
-  // ---------- Footer ----------
-  const footer = document.createElement('div')
-  footer.style.cssText = `
-    padding:8px;
-    display:flex;
-    justify-content:flex-end;
-    gap:8px;
-    border-top:1px solid #eee;
-  `
-
-  const cancelBtn = document.createElement('button')
-  cancelBtn.textContent = 'Cancel'
-  cancelBtn.onclick = () => document.body.removeChild(modal)
-
-  const confirmBtn = document.createElement('button')
-  confirmBtn.textContent = 'Confirm'
-  confirmBtn.style.cssText = `
-    background:#1da1f2;
-    color:#fff;
-    border:none;
-    padding:6px 12px;
-    border-radius:6px;
-    cursor:pointer;
-  `
-
-  footer.append(cancelBtn, confirmBtn)
-
-  // =================================================
-  // 没有粉丝
-  // =================================================
-  if (!followers || followers.length === 0) {
-    const empty = document.createElement('div')
-    empty.style.cssText = `
-      padding:20px;
-      text-align:center;
-      color:#666;
-      font-size:14px;
-    `
-    empty.textContent = "You don’t have any followers yet."
-    content.appendChild(empty)
-
-    box.append(header, content)
-    modal.appendChild(box)
-    modal.onclick = e => e.target === modal && document.body.removeChild(modal)
-    document.body.appendChild(modal)
-    return
-  }
-
-  // =================================================
-  // 有粉丝（多选）
-  // =================================================
-  const selected = new Set()
-
-  followers.forEach(f => {
-    const item = document.createElement('div')
-    item.style.cssText = `
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:6px;
-      border-radius:6px;
-      cursor:pointer;
-    `
-
-    item.innerHTML = `
-      <img src="${f.avatar_url}" width="32" height="32" style="border-radius:50%">
-      <span>@${f.username}</span>
-    `
-
-    item.onclick = () => {
-      if (selected.has(f.username)) {
-        selected.delete(f.username)
-        item.style.background = ''
-      } else {
-        selected.add(f.username)
-        item.style.background = 'rgba(29,161,242,0.12)'
-      }
-    }
-
-    content.appendChild(item)
-  })
-
-  confirmBtn.onclick = () => {
-    if (selected.size > 0) {
-      textarea.value += ' ' + Array.from(selected).map(u => `@${u}`).join(' ') + ' '
-    }
-    document.body.removeChild(modal)
-  }
-
-  box.append(header, content, footer)
-  modal.appendChild(box)
-
-  modal.onclick = e => {
-    if (e.target === modal) document.body.removeChild(modal)
-  }
-
-  document.body.appendChild(modal)
-}
-
-function openLocationModal(onSelect) {
-  const modal = document.createElement('div')
-  modal.style.cssText = `
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.4);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    z-index:9999;
-  `
-
-  const box = document.createElement('div')
-  box.style.cssText = `
-    background:#fff;
-    width:320px;
-    border-radius:8px;
-    overflow:hidden;
-    display:flex;
-    flex-direction:column;
-  `
-
-  // Header
-  const header = document.createElement('div')
-  header.style.cssText = `
-    padding:10px 12px;
-    font-weight:600;
-    border-bottom:1px solid #eee;
-  `
-  header.textContent = 'Add location'
-
-  // Content
-  const content = document.createElement('div')
-  content.style.cssText = `
-    padding:12px;
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-  `
-
-  // 手动输入
-  const input = document.createElement('input')
-  input.placeholder = 'Enter a location'
-  input.style.cssText = `
-    padding:8px;
-    border:1px solid #ccc;
-    border-radius:6px;
-  `
-
-  const manualBtn = document.createElement('button')
-  manualBtn.textContent = 'Confirm'
-  manualBtn.style.cssText = `
-    padding:8px;
-    background:#1da1f2;
-    color:#fff;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-  `
-
-  manualBtn.onclick = () => {
-    if (!input.value.trim()) return
-    onSelect({
-      name: input.value.trim(),
-      source: 'manual'
-    })
-    document.body.removeChild(modal)
-  }
-
-  // IP 定位
-  const ipBtn = document.createElement('button')
-  ipBtn.textContent = 'Use my location'
-  ipBtn.style.cssText = `
-    padding:8px;
-    background:#f5f8fa;
-    border:1px solid #ccc;
-    border-radius:6px;
-    cursor:pointer;
-  `
-
-  ipBtn.onclick = async () => {
-    ipBtn.textContent = 'Locating...'
-    try {
-      const res = await fetch('https://ipapi.co/json/')
-      const data = await res.json()
-      const name = [data.city, data.region, data.country_name]
-        .filter(Boolean)
-        .join(', ')
-
-      onSelect({
-        name,
-        source: 'ip'
-      })
-      document.body.removeChild(modal)
-    } catch {
-      ipBtn.textContent = 'Failed to locate'
-    }
-  }
-
-  content.append(input, manualBtn, ipBtn)
-  box.append(header, content)
-  modal.appendChild(box)
-
-  modal.onclick = e => {
-    if (e.target === modal) document.body.removeChild(modal)
-  }
-
-  document.body.appendChild(modal)
-}
-
 
 // =========================================================
 // CSS Loader
