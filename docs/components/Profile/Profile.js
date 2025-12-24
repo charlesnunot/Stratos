@@ -1,6 +1,7 @@
 // docs/components/Profile/Profile.js
 import { subscribe, getUser } from '../../store/userManager.js'
 import { getUserProfile, getUserAvatar, getUserStats } from '../../store/api.js'
+import { fetchUserPosts, fetchUserProductPosts } from '../../store/postApi.js'
 
 const baseURL = new URL('.', import.meta.url)
 
@@ -26,11 +27,8 @@ export async function mountProfile(container) {
 
   // 订阅用户状态变化
   subscribe(user => {
-    if (user) {
-      showProfile(user)
-    } else {
-      showGuest()
-    }
+    if (user) showProfile(user)
+    else showGuest()
   })
 
   // 初始化
@@ -89,26 +87,52 @@ export async function mountProfile(container) {
 
 // -----------------------------
 // 加载帖子
-function loadPosts(type, container) {
-  container.innerHTML = ''
-  let items = []
-  switch(type) {
-    case 'posts': items = ['Post 1: Hello world!', 'Post 2: Another update']; break
-    case 'products': items = ['Product 1', 'Product 2', 'Product 3']; break
-    case 'collections': items = ['Collected Post A', 'Collected Post B']; break
-    case 'shares': items = ['Shared Post X', 'Shared Post Y']; break
-    case 'likes': items = ['Liked Post Alpha', 'Liked Post Beta']; break
+async function loadPosts(type, container) {
+  container.innerHTML = '<p>Loading...</p>'
+  const user = getUser()
+  if (!user) {
+    container.innerHTML = '<p>Please log in to see posts.</p>'
+    return
   }
 
-  const ul = document.createElement('ul')
-  ul.style.listStyle = 'none'
-  ul.style.padding = '0'
-  items.forEach(it => {
-    const li = document.createElement('li')
-    li.textContent = it
-    li.style.padding = '8px'
-    li.style.borderBottom = '1px solid #eee'
-    ul.appendChild(li)
-  })
-  container.appendChild(ul)
+  let items = []
+
+  try {
+    switch(type) {
+      case 'posts': {
+        const posts = await fetchUserPosts(user.id)
+        items = posts.map(p => `${p.content || 'No content'}`)
+        break
+      }
+      case 'products': {
+        const products = await fetchUserProductPosts(user.id)
+        items = products.map(p => `${p.product_posts?.title || 'Unnamed Product'} - ${p.content || ''}`)
+        break
+      }
+      case 'collections':
+        items = ['Collection 1', 'Collection 2'] // TODO: 后续接口
+        break
+      case 'shares':
+        items = ['Shared Post X', 'Shared Post Y'] // TODO: 后续接口
+        break
+      case 'likes':
+        items = ['Liked Post Alpha', 'Liked Post Beta'] // TODO: 后续接口
+        break
+    }
+
+    const ul = document.createElement('ul')
+    ul.style.listStyle = 'none'
+    ul.style.padding = '0'
+    items.forEach(it => {
+      const li = document.createElement('li')
+      li.textContent = it
+      li.style.padding = '8px'
+      li.style.borderBottom = '1px solid #eee'
+      ul.appendChild(li)
+    })
+    container.innerHTML = ''
+    container.appendChild(ul)
+  } catch (err) {
+    container.innerHTML = `<p>Error loading posts: ${err.message}</p>`
+  }
 }
