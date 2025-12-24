@@ -1,6 +1,6 @@
 // docs/components/Publish/Publish.js
 import { getUser } from '../../store/userManager.js'
-import { createNormalPost, createProductPost, uploadImagesWeb } from '../../store/postApi.js'
+import { createNormalPost, createProductPost } from '../../store/postApi.js'
 
 const baseURL = new URL('.', import.meta.url)
 
@@ -66,9 +66,7 @@ export async function mountPublish(container) {
       feedback.style.color = 'blue'
 
       try {
-        await createNormalPost({ content, tags, images: files, visibility: 'public', onProgress: (percent) => {
-          feedback.textContent = `Uploading images: ${Math.round(percent)}%`
-        }})
+        await createNormalPost({ content, tags, images: files, visibility: 'public' })
         feedback.textContent = 'Normal post published!'
         feedback.style.color = 'green'
         textarea.value = ''
@@ -127,9 +125,7 @@ export async function mountPublish(container) {
       feedback.style.color = 'blue'
 
       try {
-        await createProductPost({ ...productData, onProgress: (percent) => {
-          feedback.textContent = `Uploading images: ${Math.round(percent)}%`
-        }})
+        await createProductPost(productData)
         feedback.textContent = 'Product post published!'
         feedback.style.color = 'green'
         clearProductForm(contentArea, tagsDisplay)
