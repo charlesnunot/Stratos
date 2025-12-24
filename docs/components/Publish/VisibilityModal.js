@@ -1,6 +1,8 @@
 // docs/components/Publish/VisibilityModal.js
 
 import { getUserFollowers } from '../../store/api.js'
+import { getUser } from '../../store/userManager.js'
+
 
 export async function openVisibilityModal(currentVisibility, onSelect) {
   // currentVisibility 可选值: 'public', 'friends', 'onlyme', 'show', 'hide'
