@@ -1,30 +1,35 @@
 // docs/components/Sidebar/Sidebar.js
-import { mountLogo } from '../Logo/Logo.js';
+import { mountLogo } from '../Logo/Logo.js'
+import { subscribe as subscribeUser } from '../../store/userManager.js'
+import {
+  subscribeSystemMessages,
+  getUnreadCount
+} from '../../store/systemMessageStore.js'
 
-const baseURL = new URL('.', import.meta.url);
+const baseURL = new URL('.', import.meta.url)
 
 export async function mountSidebar(container) {
-  if (!container) return;
+  if (!container) return
 
   // 加载 Sidebar HTML
-  const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text());
-  container.innerHTML = html;
+  const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text())
+  container.innerHTML = html
 
   // 加载 CSS
-  loadCSS(new URL('Sidebar.css', baseURL));
+  loadCSS(new URL('Sidebar.css', baseURL))
 
   // 挂载 Logo
-  const topEl = document.getElementById('sidebar-top');
-  if (topEl) mountLogo(topEl);
+  const topEl = document.getElementById('sidebar-top')
+  if (topEl) mountLogo(topEl)
 
   // 初始化导航
-  mountNavItems();
+  mountNavItems()
 
   // 初始化底部功能（More / App）
-  mountSidebarBottom();
+  mountSidebarBottom()
 
   // 监听 sidebar:navigate 事件（保留）
-  window.addEventListener('sidebar:navigate', onSidebarNavigate);
+  window.addEventListener('sidebar:navigate', onSidebarNavigate)
 }
 
 /* =========================
@@ -32,31 +37,31 @@ export async function mountSidebar(container) {
 ========================= */
 
 function mountNavItems() {
-  mountNavItem('#nav-home', 'home');
-  mountNavItem('#nav-market', 'market');
-  mountNavItem('#nav-publish', 'publish');
-  mountNavItem('#nav-messages', 'messages');
-  mountNavItem('#nav-profile', 'profile');
+  mountNavItem('#nav-home', 'home')
+  mountNavItem('#nav-market', 'market')
+  mountNavItem('#nav-publish', 'publish')
+  mountMessagesNav('#nav-messages') // ⭐ Messages 单独处理
+  mountNavItem('#nav-profile', 'profile')
 }
 
 async function mountNavItem(selector, page) {
-  const target = document.querySelector(selector);
-  if (!target) return;
+  const target = document.querySelector(selector)
+  if (!target) return
 
   switch (page) {
     case 'home': {
-      const { mountNavHome } = await import(new URL('../NavHome/NavHome.js', baseURL));
-      mountNavHome(target);
-      target.addEventListener('click', () => loadMainPage('home'));
-      target.click();
-      break;
+      const { mountNavHome } = await import(new URL('../NavHome/NavHome.js', baseURL))
+      mountNavHome(target)
+      target.addEventListener('click', () => loadMainPage('home'))
+      target.click()
+      break
     }
 
     case 'market': {
-      const { mountNavMarket } = await import(new URL('../NavMarket/NavMarket.js', baseURL));
-      mountNavMarket(target);
-      target.addEventListener('click', () => loadMainPage('market'));
-      break;
+      const { mountNavMarket } = await import(new URL('../NavMarket/NavMarket.js', baseURL))
+      mountNavMarket(target)
+      target.addEventListener('click', () => loadMainPage('market'))
+      break
     }
 
     case 'publish': {
@@ -64,29 +69,14 @@ async function mountNavItem(selector, page) {
         target.innerHTML = `
           <span class="material-symbols-outlined nav-icon">publish</span>
           <span class="nav-label">Publish</span>
-        `;
+        `
       }
 
       target.addEventListener('click', async () => {
-        await loadMainPage('publish');
-        updateActiveNav('publish');
-      });
-      break;
-    }
-
-    case 'messages': {
-      if (!target.innerHTML) {
-        target.innerHTML = `
-          <span class="material-symbols-outlined nav-icon">message</span>
-          <span class="nav-label">Messages</span>
-        `;
-      }
-
-      target.addEventListener('click', async () => {
-        await loadMainPage('messages');
-        updateActiveNav('messages');
-      });
-      break;
+        await loadMainPage('publish')
+        updateActiveNav('publish')
+      })
+      break
     }
 
     case 'profile': {
@@ -94,19 +84,64 @@ async function mountNavItem(selector, page) {
         target.innerHTML = `
           <span class="material-symbols-outlined nav-icon">person</span>
           <span class="nav-label">Profile</span>
-        `;
+        `
       }
 
       target.addEventListener('click', async () => {
-        await loadMainPage('profile');
-        updateActiveNav('profile');
-      });
-      break;
+        await loadMainPage('profile')
+        updateActiveNav('profile')
+      })
+      break
     }
 
     default:
-      console.warn('未处理的导航项:', page);
+      console.warn('未处理的导航项:', page)
   }
+}
+
+/* =========================
+   Messages Nav（未读数增强）
+========================= */
+
+function mountMessagesNav(selector) {
+  const target = document.querySelector(selector)
+  if (!target) return
+
+  // 初始化 DOM（保留你原有结构 + badge）
+  if (!target.innerHTML) {
+    target.innerHTML = `
+      <span class="material-symbols-outlined nav-icon">message</span>
+      <span class="nav-label">Messages</span>
+      <span class="nav-badge" style="display:none;"></span>
+    `
+  }
+
+  const badge = target.querySelector('.nav-badge')
+
+  // 点击行为（与你原逻辑一致）
+  target.addEventListener('click', async () => {
+    await loadMainPage('messages')
+    updateActiveNav('messages')
+  })
+
+  // 用户登录 / 登出
+  subscribeUser(user => {
+    if (!user) {
+      badge.style.display = 'none'
+    }
+  })
+
+  // 消息未读订阅
+  subscribeSystemMessages(() => {
+    const count = getUnreadCount()
+
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count
+      badge.style.display = 'inline-flex'
+    } else {
+      badge.style.display = 'none'
+    }
+  })
 }
 
 /* =========================
@@ -114,36 +149,36 @@ async function mountNavItem(selector, page) {
 ========================= */
 
 async function mountSidebarBottom() {
-  const moreBtn = document.getElementById('nav-more');
-  const appBtn = document.getElementById('nav-app-download');
+  const moreBtn = document.getElementById('nav-more')
+  const appBtn = document.getElementById('nav-app-download')
 
   // More：弹出菜单
   if (moreBtn) {
     try {
-      const { mountMore } = await import(new URL('../More/More.js', baseURL));
-      mountMore(document.body, moreBtn);
+      const { mountMore } = await import(new URL('../More/More.js', baseURL))
+      mountMore(document.body, moreBtn)
     } catch (err) {
-      console.error('加载 More 菜单失败:', err);
+      console.error('加载 More 菜单失败:', err)
     }
   }
 
   // App Download：跳转下载页
   if (appBtn) {
     appBtn.addEventListener('click', async () => {
-      const mainRoot = document.getElementById('main-root');
-      if (!mainRoot) return;
+      const mainRoot = document.getElementById('main-root')
+      if (!mainRoot) return
 
-      mainRoot.innerHTML = '';
+      mainRoot.innerHTML = ''
 
       try {
         const { mountAppDownload } = await import(
           new URL('../AppDownload/AppDownload.js', baseURL)
-        );
-        mountAppDownload(mainRoot);
+        )
+        mountAppDownload(mainRoot)
       } catch (err) {
-        console.error('加载 App 下载页面失败:', err);
+        console.error('加载 App 下载页面失败:', err)
       }
-    });
+    })
   }
 }
 
@@ -152,55 +187,55 @@ async function mountSidebarBottom() {
 ========================= */
 
 function onSidebarNavigate(e) {
-  const { page } = e.detail || {};
-  if (!page) return;
-  loadMainPage(page);
-  updateActiveNav(page);
+  const { page } = e.detail || {}
+  if (!page) return
+  loadMainPage(page)
+  updateActiveNav(page)
 }
 
 async function loadMainPage(page) {
-  const mainRoot = document.getElementById('main-root');
-  if (!mainRoot) return;
+  const mainRoot = document.getElementById('main-root')
+  if (!mainRoot) return
 
-  mainRoot.innerHTML = '';
+  mainRoot.innerHTML = ''
 
   try {
     switch (page) {
       case 'home': {
-        const { mountHome } = await import(new URL('../Home/Home.js', baseURL));
-        mountHome(mainRoot);
-        break;
+        const { mountHome } = await import(new URL('../Home/Home.js', baseURL))
+        mountHome(mainRoot)
+        break
       }
 
       case 'market': {
-        const { mountMarket } = await import(new URL('../Market/Market.js', baseURL));
-        mountMarket(mainRoot);
-        break;
+        const { mountMarket } = await import(new URL('../Market/Market.js', baseURL))
+        mountMarket(mainRoot)
+        break
       }
 
       case 'publish': {
-        const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL));
-        mountPublish(mainRoot);
-        break;
+        const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL))
+        mountPublish(mainRoot)
+        break
       }
 
       case 'messages': {
-        const { mountMessages } = await import(new URL('../Messages/Messages.js', baseURL));
-        mountMessages(mainRoot);
-        break;
+        const { mountMessages } = await import(new URL('../Messages/Messages.js', baseURL))
+        mountMessages(mainRoot)
+        break
       }
 
       case 'profile': {
-        const { mountProfile } = await import(new URL('../Profile/Profile.js', baseURL));
-        mountProfile(mainRoot);
-        break;
+        const { mountProfile } = await import(new URL('../Profile/Profile.js', baseURL))
+        mountProfile(mainRoot)
+        break
       }
 
       default:
-        console.warn('未实现的页面:', page);
+        console.warn('未实现的页面:', page)
     }
   } catch (err) {
-    console.error(`加载 ${page} 页面失败:`, err);
+    console.error(`加载 ${page} 页面失败:`, err)
   }
 }
 
@@ -209,18 +244,18 @@ async function loadMainPage(page) {
 ========================= */
 
 function updateActiveNav(activePage) {
-  const navItems = document.querySelectorAll('.nav-item[data-page]');
+  const navItems = document.querySelectorAll('.nav-item[data-page]')
   navItems.forEach(item => {
-    const page = item.dataset.page;
-    item.classList.toggle('active', page === activePage);
-  });
+    const page = item.dataset.page
+    item.classList.toggle('active', page === activePage)
+  })
 }
 
 function loadCSS(href) {
-  const url = href.toString();
-  if (document.querySelector(`link[href="${url}"]`)) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = url;
-  document.head.appendChild(link);
+  const url = href.toString()
+  if (document.querySelector(`link[href="${url}"]`)) return
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = url
+  document.head.appendChild(link)
 }
