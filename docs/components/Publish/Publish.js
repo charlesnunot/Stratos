@@ -4,7 +4,7 @@ import { createNormalPost, createProductPost } from '../../store/postApi.js'
 import { openFriendsModal } from './FriendsModal.js'
 import { openLocationModal } from './LocationModal.js'
 import { openVisibilityModal } from './VisibilityModal.js'
-import { getUserFollowers } from '../../store/api.js'
+import { getUserFollowers, uploadImagesWeb } from '../../store/api.js'
 
 const baseURL = new URL('.', import.meta.url)
 
@@ -52,19 +52,9 @@ export async function mountPublish(container) {
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
 
-    // -----------------------------
-    // 通用工具栏逻辑
-    // -----------------------------
     const toolsState = await setupPostTools(contentArea)
-
-    // -----------------------------
-    // Tags 输入
-    // -----------------------------
     setupTagInput(tagsInput, tagsDisplay)
 
-    // -----------------------------
-    // 图片逻辑
-    // -----------------------------
     let selectedFiles = []
     addCard.addEventListener('click', () => imageInput.click())
     imageInput.addEventListener('change', () => {
@@ -72,72 +62,58 @@ export async function mountPublish(container) {
       renderPreviews(selectedFiles, contentArea.querySelector('#normal-preview'))
     })
 
-    // -----------------------------
-    // 提交
-    // -----------------------------
     submitBtn.addEventListener('click', async () => {
-  const user = getUser()
-  if (!user) {
-    feedback.textContent = 'Please login first.'
-    feedback.style.color = 'red'
-    return
-  }
+      const user = getUser()
+      if (!user) {
+        feedback.textContent = 'Please login first.'
+        feedback.style.color = 'red'
+        return
+      }
 
-  const content = textarea?.value.trim() || ''
-  const tags = Array.from(tagsDisplay.children).map(t => t.textContent)
-  const location = toolsState.getSelectedLocation()
-  const visibility = toolsState.getCurrentVisibility()
-  const visibleTo = toolsState.getVisibilityUsers()
+      const content = textarea?.value.trim() || ''
+      const tags = Array.from(tagsDisplay.children).map(t => t.textContent)
+      const location = toolsState.getSelectedLocation()
+      const visibility = toolsState.getCurrentVisibility()
+      const visibleTo = toolsState.getVisibilityUsers()
 
-  if (!content && !productData?.title) {
-    feedback.textContent = 'Content cannot be empty'
-    feedback.style.color = 'red'
-    return
-  }
+      if (!content) {
+        feedback.textContent = 'Content cannot be empty'
+        feedback.style.color = 'red'
+        return
+      }
 
-  feedback.textContent = 'Publishing post...'
-  feedback.style.color = 'blue'
+      feedback.textContent = 'Publishing post...'
+      feedback.style.color = 'blue'
 
-  try {
-    // 🔹 上传图片
-    const imageUrls = await uploadImagesWeb(selectedFiles, p => {
-      feedback.textContent = `Uploading images... ${Math.round(p*100)}%`
+      try {
+        const imageUrls = await uploadImagesWeb(selectedFiles, p => {
+          feedback.textContent = `Uploading images... ${Math.round(p*100)}%`
+        })
+
+        const postPayload = {
+          content,
+          tags,
+          images: imageUrls,
+          location,
+          visibility,
+          show_to_users: visibleTo
+        }
+
+        await createNormalPost(postPayload)
+        feedback.textContent = 'Post published!'
+        feedback.style.color = 'green'
+        textarea.value = ''
+        tagsDisplay.innerHTML = ''
+        renderPreviews([], contentArea.querySelector('#normal-preview'))
+        selectedFiles = []
+
+      } catch (err) {
+        console.error(err)
+        feedback.textContent = 'Failed to publish post'
+        feedback.style.color = 'red'
+      }
     })
-
-    // 🔹 构建发布数据
-    const postPayload = {
-      content,
-      tags,
-      images: imageUrls,
-      location,
-      visibility,
-      show_to_users: visibleTo
-    }
-
-    if (isProductPost) {
-      Object.assign(postPayload, productData, { images: imageUrls, show_to_users: visibleTo })
-      await createProductPost(postPayload)
-      feedback.textContent = 'Product published!'
-      clearProductForm(contentArea, tagsDisplay)
-      renderPreviews([], contentArea.querySelector('#product-preview'))
-    } else {
-      await createNormalPost(postPayload)
-      feedback.textContent = 'Post published!'
-      textarea.value = ''
-      tagsDisplay.innerHTML = ''
-      renderPreviews([], contentArea.querySelector('#normal-preview'))
-    }
-
-    feedback.style.color = 'green'
-    selectedFiles = []
-
-  } catch (err) {
-    console.error(err)
-    feedback.textContent = 'Failed to publish post'
-    feedback.style.color = 'red'
   }
-})
-
 
   // =========================================================
   // 产品帖子
@@ -154,11 +130,7 @@ export async function mountPublish(container) {
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
 
-    // -----------------------------
-    // 通用工具栏逻辑
-    // -----------------------------
     const toolsState = await setupPostTools(contentArea)
-
     setupTagInput(tagsInput, tagsDisplay)
 
     let selectedFiles = []
@@ -210,7 +182,7 @@ export async function mountPublish(container) {
         feedback.style.color = 'green'
         clearProductForm(contentArea, tagsDisplay)
         selectedFiles = []
-        renderPreviews(selectedFiles, contentArea.querySelector('#product-preview'))
+        renderPreviews([], contentArea.querySelector('#product-preview'))
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish product'
@@ -232,7 +204,6 @@ async function setupPostTools(container) {
   let currentVisibility = 'public'
   let visibilityUsers = []
 
-  // Location 容器
   const locationContainer = document.createElement('div')
   locationContainer.style.cssText = `
     margin-top:8px;
@@ -268,14 +239,12 @@ async function setupPostTools(container) {
     locationContainer.appendChild(tag)
   }
 
-  // @Friends
   toolFriends.addEventListener('click', async () => {
     const user = getUser()
     if (!user) return alert('Please login first')
     openFriendsModal(await getUserFollowers(user.id))
   })
 
-  // Location
   toolLocation.addEventListener('click', () => {
     openLocationModal(loc => {
       selectedLocation = loc
@@ -283,7 +252,6 @@ async function setupPostTools(container) {
     })
   })
 
-  // Visibility
   toolVisibility.addEventListener('click', async () => {
     openVisibilityModal(currentVisibility, result => {
       currentVisibility = result.type
