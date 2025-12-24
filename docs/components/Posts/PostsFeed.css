@@ -9,21 +9,20 @@
   gap: 12px;
   padding: 8px;
   background: #f9f9f9;
-  justify-content: flex-start;
+  align-items: flex-start; /* 👈 防止高度拉伸 */
 }
 
 /* =========================
    单个帖子卡片（桌面 5 列）
    ========================= */
 .post {
-  /* ⚠️ 关键：禁止 flex 自动拉伸 */
   flex: 0 0 calc(20% - 12px);
   max-width: calc(20% - 12px);
   box-sizing: border-box;
 
   background: #fff;
   border-radius: 12px;
-  overflow: hidden; /* 图片裁剪关键 */
+  overflow: hidden;
 
   display: flex;
   flex-direction: column;
@@ -35,26 +34,21 @@
 
 .post:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 /* =========================
-   图片区域（高度稳定核心）
+   图片区域（正方形 · 终极稳定）
    ========================= */
 .post-image {
   width: 100%;
-
-  /* ✅ 图片高度 = 卡片宽度 × 比例 */
-  aspect-ratio: 4 / 5;
-
-  /* ✅ 禁止被 flex 内容影响高度 */
-  flex-shrink: 0;
+  aspect-ratio: 1 / 1;     /* ✅ 正方形 */
+  flex-shrink: 0;          /* ✅ 不参与高度计算 */
 
   position: relative;
   overflow: hidden;
-  background: #eee;
+  background: #eaeaea;
 
-  /* 只保留顶部圆角 */
   border-radius: 12px 12px 0 0;
 }
 
@@ -75,12 +69,11 @@
   gap: 6px;
 }
 
-/* 标题 */
-.post-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin: 0;
-  color: #222;
+/* 描述（2 行） */
+.post-excerpt {
+  font-size: 0.85rem;
+  color: #333;
+  line-height: 1.4;
 
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -88,49 +81,77 @@
   overflow: hidden;
 }
 
-/* 作者 / 时间 */
-.post-meta {
+/* =========================
+   作者行
+   ========================= */
+.post-author-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.post-author-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.post-author-info img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.post-author-name {
   font-size: 0.8rem;
-  color: #777;
-}
-
-/* 正文 / 描述 */
-.post-excerpt {
-  font-size: 0.85rem;
-  color: #333;
-  line-height: 1.45;
-
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  word-break: break-word;
-}
-
-/* 商品信息强调 */
-.post-excerpt strong {
-  color: #d9534f;
-}
-
-.post-excerpt span {
-  margin-left: 6px;
-  color: #555;
+  color: #222;
   font-weight: 500;
+}
+
+.post-follow {
+  font-size: 0.75rem;
+  color: #1da1f2;
+}
+
+/* =========================
+   Hover 互动层（Instagram 风）
+   ========================= */
+.post-hover-actions {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.post-hover-actions span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.post:hover .post-hover-actions {
+  opacity: 1;
 }
 
 /* =========================
    响应式
    ========================= */
 
-/* 手机 / 小平板：2 列 */
+/* 平板 / 手机：2 列 */
 @media (max-width: 768px) {
   .post {
     flex: 0 0 calc(50% - 12px);
     max-width: calc(50% - 12px);
-  }
-
-  .post-image {
-    aspect-ratio: 3 / 4; /* 📱 手机竖图更合理 */
   }
 }
 
