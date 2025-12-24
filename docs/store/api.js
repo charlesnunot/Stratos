@@ -224,7 +224,7 @@ export async function uploadImagesWeb(files, onProgress) {
   const CLOUDINARY_CLOUD_NAME = 'dpgkgtb5n'
   const CLOUDINARY_UPLOAD_PRESET = 'rn_unsigned'
 
-  const limitedFiles = Array.from(files).slice(0, 4) // 限制最多上传 4 张
+  const limitedFiles = Array.from(files).slice(0, 4)
   const uploadedUrls = []
 
   for (let i = 0; i < limitedFiles.length; i++) {
@@ -241,25 +241,20 @@ export async function uploadImagesWeb(files, onProgress) {
       const result = await res.json()
       if (res.ok && result.secure_url) {
         uploadedUrls.push(result.secure_url)
-      } else {
-        console.error('Cloudinary 上传失败:', result)
       }
     } catch (err) {
       console.error('上传图片失败:', err)
     }
 
-    // 调用进度回调
     if (onProgress) {
       onProgress((i + 1) / limitedFiles.length)
     }
   }
 
-  /**
- * 获取用户粉丝列表（followers）
- * @param {string} uid 被关注用户 ID
- * @param {number} limit
- * @param {number} offset
- */
+  return uploadedUrls
+}
+
+
 export async function getUserFollowers(uid, limit = 20, offset = 0) {
   if (!uid) return []
 
@@ -287,22 +282,16 @@ export async function getUserFollowers(uid, limit = 20, offset = 0) {
       return []
     }
 
-    // 整理返回结构
     return (data || []).map(item => ({
       uid: item.follower_id,
       username: item.user_profiles?.username || 'Unknown',
       bio: item.user_profiles?.bio || '',
-      avatar_url:
-        item.user_avatars?.avatar_url || DEFAULT_AVATAR,
+      avatar_url: item.user_avatars?.avatar_url || DEFAULT_AVATAR,
       followed_at: item.created_at
     }))
   } catch (err) {
     console.error('[API] getUserFollowers ❌ exception', err)
     return []
   }
-}
-
-
-  return uploadedUrls
 }
 
