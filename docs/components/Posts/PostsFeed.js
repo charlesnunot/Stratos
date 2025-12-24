@@ -28,14 +28,10 @@ function createPostCard(post) {
   /* ========= 图片 ========= */
   const images = post.images || post.product_posts?.images || [];
   const imageHTML = images.length
-    ? `
-      <div class="post-image-wrapper">
-        <img src="${images[0]}" alt="post image" />
-      </div>
-    `
+    ? `<div class="post-image"><img src="${images[0]}" alt="post image" /></div>`
     : '';
 
-  /* ========= 内容（2 行） ========= */
+  /* ========= 内容（2行） ========= */
   let excerpt = post.content || '';
   if (post.type === 'product' && post.product_posts) {
     const p = post.product_posts;
@@ -55,15 +51,15 @@ function createPostCard(post) {
   card.innerHTML = `
     ${imageHTML}
 
-    <p class="post-excerpt">${excerpt}</p>
+    <div class="post-content">
+      <p class="post-excerpt">${excerpt}</p>
 
-    <div class="post-author-row">
-      <div class="post-author-info">
-        <img src="${avatar}" />
-        <span class="post-author-name">${author}</span>
-      </div>
-      <div class="post-follow">
-        关注 ${followCount}
+      <div class="post-author-row">
+        <div class="post-author-info">
+          <img src="${avatar}" alt="avatar" />
+          <span class="post-author-name">${author}</span>
+        </div>
+        <div class="post-follow">关注 ${followCount}</div>
       </div>
     </div>
 
@@ -83,8 +79,14 @@ function createPostCard(post) {
     </div>
   `;
 
+  // 悬浮显示互动
+  const overlay = card.querySelector('.post-hover-actions');
+  card.addEventListener('mouseenter', () => overlay.style.opacity = '1');
+  card.addEventListener('mouseleave', () => overlay.style.opacity = '0');
+
   return card;
 }
+
 
 
 function loadCSS(href) {
