@@ -8,22 +8,36 @@ import {
 
 const baseURL = new URL('.', import.meta.url)
 
+// =========================
+// 主函数：挂载 Sidebar
+// =========================
 export async function mountSidebar(container) {
   if (!container) return
 
+  // 加载 HTML
   const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text())
   container.innerHTML = html
 
+  // 加载 CSS
   loadCSS(new URL('Sidebar.css', baseURL))
 
+  // 挂载 Logo
   const topEl = document.getElementById('sidebar-top')
   if (topEl) mountLogo(topEl)
 
+  // 挂载导航项
   mountNavItems()
+
+  // 挂载底部按钮
   mountSidebarBottom()
+
+  // 监听自定义导航事件
   window.addEventListener('sidebar:navigate', onSidebarNavigate)
 }
 
+// =========================
+// 挂载导航项
+// =========================
 function mountNavItems() {
   mountNavItem('#nav-home', 'home')
   mountNavItem('#nav-market', 'market')
@@ -44,14 +58,12 @@ async function mountNavItem(selector, page) {
       target.click()
       break
     }
-
     case 'market': {
       const { mountNavMarket } = await import(new URL('../NavMarket/NavMarket.js', baseURL))
       mountNavMarket(target)
       target.addEventListener('click', () => loadMainPage('market'))
       break
     }
-
     case 'publish': {
       if (!target.innerHTML) {
         target.innerHTML = `
@@ -59,14 +71,12 @@ async function mountNavItem(selector, page) {
           <span class="nav-label">Publish</span>
         `
       }
-
       target.addEventListener('click', async () => {
         await loadMainPage('publish')
         updateActiveNav('publish')
       })
       break
     }
-
     case 'profile': {
       if (!target.innerHTML) {
         target.innerHTML = `
@@ -74,19 +84,20 @@ async function mountNavItem(selector, page) {
           <span class="nav-label">Profile</span>
         `
       }
-
       target.addEventListener('click', async () => {
         await loadMainPage('profile')
         updateActiveNav('profile')
       })
       break
     }
-
     default:
       console.warn('未处理的导航项:', page)
   }
 }
 
+// =========================
+// Messages 导航
+// =========================
 function mountMessagesNav(selector) {
   const target = document.querySelector(selector)
   if (!target) return
@@ -117,6 +128,9 @@ function mountMessagesNav(selector) {
   })
 }
 
+// =========================
+// 底部功能按钮
+// =========================
 async function mountSidebarBottom() {
   const moreBtn = document.getElementById('nav-more')
   const appBtn = document.getElementById('nav-app-download')
@@ -149,6 +163,9 @@ async function mountSidebarBottom() {
   }
 }
 
+// =========================
+// 页面加载逻辑
+// =========================
 async function loadMainPage(page) {
   const mainRoot = document.getElementById('main-root')
   if (!mainRoot) return
@@ -168,7 +185,7 @@ async function loadMainPage(page) {
         break
       }
       case 'publish': {
-        const { mountPublish } = await import(new URL('../../Publish/Publish.js', baseURL))
+        const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL))
         mountPublish(mainRoot)
         break
       }
@@ -190,6 +207,19 @@ async function loadMainPage(page) {
   }
 }
 
+// =========================
+// Sidebar 自定义事件处理
+// =========================
+function onSidebarNavigate(e) {
+  const { page } = e.detail || {}
+  if (!page) return
+  loadMainPage(page)
+  updateActiveNav(page)
+}
+
+// =========================
+// 工具函数
+// =========================
 function updateActiveNav(activePage) {
   document.querySelectorAll('.nav-item[data-page]').forEach(item => {
     const page = item.dataset.page
