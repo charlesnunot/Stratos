@@ -2,6 +2,8 @@
 import { getCurrentUser, onAuthChange } from './supabase.js'
 import { setUser, clearUser } from './userManager.js'
 import { getUserProfile, getUserAvatar , getUserStats} from './api.js'
+import { initSystemMessages } from './systemMessageBootstrap.js'
+
 
 // 全局事件容器
 const events = {}
@@ -50,6 +52,7 @@ export async function initAuthSubscribers() {
     const enhancedUser = await buildEnhancedUser(authUser)
     setUser(enhancedUser)
     publish('userChange', enhancedUser)
+    initSystemMessages(enhancedUser) 
   } else {
     clearUser()
     publish('userChange', null)
@@ -61,6 +64,7 @@ export async function initAuthSubscribers() {
       const enhancedUser = await buildEnhancedUser(session.user)
       setUser(enhancedUser)
       publish('userChange', enhancedUser)
+      initSystemMessages(enhancedUser)
     }
 
     if (event === 'SIGNED_OUT') {
