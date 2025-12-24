@@ -76,43 +76,68 @@ export async function mountPublish(container) {
     // 提交
     // -----------------------------
     submitBtn.addEventListener('click', async () => {
-      const user = getUser()
-      if (!user) {
-        feedback.textContent = 'Please login first.'
-        feedback.style.color = 'red'
-        return
-      }
-
-      const content = textarea.value.trim()
-      const tags = Array.from(tagsDisplay.children).map(t => t.textContent)
-      const location = toolsState.getSelectedLocation()
-      const visibility = toolsState.getCurrentVisibility()
-      const visibleTo = toolsState.getVisibilityUsers()
-
-      if (!content) {
-        feedback.textContent = 'Content cannot be empty'
-        feedback.style.color = 'red'
-        return
-      }
-
-      feedback.textContent = 'Publishing post...'
-      feedback.style.color = 'blue'
-
-      try {
-        await createNormalPost({ content, tags, images: selectedFiles, location, visibility, visibleTo })
-        feedback.textContent = 'Post published!'
-        feedback.style.color = 'green'
-        textarea.value = ''
-        tagsDisplay.innerHTML = ''
-        selectedFiles = []
-        renderPreviews(selectedFiles, contentArea.querySelector('#normal-preview'))
-      } catch (err) {
-        console.error(err)
-        feedback.textContent = 'Failed to publish post'
-        feedback.style.color = 'red'
-      }
-    })
+  const user = getUser()
+  if (!user) {
+    feedback.textContent = 'Please login first.'
+    feedback.style.color = 'red'
+    return
   }
+
+  const content = textarea?.value.trim() || ''
+  const tags = Array.from(tagsDisplay.children).map(t => t.textContent)
+  const location = toolsState.getSelectedLocation()
+  const visibility = toolsState.getCurrentVisibility()
+  const visibleTo = toolsState.getVisibilityUsers()
+
+  if (!content && !productData?.title) {
+    feedback.textContent = 'Content cannot be empty'
+    feedback.style.color = 'red'
+    return
+  }
+
+  feedback.textContent = 'Publishing post...'
+  feedback.style.color = 'blue'
+
+  try {
+    // 🔹 上传图片
+    const imageUrls = await uploadImagesWeb(selectedFiles, p => {
+      feedback.textContent = `Uploading images... ${Math.round(p*100)}%`
+    })
+
+    // 🔹 构建发布数据
+    const postPayload = {
+      content,
+      tags,
+      images: imageUrls,
+      location,
+      visibility,
+      show_to_users: visibleTo
+    }
+
+    if (isProductPost) {
+      Object.assign(postPayload, productData, { images: imageUrls, show_to_users: visibleTo })
+      await createProductPost(postPayload)
+      feedback.textContent = 'Product published!'
+      clearProductForm(contentArea, tagsDisplay)
+      renderPreviews([], contentArea.querySelector('#product-preview'))
+    } else {
+      await createNormalPost(postPayload)
+      feedback.textContent = 'Post published!'
+      textarea.value = ''
+      tagsDisplay.innerHTML = ''
+      renderPreviews([], contentArea.querySelector('#normal-preview'))
+    }
+
+    feedback.style.color = 'green'
+    selectedFiles = []
+
+  } catch (err) {
+    console.error(err)
+    feedback.textContent = 'Failed to publish post'
+    feedback.style.color = 'red'
+  }
+})
+
 
   // =========================================================
   // 产品帖子
