@@ -1,6 +1,6 @@
+// docs/components/Publish/Publish.js
 import { getUser } from '../../store/userManager.js'
-
-import { createNormalPost, createProductPost, uploadImagesWeb } from '../store/postApi.js'
+import { createNormalPost, createProductPost, uploadImagesWeb } from '../../store/postApi.js'
 
 const baseURL = new URL('.', import.meta.url)
 
@@ -29,9 +29,7 @@ export async function mountPublish(container) {
     loadProductPost()
   })
 
-  // ------------------------
   // 普通帖子
-  // ------------------------
   async function loadNormalPost() {
     const html = await fetch(new URL('NormalPost.html', baseURL)).then(res => res.text())
     contentArea.innerHTML = html
@@ -40,7 +38,7 @@ export async function mountPublish(container) {
     const textarea = contentArea.querySelector('#normal-content')
     const submitBtn = contentArea.querySelector('#normal-submit')
     const feedback = contentArea.querySelector('#normal-feedback')
-    const imageInput = contentArea.querySelector('#normal-images') // 新增文件选择 input
+    const imageInput = contentArea.querySelector('#normal-images')
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
 
@@ -84,9 +82,7 @@ export async function mountPublish(container) {
     })
   }
 
-  // ------------------------
   // 产品帖子
-  // ------------------------
   async function loadProductPost() {
     const html = await fetch(new URL('ProductPost.html', baseURL)).then(res => res.text())
     contentArea.innerHTML = html
@@ -94,7 +90,7 @@ export async function mountPublish(container) {
 
     const submitBtn = contentArea.querySelector('#product-submit')
     const feedback = contentArea.querySelector('#product-feedback')
-    const imageInput = contentArea.querySelector('#product-images') // 新增文件选择 input
+    const imageInput = contentArea.querySelector('#product-images')
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
 
@@ -146,9 +142,6 @@ export async function mountPublish(container) {
     })
   }
 
-  // ------------------------
-  // 工具函数
-  // ------------------------
   function setupTagInput(inputEl, displayEl) {
     inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && inputEl.value.trim()) {
@@ -172,7 +165,6 @@ export async function mountPublish(container) {
   }
 }
 
-// 动态加载 CSS
 function loadCSS(href) {
   const url = href.toString()
   if (document.querySelector(`link[href="${url}"]`)) return
