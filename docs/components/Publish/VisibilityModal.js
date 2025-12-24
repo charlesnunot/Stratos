@@ -1,13 +1,13 @@
 // docs/components/Publish/VisibilityModal.js
-
+import { getUser } from '../../store/userManager.js'  // 修复未定义报错
 import { getUserFollowers } from '../../store/api.js'
-import { getUser } from '../../store/userManager.js'
 
-
+/**
+ * 打开选择帖子可见性的弹窗
+ * @param {'public'|'friends'|'onlyme'|'show'|'hide'} currentVisibility
+ * @param {(selection: {type: string, users?: string[]}) => void} onSelect
+ */
 export async function openVisibilityModal(currentVisibility, onSelect) {
-  // currentVisibility 可选值: 'public', 'friends', 'onlyme', 'show', 'hide'
-  // onSelect({ type: 'public'|'friends'|'onlyme'|'show'|'hide', users?: [] })
-
   const modal = document.createElement('div')
   modal.style.cssText = `
     position:fixed;
@@ -29,7 +29,7 @@ export async function openVisibilityModal(currentVisibility, onSelect) {
     flex-direction:column;
   `
 
-  // ---------------- Header ----------------
+  // Header
   const header = document.createElement('div')
   header.style.cssText = `
     padding:12px;
@@ -38,7 +38,7 @@ export async function openVisibilityModal(currentVisibility, onSelect) {
   `
   header.textContent = 'Select Visibility'
 
-  // ---------------- Content ----------------
+  // Content
   const content = document.createElement('div')
   content.style.cssText = `
     display:flex;
@@ -103,9 +103,9 @@ export async function openVisibilityModal(currentVisibility, onSelect) {
   document.body.appendChild(modal)
 }
 
-// ===========================
+// ======================================
 // 粉丝多选弹窗
-// ===========================
+// ======================================
 function openFriendsSelector(followers, type, callback) {
   const modal = document.createElement('div')
   modal.style.cssText = `
@@ -205,4 +205,3 @@ function openFriendsSelector(followers, type, callback) {
 
   document.body.appendChild(modal)
 }
-
