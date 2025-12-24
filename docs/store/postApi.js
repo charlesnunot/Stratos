@@ -1,6 +1,6 @@
 // docs/store/postApi.js
 
-import { supabase } from './supabaseClient.js'; // 已配置 Supabase client
+import { supabase } from './supabase.js'
 
 // 1️⃣ 创建基础帖子（返回 post id）
 export async function createPost({ type, content, images, tags, visibility = 'public', location = null }) {
