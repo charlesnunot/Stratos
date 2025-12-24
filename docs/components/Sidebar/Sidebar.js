@@ -6,8 +6,7 @@ import {
   getUnreadCount
 } from '../../store/systemMessageStore.js'
 
-// const baseURL = new URL('.', import.meta.url)
-const baseURL = new URL('../../', import.meta.url) 
+const baseURL = new URL('.', import.meta.url)
 
 export async function mountSidebar(container) {
   if (!container) return
@@ -215,8 +214,7 @@ async function loadMainPage(page) {
       }
 
       case 'publish': {
-        // const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL))
-        const { mountPublish } = await import(new URL('components/Publish/Publish.js', baseURL))
+        const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL))
 
         mountPublish(mainRoot)
         break
