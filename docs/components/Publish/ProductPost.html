@@ -52,27 +52,3 @@
   </div>
 
 </div>
-
-<script>
-  const addCard = document.querySelector('.image-add-card');
-  const fileInput = document.querySelector('#product-images');
-  const previewContainer = document.querySelector('#product-preview');
-
-  addCard.addEventListener('click', () => fileInput.click());
-
-  fileInput.addEventListener('change', () => {
-    previewContainer.innerHTML = '';
-    const files = fileInput.files;
-    if (!files) return;
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        const img = document.createElement('img');
-        img.src = e.target.result;
-        img.className = 'preview-img';
-        previewContainer.appendChild(img);
-      };
-      reader.readAsDataURL(file);
-    });
-  });
-</script>
