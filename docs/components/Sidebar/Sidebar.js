@@ -73,7 +73,6 @@ async function mountNavItem(selector, page) {
       }
       target.addEventListener('click', async () => {
         await loadMainPage('publish')
-        updateActiveNav('publish')
       })
       break
     }
@@ -86,7 +85,6 @@ async function mountNavItem(selector, page) {
       }
       target.addEventListener('click', async () => {
         await loadMainPage('profile')
-        updateActiveNav('profile')
       })
       break
     }
@@ -114,7 +112,6 @@ function mountMessagesNav(selector) {
 
   target.addEventListener('click', async () => {
     await loadMainPage('messages')
-    updateActiveNav('messages')
   })
 
   subscribeUser(user => {
@@ -186,7 +183,7 @@ async function loadMainPage(page) {
       }
       case 'publish': {
         const { mountPublish } = await import(new URL('../Publish/Publish.js', baseURL))
-        mountPublish(mainRoot)
+        await mountPublish(mainRoot)
         break
       }
       case 'messages': {
@@ -202,6 +199,9 @@ async function loadMainPage(page) {
       default:
         console.warn('未实现的页面:', page)
     }
+
+    // 页面加载完成后更新导航高亮
+    updateActiveNav(page)
   } catch (err) {
     console.error(`加载 ${page} 页面失败:`, err)
   }
@@ -214,7 +214,6 @@ function onSidebarNavigate(e) {
   const { page } = e.detail || {}
   if (!page) return
   loadMainPage(page)
-  updateActiveNav(page)
 }
 
 // =========================
