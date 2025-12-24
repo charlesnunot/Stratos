@@ -4,6 +4,7 @@ import { createNormalPost, createProductPost } from '../../store/postApi.js'
 import { openFriendsModal } from './FriendsModal.js'
 import { openLocationModal } from './LocationModal.js'
 import { openVisibilityModal } from './VisibilityModal.js'
+import { getUserFollowers } from '../../store/api.js'
 
 const baseURL = new URL('.', import.meta.url)
 
