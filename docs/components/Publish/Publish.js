@@ -1,4 +1,5 @@
-import { getUser } from '../store/userManager.js'
+import { getUser } from '../../store/userManager.js'
+
 import { createNormalPost, createProductPost, uploadImagesWeb } from '../store/postApi.js'
 
 const baseURL = new URL('.', import.meta.url)
