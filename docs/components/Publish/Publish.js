@@ -48,90 +48,18 @@ export async function mountPublish(container) {
     const feedback = contentArea.querySelector('#normal-feedback')
     const imageInput = contentArea.querySelector('#normal-images')
     const addCard = contentArea.querySelector('.image-add-card')
-    const previewContainer = contentArea.querySelector('#normal-preview')
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
-    const toolFriends = contentArea.querySelector('#tool-friends')
-    const toolLocation = contentArea.querySelector('#tool-location')
-    const toolVisibility = contentArea.querySelector('#tool-visibility')
 
     // -----------------------------
-    // Location
+    // 通用工具栏逻辑
     // -----------------------------
-    let selectedLocation = null
-    const locationContainer = document.createElement('div')
-    locationContainer.style.cssText = `
-      margin-top:8px;
-      display:flex;
-      gap:6px;
-      flex-wrap:wrap;
-    `
-    contentArea.querySelector('.tool-bar').after(locationContainer)
-
-    function renderLocationTag() {
-      locationContainer.innerHTML = ''
-      if (!selectedLocation) return
-
-      const tag = document.createElement('div')
-      tag.style.cssText = `
-        display:flex;
-        align-items:center;
-        gap:6px;
-        background:#eef6fd;
-        color:#1da1f2;
-        padding:4px 8px;
-        border-radius:16px;
-        font-size:13px;
-      `
-      tag.innerHTML = `
-        <span class="material-symbols-outlined" style="font-size:16px;">location_on</span>
-        <span>${selectedLocation.name}</span>
-        <span style="cursor:pointer;">×</span>
-      `
-      tag.lastChild.onclick = () => {
-        selectedLocation = null
-        renderLocationTag()
-      }
-      locationContainer.appendChild(tag)
-    }
+    const toolsState = await setupPostTools(contentArea)
 
     // -----------------------------
     // Tags 输入
     // -----------------------------
     setupTagInput(tagsInput, tagsDisplay)
-
-    // -----------------------------
-    // @Friends
-    // -----------------------------
-    toolFriends.addEventListener('click', async () => {
-      const user = getUser()
-      if (!user) return alert('Please login first')
-      openFriendsModal(await getUserFollowers(user.id), textarea)
-    })
-
-    // -----------------------------
-    // Location 弹窗
-    // -----------------------------
-    toolLocation.addEventListener('click', () => {
-      openLocationModal(loc => {
-        selectedLocation = loc
-        renderLocationTag()
-      })
-    })
-
-    // -----------------------------
-    // Visibility 弹窗
-    // -----------------------------
-    let currentVisibility = 'public'
-    let visibilityUsers = []
-
-    toolVisibility.addEventListener('click', async () => {
-      openVisibilityModal(currentVisibility, async result => {
-        currentVisibility = result.type
-        if (result.users) visibilityUsers = result.users
-        console.log('Selected visibility:', currentVisibility, 'Users:', visibilityUsers)
-      })
-    })
 
     // -----------------------------
     // 图片逻辑
@@ -140,11 +68,11 @@ export async function mountPublish(container) {
     addCard.addEventListener('click', () => imageInput.click())
     imageInput.addEventListener('change', () => {
       selectedFiles = Array.from(imageInput.files).slice(0, 4)
-      renderPreviews(selectedFiles, previewContainer)
+      renderPreviews(selectedFiles, contentArea.querySelector('#normal-preview'))
     })
 
     // -----------------------------
-    // 提交普通帖子
+    // 提交
     // -----------------------------
     submitBtn.addEventListener('click', async () => {
       const user = getUser()
@@ -153,8 +81,13 @@ export async function mountPublish(container) {
         feedback.style.color = 'red'
         return
       }
+
       const content = textarea.value.trim()
       const tags = Array.from(tagsDisplay.children).map(t => t.textContent)
+      const location = toolsState.getSelectedLocation()
+      const visibility = toolsState.getCurrentVisibility()
+      const visibleTo = toolsState.getVisibilityUsers()
+
       if (!content) {
         feedback.textContent = 'Content cannot be empty'
         feedback.style.color = 'red'
@@ -165,24 +98,13 @@ export async function mountPublish(container) {
       feedback.style.color = 'blue'
 
       try {
-        await createNormalPost({
-          content,
-          tags,
-          images: selectedFiles,
-          location: selectedLocation,
-          visibility: currentVisibility,
-          visibleTo: visibilityUsers
-        })
-
+        await createNormalPost({ content, tags, images: selectedFiles, location, visibility, visibleTo })
         feedback.textContent = 'Post published!'
         feedback.style.color = 'green'
         textarea.value = ''
         tagsDisplay.innerHTML = ''
         selectedFiles = []
-        renderPreviews(selectedFiles, previewContainer)
-        imageInput.value = ''
-        currentVisibility = 'public'
-        visibilityUsers = []
+        renderPreviews(selectedFiles, contentArea.querySelector('#normal-preview'))
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish post'
@@ -192,7 +114,7 @@ export async function mountPublish(container) {
   }
 
   // =========================================================
-  // 产品帖子逻辑
+  // 产品帖子
   // =========================================================
   async function loadProductPost() {
     const html = await fetch(new URL('ProductPost.html', baseURL)).then(res => res.text())
@@ -203,9 +125,13 @@ export async function mountPublish(container) {
     const feedback = contentArea.querySelector('#product-feedback')
     const imageInput = contentArea.querySelector('#product-images')
     const addCard = contentArea.querySelector('.image-add-card')
-    const previewContainer = contentArea.querySelector('#product-preview')
     const tagsInput = contentArea.querySelector('#post-tags')
     const tagsDisplay = contentArea.querySelector('#tags-display')
+
+    // -----------------------------
+    // 通用工具栏逻辑
+    // -----------------------------
+    const toolsState = await setupPostTools(contentArea)
 
     setupTagInput(tagsInput, tagsDisplay)
 
@@ -213,7 +139,7 @@ export async function mountPublish(container) {
     addCard.addEventListener('click', () => imageInput.click())
     imageInput.addEventListener('change', () => {
       selectedFiles = Array.from(imageInput.files).slice(0, 4)
-      renderPreviews(selectedFiles, previewContainer)
+      renderPreviews(selectedFiles, contentArea.querySelector('#product-preview'))
     })
 
     submitBtn.addEventListener('click', async () => {
@@ -223,6 +149,11 @@ export async function mountPublish(container) {
         feedback.style.color = 'red'
         return
       }
+
+      const location = toolsState.getSelectedLocation()
+      const visibility = toolsState.getCurrentVisibility()
+      const visibleTo = toolsState.getVisibilityUsers()
+
       const productData = {
         title: contentArea.querySelector('#product-title')?.value.trim(),
         description: contentArea.querySelector('#product-description')?.value.trim(),
@@ -232,29 +163,113 @@ export async function mountPublish(container) {
         link: contentArea.querySelector('#product-link')?.value.trim(),
         condition: contentArea.querySelector('#product-condition')?.value,
         tags: Array.from(tagsDisplay.children).map(t => t.textContent),
-        images: selectedFiles
+        images: selectedFiles,
+        location,
+        visibility,
+        visibleTo
       }
+
       if (!productData.title || !productData.description) {
         feedback.textContent = 'Title and description required'
         feedback.style.color = 'red'
         return
       }
+
       feedback.textContent = 'Publishing product...'
       feedback.style.color = 'blue'
+
       try {
         await createProductPost(productData)
         feedback.textContent = 'Product published!'
         feedback.style.color = 'green'
         clearProductForm(contentArea, tagsDisplay)
         selectedFiles = []
-        renderPreviews(selectedFiles, previewContainer)
-        imageInput.value = ''
+        renderPreviews(selectedFiles, contentArea.querySelector('#product-preview'))
       } catch (err) {
         console.error(err)
         feedback.textContent = 'Failed to publish product'
         feedback.style.color = 'red'
       }
     })
+  }
+}
+
+// =========================================================
+// 通用工具栏逻辑
+// =========================================================
+async function setupPostTools(container) {
+  const toolFriends = container.querySelector('#tool-friends')
+  const toolLocation = container.querySelector('#tool-location')
+  const toolVisibility = container.querySelector('#tool-visibility')
+
+  let selectedLocation = null
+  let currentVisibility = 'public'
+  let visibilityUsers = []
+
+  // Location 容器
+  const locationContainer = document.createElement('div')
+  locationContainer.style.cssText = `
+    margin-top:8px;
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  `
+  container.querySelector('.tool-bar').after(locationContainer)
+
+  function renderLocationTag() {
+    locationContainer.innerHTML = ''
+    if (!selectedLocation) return
+    const tag = document.createElement('div')
+    tag.style.cssText = `
+      display:flex;
+      align-items:center;
+      gap:6px;
+      background:#eef6fd;
+      color:#1da1f2;
+      padding:4px 8px;
+      border-radius:16px;
+      font-size:13px;
+    `
+    tag.innerHTML = `
+      <span class="material-symbols-outlined" style="font-size:16px;">location_on</span>
+      <span>${selectedLocation.name}</span>
+      <span style="cursor:pointer;">×</span>
+    `
+    tag.lastChild.onclick = () => {
+      selectedLocation = null
+      renderLocationTag()
+    }
+    locationContainer.appendChild(tag)
+  }
+
+  // @Friends
+  toolFriends.addEventListener('click', async () => {
+    const user = getUser()
+    if (!user) return alert('Please login first')
+    openFriendsModal(await getUserFollowers(user.id))
+  })
+
+  // Location
+  toolLocation.addEventListener('click', () => {
+    openLocationModal(loc => {
+      selectedLocation = loc
+      renderLocationTag()
+    })
+  })
+
+  // Visibility
+  toolVisibility.addEventListener('click', async () => {
+    openVisibilityModal(currentVisibility, result => {
+      currentVisibility = result.type
+      if (result.users) visibilityUsers = result.users
+      console.log('Selected visibility:', currentVisibility, 'Users:', visibilityUsers)
+    })
+  })
+
+  return {
+    getSelectedLocation: () => selectedLocation,
+    getCurrentVisibility: () => currentVisibility,
+    getVisibilityUsers: () => visibilityUsers
   }
 }
 
