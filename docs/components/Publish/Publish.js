@@ -7,6 +7,7 @@ const baseURL = new URL('.', import.meta.url)
 export async function mountPublish(container) {
   if (!container) return
 
+  // 加载 Publish HTML & CSS
   const html = await fetch(new URL('Publish.html', baseURL)).then(res => res.text())
   container.innerHTML = html
   loadCSS(new URL('Publish.css', baseURL))
@@ -15,6 +16,7 @@ export async function mountPublish(container) {
   const tabProduct = container.querySelector('#tab-product')
   const contentArea = container.querySelector('#publish-content-area')
 
+  // 默认加载普通帖子
   loadNormalPost()
 
   tabNormal.addEventListener('click', () => {
@@ -29,7 +31,9 @@ export async function mountPublish(container) {
     loadProductPost()
   })
 
+  // -----------------------------
   // 普通帖子
+  // -----------------------------
   async function loadNormalPost() {
     const html = await fetch(new URL('NormalPost.html', baseURL)).then(res => res.text())
     contentArea.innerHTML = html
@@ -62,7 +66,7 @@ export async function mountPublish(container) {
         return
       }
 
-      feedback.textContent = 'Uploading images...'
+      feedback.textContent = 'Publishing post...'
       feedback.style.color = 'blue'
 
       try {
@@ -80,7 +84,9 @@ export async function mountPublish(container) {
     })
   }
 
+  // -----------------------------
   // 产品帖子
+  // -----------------------------
   async function loadProductPost() {
     const html = await fetch(new URL('ProductPost.html', baseURL)).then(res => res.text())
     contentArea.innerHTML = html
@@ -121,7 +127,7 @@ export async function mountPublish(container) {
         return
       }
 
-      feedback.textContent = 'Uploading images...'
+      feedback.textContent = 'Publishing product...'
       feedback.style.color = 'blue'
 
       try {
@@ -138,6 +144,9 @@ export async function mountPublish(container) {
     })
   }
 
+  // -----------------------------
+  // 标签输入逻辑
+  // -----------------------------
   function setupTagInput(inputEl, displayEl) {
     inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && inputEl.value.trim()) {
@@ -151,6 +160,9 @@ export async function mountPublish(container) {
     })
   }
 
+  // -----------------------------
+  // 清空产品表单
+  // -----------------------------
   function clearProductForm(container, tagsDisplay) {
     const fields = ['title', 'description', 'price', 'stock', 'shipping', 'link']
     fields.forEach(key => {
@@ -161,6 +173,9 @@ export async function mountPublish(container) {
   }
 }
 
+// -----------------------------
+// 加载 CSS
+// -----------------------------
 function loadCSS(href) {
   const url = href.toString()
   if (document.querySelector(`link[href="${url}"]`)) return
