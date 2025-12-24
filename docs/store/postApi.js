@@ -97,3 +97,49 @@ export async function getPostsByUser(userId, options = {}) {
   if (error) throw error
   return data
 }
+
+// 获取用户普通帖子
+export async function fetchUserPosts(uid, limit = 20, offset = 0) {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('author_id', uid)
+    .eq('type', 'normal')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (error) {
+    console.error('[API] fetchUserPosts error', error)
+    return []
+  }
+  return data ?? []
+}
+
+// 获取用户产品帖子
+export async function fetchUserProductPosts(uid, limit = 20, offset = 0) {
+  const { data, error } = await supabase
+    .from('posts')
+    .select(`
+      *,
+      product_posts!inner (
+        product_id,
+        title,
+        price,
+        stock,
+        images,
+        description,
+        link
+      )
+    `)
+    .eq('author_id', uid)
+    .eq('type', 'product')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (error) {
+    console.error('[API] fetchUserProductPosts error', error)
+    return []
+  }
+  return data ?? []
+}
+
