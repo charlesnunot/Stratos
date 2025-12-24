@@ -1,20 +1,13 @@
-/* ===== docs/components/Posts/PostsFeed.css ===== */
-
-/* =========================
-   帖子流容器
-   ========================= */
 .posts-feed {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   padding: 8px;
   background: #f9f9f9;
-  align-items: flex-start; /* 👈 防止高度拉伸 */
+  align-items: flex-start;
 }
 
-/* =========================
-   单个帖子卡片（桌面 5 列）
-   ========================= */
+/* 单个卡片 */
 .post {
   flex: 0 0 calc(20% - 12px);
   max-width: calc(20% - 12px);
@@ -23,33 +16,25 @@
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
-
   display: flex;
   flex-direction: column;
   position: relative;
 
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .post:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
 }
 
-/* =========================
-   图片区域（正方形 · 终极稳定）
-   ========================= */
+/* 图片区域（正方形） */
 .post-image {
   width: 100%;
-  aspect-ratio: 1 / 1;     /* ✅ 正方形 */
-  flex-shrink: 0;          /* ✅ 不参与高度计算 */
-
-  position: relative;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
-  background: #eaeaea;
-
-  border-radius: 12px 12px 0 0;
+  background: #eee;
 }
 
 .post-image img {
@@ -59,9 +44,7 @@
   display: block;
 }
 
-/* =========================
-   内容区域
-   ========================= */
+/* 内容区域 */
 .post-content {
   padding: 10px 12px 12px;
   display: flex;
@@ -69,25 +52,22 @@
   gap: 6px;
 }
 
-/* 描述（2 行） */
+/* 描述文字（2行） */
 .post-excerpt {
   font-size: 0.85rem;
   color: #333;
   line-height: 1.4;
-
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* =========================
-   作者行
-   ========================= */
+/* 作者行 */
 .post-author-row {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
 }
 
 .post-author-info {
@@ -114,16 +94,14 @@
   color: #1da1f2;
 }
 
-/* =========================
-   Hover 互动层（Instagram 风）
-   ========================= */
+/* 悬浮互动 */
 .post-hover-actions {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0,0,0,0.35);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   gap: 18px;
 
   opacity: 0;
@@ -143,11 +121,7 @@
   opacity: 1;
 }
 
-/* =========================
-   响应式
-   ========================= */
-
-/* 平板 / 手机：2 列 */
+/* 响应式 */
 @media (max-width: 768px) {
   .post {
     flex: 0 0 calc(50% - 12px);
@@ -155,7 +129,6 @@
   }
 }
 
-/* 超小屏：1 列 */
 @media (max-width: 480px) {
   .post {
     flex: 0 0 100%;
