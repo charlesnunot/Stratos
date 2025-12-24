@@ -255,42 +255,57 @@ export async function uploadImagesWeb(files, onProgress) {
 }
 
 
-export async function getUserFollowers(uid, limit = 20, offset = 0) {
+/**
+ * 获取某个用户的粉丝列表（followers）
+ * @param {string} uid
+ * @returns {Promise<Array<{uid, username, avatar_url}>>}
+ */
+export async function getUserFollowers(uid) {
   if (!uid) return []
 
   try {
     const { data, error } = await supabase
       .from('follows')
       .select(`
-        created_at,
         follower_id,
-        user_profiles!follows_follower_id_fkey (
-          uid,
-          username,
-          bio
-        ),
-        user_avatars (
-          avatar_url
+        users:auth.users!follows_follower_id_fkey (
+          id,
+          email
         )
       `)
       .eq('following_id', uid)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
 
     if (error) {
-      console.error('[API] getUserFollowers ❌ error', error)
+      console.error('[API] getUserFollowers error', error)
       return []
     }
 
-    return (data || []).map(item => ({
-      uid: item.follower_id,
-      username: item.user_profiles?.username || 'Unknown',
-      bio: item.user_profiles?.bio || '',
-      avatar_url: item.user_avatars?.avatar_url || DEFAULT_AVATAR,
-      followed_at: item.created_at
+    if (!data || data.length === 0) {
+      return []
+    }
+
+    // 再去 user_profiles / user_avatars 补信息
+    const followerIds = data.map(i => i.follower_id)
+
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('uid, username')
+      .in('uid', followerIds)
+
+    const { data: avatars } = await supabase
+      .from('user_avatars')
+      .select('uid, avatar_url')
+      .in('uid', followerIds)
+
+    return followerIds.map(uid => ({
+      uid,
+      username: profiles?.find(p => p.uid === uid)?.username || 'user',
+      avatar_url:
+        avatars?.find(a => a.uid === uid)?.avatar_url ||
+        'https://via.placeholder.com/40'
     }))
   } catch (err) {
-    console.error('[API] getUserFollowers ❌ exception', err)
+    console.error('[API] getUserFollowers exception', err)
     return []
   }
 }
