@@ -1,5 +1,12 @@
 // docs/components/Messages/Messages.js
 import { subscribe, getUser } from '../../store/userManager.js'
+import {
+  getSystemMessages,
+  subscribeSystemMessages,
+  markMessageRead
+} from '../../store/systemMessageStore.js'
+import { markSystemMessageRead } from '../../store/systemMessageApi.js'
+
 
 const baseURL = new URL('.', import.meta.url);
 
@@ -71,28 +78,15 @@ export async function mountMessages(container) {
 
   // -----------------------------
   // 已登录视图
-  function loadMessages(user) {
-    // 示例消息数据，可改为 API 获取
-    const messageData = {
-      system: [
-        { id: 1, title: 'System Update', content: 'System will restart at 3AM.' },
-        { id: 2, title: 'Maintenance', content: 'Server maintenance tomorrow.' }
-      ],
-      dynamic: [
-        { id: 3, title: 'New Follower', content: 'Alice followed you.' },
-        { id: 4, title: 'Post Liked', content: 'Bob liked your post.' }
-      ],
-      chat: [
-        { id: 5, title: 'Alice', content: 'Hi, how are you?' },
-        { id: 6, title: 'Bob', content: 'Are you free tomorrow?' }
-      ]
-    };
-
-    tabDynamic.disabled = false;
-    tabChat.disabled = false;
-
-    loadMessageList(currentTab, messageData);
+  function loadMessages() {
+    const messages =
+      currentTab === 'system'
+        ? getSystemMessages('system')
+        : getSystemMessages('dynamic')
+  
+    loadMessageList(messages)
   }
+
 
   function loadMessageList(type, data) {
     listArea.innerHTML = '';
@@ -133,7 +127,7 @@ export async function mountMessages(container) {
     listArea.appendChild(ul);
   }
 
-  function showMessageDetail(msg) {
+  async function showMessageDetail(msg) {
     const isMobile = window.innerWidth <= 768;
 
     if (isMobile) {
