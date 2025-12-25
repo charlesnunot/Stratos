@@ -89,26 +89,39 @@
 
 
 // docs/components/Home/Home.js
+// docs/components/Home/Home.js
 import { savePageState, getPageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
 
-let currentTab = 'discover'
-let cachedPosts = {}
+let currentTab = 'discover'      // 当前激活的 tab
+let cachedPosts = {}              // 各 tab 的缓存数据
 
 export async function mountHome(container, state) {
   if (!container) return
 
+  // ----------------------
+  // 1️⃣ 加载 HTML
+  // ----------------------
   const html = await fetch(new URL('Home.html', baseURL)).then(res => res.text())
   container.innerHTML = html
 
+  // ----------------------
+  // 2️⃣ 加载 CSS
+  // ----------------------
   loadCSS(new URL('Home.css', baseURL))
 
-  // 恢复状态
+  // ----------------------
+  // 3️⃣ 尝试恢复状态
+  // ----------------------
   if (state) {
     currentTab = state.activeTab || 'discover'
+    cachedPosts = state.cachedPosts || {}
   }
 
+  // ----------------------
+  // 4️⃣ 初始化 tab
+  // ----------------------
   const tabs = container.querySelectorAll('.home-tab')
   tabs.forEach(tab => {
     const tabName = tab.dataset.tab
@@ -121,15 +134,22 @@ export async function mountHome(container, state) {
     })
   })
 
+  // ----------------------
+  // 5️⃣ 加载当前 tab 内容
+  // ----------------------
   loadTabContent(currentTab)
 
-  // 滚动监听，保存状态
+  // ----------------------
+  // 6️⃣ 滚动监听，保存状态
+  // ----------------------
+  container.saveStateBeforeUnload = () => ({
+    scrollTop: container.scrollTop,
+    activeTab: currentTab,
+    cachedPosts
+  })
+
   container.addEventListener('scroll', () => {
-    savePageState('home', {
-      scrollTop: container.scrollTop,
-      activeTab: currentTab,
-      cachedPosts
-    })
+    savePageState('home', container.saveStateBeforeUnload())
   })
 
   if (state && state.scrollTop) {
@@ -137,12 +157,16 @@ export async function mountHome(container, state) {
   }
 }
 
+// =========================
+// 加载 tab 内容
+// =========================
 async function loadTabContent(tabName) {
   const contentContainer = document.getElementById('home-content')
   if (!contentContainer) return
 
-  contentContainer.innerHTML = ''
+  contentContainer.innerHTML = '' // 清空内容
 
+  // 如果有缓存数据，直接渲染
   if (cachedPosts[tabName]) {
     renderPosts(contentContainer, cachedPosts[tabName])
     return
@@ -151,13 +175,13 @@ async function loadTabContent(tabName) {
   let mountFn = null
   switch (tabName) {
     case 'discover':
-      mountFn = (await import('../Posts/Discover.js')).mountDiscover
+      mountFn = (await import(new URL('../Posts/Discover.js', baseURL))).mountDiscover
       break
     case 'following':
-      mountFn = (await import('../Posts/Following.js')).mountFollowing
+      mountFn = (await import(new URL('../Posts/Following.js', baseURL))).mountFollowing
       break
     case 'search':
-      mountFn = (await import('../Posts/Search/Search.js')).mountSearch
+      mountFn = (await import(new URL('../Posts/Search/Search.js', baseURL))).mountSearch
       break
     default:
       console.warn('未知标签:', tabName)
@@ -169,6 +193,9 @@ async function loadTabContent(tabName) {
   }
 }
 
+// =========================
+// 渲染 posts 的通用函数
+// =========================
 function renderPosts(container, posts) {
   container.innerHTML = ''
   const ul = document.createElement('ul')
@@ -184,6 +211,9 @@ function renderPosts(container, posts) {
   container.appendChild(ul)
 }
 
+// =========================
+// CSS 加载函数
+// =========================
 function loadCSS(href) {
   const url = href.toString()
   if (document.querySelector(`link[href="${url}"]`)) return
