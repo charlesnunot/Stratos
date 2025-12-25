@@ -37,7 +37,7 @@
    =============================== */
 .post-image {
   width: 100%;
-  aspect-ratio: 3 / 4;      /* 竖版比例 */
+  aspect-ratio: 1 / 1;      /* 竖版比例 */
   background: #f2f2f2;
   overflow: hidden;
   border-radius: 6px 6px 0 0; /* 图片顶部圆角 */
