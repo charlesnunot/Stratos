@@ -263,18 +263,14 @@
 
 
 
-// docs/components/Sidebar/Sidebar.js
 import { mountLogo } from '../Logo/Logo.js'
 import { subscribe as subscribeUser } from '../../store/userManager.js'
-import {
-  subscribeSystemMessages,
-  getUnreadCount
-} from '../../store/systemMessageStore.js'
+import { subscribeSystemMessages, getUnreadCount } from '../../store/systemMessageStore.js'
 import { getPageState, savePageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
 let currentPage = null
-const pageModules = {} // 保存各页面模块引用及 getState
+const pageModules = {} // 保存各页面模块引用
 
 export async function mountSidebar(container) {
   if (!container) return
@@ -288,6 +284,7 @@ export async function mountSidebar(container) {
 
   mountNavItems()
   mountSidebarBottom()
+
   window.addEventListener('sidebar:navigate', onSidebarNavigate)
 }
 
@@ -350,9 +347,7 @@ async function mountSidebarBottom() {
       if (!mainRoot) return
       mainRoot.innerHTML = ''
       try {
-        const { mountAppDownload } = await import(
-          new URL('../AppDownload/AppDownload.js', baseURL)
-        )
+        const { mountAppDownload } = await import(new URL('../AppDownload/AppDownload.js', baseURL))
         mountAppDownload(mainRoot)
       } catch (err) {
         console.error('加载 App 下载页面失败:', err)
@@ -380,36 +375,31 @@ export async function loadMainPage(page) {
   try {
     let mountFn = null
     switch (page) {
-      case 'home': {
+      case 'home':
         const homeMod = await import(new URL('../Home/Home.js', baseURL))
         mountFn = homeMod.mountHome
-        pageModules.home = { mountFn, getState: homeMod.getHomeState }
+        pageModules.home = homeMod
         break
-      }
-      case 'market': {
+      case 'market':
         const marketMod = await import(new URL('../Market/Market.js', baseURL))
         mountFn = marketMod.mountMarket
-        pageModules.market = { mountFn, getState: marketMod.getMarketState }
+        pageModules.market = marketMod
         break
-      }
-      case 'publish': {
+      case 'publish':
         const pubMod = await import(new URL('../Publish/Publish.js', baseURL))
         mountFn = pubMod.mountPublish
-        pageModules.publish = { mountFn, getState: pubMod.getPublishState }
+        pageModules.publish = pubMod
         break
-      }
-      case 'messages': {
+      case 'messages':
         const msgMod = await import(new URL('../Messages/Messages.js', baseURL))
         mountFn = msgMod.mountMessages
-        pageModules.messages = { mountFn, getState: msgMod.getMessagesState }
+        pageModules.messages = msgMod
         break
-      }
-      case 'profile': {
+      case 'profile':
         const profMod = await import(new URL('../Profile/Profile.js', baseURL))
         mountFn = profMod.mountProfile
-        pageModules.profile = { mountFn, getState: profMod.getProfileState }
+        pageModules.profile = profMod
         break
-      }
       default:
         console.warn('未实现的页面:', page)
     }
