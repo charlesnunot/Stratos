@@ -263,28 +263,18 @@
 
 
 
-// docs/components/Sidebar/Sidebar.js
 import { mountLogo } from '../Logo/Logo.js'
 import { subscribe as subscribeUser } from '../../store/userManager.js'
 import {
   subscribeSystemMessages,
   getUnreadCount
 } from '../../store/systemMessageStore.js'
-import { getPageState, savePageState } from '../../store/pageStateStore.js'
+import { getPageState } from '../../store/pageStateStore.js' // 只用 getPageState
 
 const baseURL = new URL('.', import.meta.url)
 
 // 当前页面标识
 let currentPage = null
-
-// 页面模块缓存，用于保存 mount 函数和 savePageState 函数
-const pageModules = {
-  home: null,
-  market: null,
-  publish: null,
-  messages: null,
-  profile: null
-}
 
 // =========================
 // 主函数：挂载 Sidebar
@@ -292,24 +282,16 @@ const pageModules = {
 export async function mountSidebar(container) {
   if (!container) return
 
-  // 加载 HTML
   const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text())
   container.innerHTML = html
-
-  // 加载 CSS
   loadCSS(new URL('Sidebar.css', baseURL))
 
-  // 挂载 Logo
   const topEl = document.getElementById('sidebar-top')
   if (topEl) mountLogo(topEl)
 
-  // 挂载导航项
   mountNavItems()
-
-  // 挂载底部按钮
   mountSidebarBottom()
 
-  // 监听自定义导航事件
   window.addEventListener('sidebar:navigate', onSidebarNavigate)
 }
 
@@ -385,9 +367,7 @@ async function mountSidebarBottom() {
     appBtn.addEventListener('click', async () => {
       const mainRoot = document.getElementById('main-root')
       if (!mainRoot) return
-
       mainRoot.innerHTML = ''
-
       try {
         const { mountAppDownload } = await import(
           new URL('../AppDownload/AppDownload.js', baseURL)
@@ -407,52 +387,35 @@ export async function loadMainPage(page) {
   const mainRoot = document.getElementById('main-root')
   if (!mainRoot) return
 
-  // 保存当前页面状态
-  if (currentPage && pageModules[currentPage]?.savePageState) {
-    const state = pageModules[currentPage].savePageState()
-    savePageState(currentPage, state)
-  }
-
   mainRoot.innerHTML = ''
 
   try {
     let mountFn = null
-    let saveFn = null
 
     switch (page) {
       case 'home': {
         const mod = await import(new URL('../Home/Home.js', baseURL))
         mountFn = mod.mountHome
-        saveFn = mod.savePageState
-        pageModules.home = { mount: mountFn, savePageState: saveFn }
         break
       }
       case 'market': {
         const mod = await import(new URL('../Market/Market.js', baseURL))
         mountFn = mod.mountMarket
-        saveFn = mod.savePageState
-        pageModules.market = { mount: mountFn, savePageState: saveFn }
         break
       }
       case 'publish': {
         const mod = await import(new URL('../Publish/Publish.js', baseURL))
         mountFn = mod.mountPublish
-        saveFn = mod.savePageState
-        pageModules.publish = { mount: mountFn, savePageState: saveFn }
         break
       }
       case 'messages': {
         const mod = await import(new URL('../Messages/Messages.js', baseURL))
         mountFn = mod.mountMessages
-        saveFn = mod.savePageState
-        pageModules.messages = { mount: mountFn, savePageState: saveFn }
         break
       }
       case 'profile': {
         const mod = await import(new URL('../Profile/Profile.js', baseURL))
         mountFn = mod.mountProfile
-        saveFn = mod.savePageState
-        pageModules.profile = { mount: mountFn, savePageState: saveFn }
         break
       }
       default:
@@ -460,13 +423,12 @@ export async function loadMainPage(page) {
     }
 
     if (mountFn) {
-      // 尝试恢复状态
+      // 尝试恢复状态（页面内部自己处理状态保存）
       const cachedState = getPageState(page)
       await mountFn(mainRoot, cachedState)
       currentPage = page
     }
 
-    // 页面加载完成后更新导航高亮
     updateActiveNav(page)
   } catch (err) {
     console.error(`加载 ${page} 页面失败:`, err)
@@ -474,7 +436,7 @@ export async function loadMainPage(page) {
 }
 
 // =========================
-// Sidebar 自定义事件处理
+// 自定义事件处理
 // =========================
 function onSidebarNavigate(e) {
   const { page } = e.detail || {}
