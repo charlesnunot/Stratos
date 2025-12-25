@@ -95,8 +95,7 @@ import { getPageState } from '../../store/pageStateStore.js'
 const baseURL = new URL('.', import.meta.url)
 let currentTab = 'discover'
 let cachedPosts = {}
-
-let containerRef = null  // 保存 container 引用，用于外部获取状态
+let containerRef = null  // 保存 container 引用
 
 export async function mountHome(container, cachedState = null) {
   if (!container) return
@@ -151,10 +150,21 @@ export async function mountHome(container, cachedState = null) {
     container.scrollTop = state.scrollTop
     console.log('[Home] restored scrollTop:', container.scrollTop)
   }
+
+  // ----------------------
+  // 7️⃣ 监听 scroll 保存状态
+  // ----------------------
+  container.addEventListener('scroll', () => {
+    savePageState('home', {
+      scrollTop: container.scrollTop,
+      activeTab: currentTab,
+      cachedPosts
+    })
+  })
 }
 
 // =========================
-// 导出函数给 Sidebar 调用，获取当前页面状态
+// 导出给 Sidebar 获取状态
 // =========================
 export function getHomeState() {
   if (!containerRef) return null
