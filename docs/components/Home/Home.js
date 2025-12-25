@@ -1,3 +1,26 @@
+import { savePageState, getPageState } from '../../store/pageStateStore.js'
+
+async function mountHome(container) {
+  // ...原来的 mount 逻辑
+
+  // 尝试恢复状态
+  const state = getPageState('home')
+  if (state) {
+    container.scrollTop = state.scrollTop
+    activateTab(state.activeTab)
+    renderPosts(state.cachedPosts)
+  }
+
+  // 每次切换 tab 或滚动时保存状态
+  container.addEventListener('scroll', () => {
+    savePageState('home', {
+      scrollTop: container.scrollTop,
+      activeTab: currentTab,
+      cachedPosts
+    })
+  })
+}
+
 const baseURL = new URL('.', import.meta.url);
 
 export async function mountHome(container) {
