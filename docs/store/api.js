@@ -5,34 +5,16 @@ const DEFAULT_AVATAR =
   'https://res.cloudinary.com/dpgkgtb5n/image/upload/v1763533800/n0ennkuiissnlhyhtht8.jpg'
 
 
-/**
- * 未登录用户：普通帖子流
- */
 export async function fetchDefaultPosts(limit = 20, offset = 0) {
   console.log('[API] fetchDefaultPosts → start', { limit, offset })
 
-  const { data, error } = await supabase
+  // 1️⃣ 先取 posts
+  const { data: posts, error } = await supabase
     .from('posts')
     .select(`
-      id,
-      type,
-      author_id,
-      content,
-      images,
-      tags,
-      likes_count,
-      comments_count,
-      shares_count,
-      favorites_count,
-      wants_count,
-      created_at,
-      score,
-      user_profiles!posts_author_id_fkey (
-        nickname
-      ),
-      user_avatars!posts_author_id_fkey (
-        avatar_url
-      )
+      id, type, author_id, content, images, tags,
+      likes_count, comments_count, shares_count, favorites_count,
+      wants_count, created_at, score
     `)
     .eq('is_deleted', false)
     .ilike('visibility', 'public')
@@ -47,47 +29,46 @@ export async function fetchDefaultPosts(limit = 20, offset = 0) {
     return []
   }
 
-  // 格式化数据，把 nickname 和 avatar_url 放到 top level
-  const formatted = (data ?? []).map(post => ({
-    ...post,
-    author: post.user_profiles?.nickname || 'User',
-    author_avatar: post.user_avatars?.avatar_url || DEFAULT_AVATAR
-  }))
+  // 2️⃣ 批量获取作者信息
+  const authorIds = [...new Set(posts.map(p => p.author_id).filter(Boolean))]
+
+  const { data: profiles } = await supabase
+    .from('user_profiles')
+    .select('uid, nickname')
+    .in('uid', authorIds)
+
+  const { data: avatars } = await supabase
+    .from('user_avatars')
+    .select('uid, avatar_url')
+    .in('uid', authorIds)
+
+  // 3️⃣ 格式化数据
+  const formatted = posts.map(p => {
+    const profile = profiles?.find(u => u.uid === p.author_id)
+    const avatar = avatars?.find(u => u.uid === p.author_id)
+    return {
+      ...p,
+      author: profile?.nickname || 'User',
+      author_avatar: avatar?.avatar_url || DEFAULT_AVATAR
+    }
+  })
 
   return formatted
 }
 
 /**
- * 未登录用户：产品帖子流
+ * 获取产品帖子流
  */
 export async function fetchDefaultProductPosts(limit = 20, offset = 0) {
   console.log('[API] fetchDefaultProductPosts → start', { limit, offset })
 
-  const { data, error } = await supabase
+  // 1️⃣ 先取 posts + product_posts
+  const { data: posts, error } = await supabase
     .from('posts')
     .select(`
-      id,
-      type,
-      author_id,
-      created_at,
-      score,
-      wants_count,
-      product_posts!inner (
-        product_id,
-        title,
-        price,
-        stock,
-        images,
-        description,
-        link,
-        wants_count,
-        sales_count
-      ),
-      user_profiles!posts_author_id_fkey (
-        nickname
-      ),
-      user_avatars!posts_author_id_fkey (
-        avatar_url
+      id, type, author_id, created_at, score, wants_count,
+      product_posts!inner(
+        product_id, title, price, stock, images, description, link, wants_count, sales_count
       )
     `)
     .eq('is_deleted', false)
@@ -103,17 +84,35 @@ export async function fetchDefaultProductPosts(limit = 20, offset = 0) {
     return []
   }
 
-  const formatted = (data ?? []).map(post => ({
-    ...post,
-    author: post.user_profiles?.nickname || 'User',
-    author_avatar: post.user_avatars?.avatar_url || DEFAULT_AVATAR
-  }))
+  // 2️⃣ 批量获取作者信息
+  const authorIds = [...new Set(posts.map(p => p.author_id).filter(Boolean))]
+
+  const { data: profiles } = await supabase
+    .from('user_profiles')
+    .select('uid, nickname')
+    .in('uid', authorIds)
+
+  const { data: avatars } = await supabase
+    .from('user_avatars')
+    .select('uid, avatar_url')
+    .in('uid', authorIds)
+
+  // 3️⃣ 格式化数据
+  const formatted = posts.map(p => {
+    const profile = profiles?.find(u => u.uid === p.author_id)
+    const avatar = avatars?.find(u => u.uid === p.author_id)
+    return {
+      ...p,
+      author: profile?.nickname || 'User',
+      author_avatar: avatar?.avatar_url || DEFAULT_AVATAR
+    }
+  })
 
   return formatted
 }
 
 /**
- * 未登录用户：默认 Feed（普通 + 产品）
+ * 默认 Feed（普通 + 产品）
  */
 export async function fetchDefaultFeed(limit = 20, offset = 0) {
   const [normalPosts, productPosts] = await Promise.all([
