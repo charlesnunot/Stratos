@@ -34,10 +34,10 @@ function createPostCard(post) {
     ? images.map(url => `<img src="${url}" alt="post image"/>`).join('')
     : '<img src="https://via.placeholder.com/400x300" alt="placeholder"/>';
 
-  const commentsHtml = comments.slice(0,3).map(c => `<div class="comment"><strong>${c.user}:</strong> ${c.text}</div>`).join('');
+  const commentsHtml = comments.map(c => `<div class="comment"><strong>${c.user}:</strong> ${c.text}</div>`).join('');
 
   card.innerHTML = `
-    <!-- 顶部用户栏 -->
+    <!-- 用户栏 -->
     <div class="post-header">
       <div class="post-author-info">
         <img src="${avatar}" alt="avatar"/>
@@ -47,11 +47,9 @@ function createPostCard(post) {
     </div>
 
     <!-- 轮播图 -->
-    <div class="post-carousel">
-      ${imagesHtml}
-    </div>
+    <div class="post-carousel">${imagesHtml}</div>
 
-    <!-- 底部区域 -->
+    <!-- 互动栏 -->
     <div class="post-actions">
       <div class="left-actions">
         <div class="action"><span class="material-symbols-outlined">favorite</span>${likes}</div>
@@ -63,20 +61,36 @@ function createPostCard(post) {
       </div>
     </div>
 
-    <div class="post-body">${content}${translation ? `<p class="post-translation">${translation}</p>` : ''}</div>
+    <!-- 内容区 -->
+    <div class="post-body">${content}</div>
+    <div class="post-translation">${translation || '翻译'}</div>
 
+    <!-- 评论 -->
     <div class="post-comments">${commentsHtml}</div>
 
+    <!-- 输入评论 -->
     <div class="post-comment-input">
       <input type="text" placeholder="Write a comment..." />
       <button>Send</button>
     </div>
   `;
 
-  // 点击展开内容
+  // 点击内容区展开
   const postBody = card.querySelector('.post-body');
+  const commentsEl = card.querySelector('.post-comments');
+  const inputEl = card.querySelector('.post-comment-input');
+  const translationEl = card.querySelector('.post-translation');
+
   postBody.addEventListener('click', () => {
     postBody.classList.toggle('expanded');
+    commentsEl.classList.toggle('visible');
+    inputEl.classList.toggle('visible');
+  });
+
+  // 点击翻译切换（具体实现略）
+  translationEl.addEventListener('click', () => {
+    translationEl.classList.toggle('translated');
+    // 翻译内容逻辑可在此实现
   });
 
   return card;
