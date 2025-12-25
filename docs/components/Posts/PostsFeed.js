@@ -34,19 +34,24 @@ function createPostCard(post) {
   const card = document.createElement('article');
   card.className = 'post';
 
+  // 作者信息
   const author = post.author || 'User';
   const avatar = post.author_avatar || 'https://via.placeholder.com/40';
+
+  // 帖子统计
   const likes = post.likes_count ?? 0;
   const favorites = post.favorites_count ?? 0;
   const comments = post.comments_count ?? 0;
   const shares = post.shares_count ?? 0;
+
+  // 内容与图片
   const content = post.content || '';
   const translation = post.translation || '';
   const images = post.images || post.product_posts?.images || [];
   const imgUrl = images[0] || '';
 
   card.innerHTML = `
-    <!-- 图片（正方形或黄金比由 CSS 控制） -->
+    <!-- 图片 -->
     <div class="post-image">
       ${imgUrl ? `<img src="${imgUrl}" alt="post image" />` : ''}
     </div>
@@ -83,7 +88,6 @@ function createPostCard(post) {
         <img src="${avatar}" alt="avatar" />
         <span class="post-author-name">${author}</span>
       </div>
-
       <div class="post-menu">
         <span class="material-symbols-outlined">more_horiz</span>
       </div>
