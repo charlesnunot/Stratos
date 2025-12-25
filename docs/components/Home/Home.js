@@ -1,151 +1,17 @@
-// import { savePageState, getPageState } from '../../store/pageStateStore.js'
+import { savePageState, getPageState } from '../../store/pageStateStore.js'
 
-// async function mountHome(container) {
-//   // ...原来的 mount 逻辑
+async function mountHome(container) {
+  // ...原来的 mount 逻辑
 
-//   // 尝试恢复状态
-//   const state = getPageState('home')
-//   if (state) {
-//     container.scrollTop = state.scrollTop
-//     activateTab(state.activeTab)
-//     renderPosts(state.cachedPosts)
-//   }
-
-//   // 每次切换 tab 或滚动时保存状态
-//   container.addEventListener('scroll', () => {
-//     savePageState('home', {
-//       scrollTop: container.scrollTop,
-//       activeTab: currentTab,
-//       cachedPosts
-//     })
-//   })
-// }
-
-// const baseURL = new URL('.', import.meta.url);
-
-// export async function mountHome(container) {
-//   if (!container) return;
-
-//   // 加载 HTML
-//   const html = await fetch(new URL('Home.html', baseURL)).then(res => res.text());
-//   container.innerHTML = html;
-
-//   // 加载 CSS
-//   loadCSS(new URL('Home.css', baseURL));
-
-//   // 默认激活 Discover tab
-//   const defaultTab = container.querySelector('.home-tab[data-tab="discover"]');
-//   if (defaultTab) defaultTab.classList.add('active');
-//   loadTabContent('discover');
-
-//   // 绑定标题栏点击事件
-//   const tabs = container.querySelectorAll('.home-tab');
-//   tabs.forEach(tab => {
-//     tab.addEventListener('click', () => {
-//       tabs.forEach(t => t.classList.remove('active'));
-//       tab.classList.add('active');
-//       loadTabContent(tab.dataset.tab);
-//     });
-//   });
-// }
-
-// // 根据标签加载内容
-// async function loadTabContent(tabName) {
-//   const contentContainer = document.getElementById('home-content');
-//   if (!contentContainer) return;
-
-//   contentContainer.innerHTML = ''; // 清空内容
-
-//   switch (tabName) {
-//     case 'discover': {
-//       const { mountDiscover } = await import(new URL('../Posts/Discover.js', baseURL));
-//       mountDiscover(contentContainer);
-//       break;
-//     }
-//     case 'following': {
-//       const { mountFollowing } = await import(new URL('../Posts/Following.js', baseURL));
-//       mountFollowing(contentContainer);
-//       break;
-//     }
-//     case 'search': {
-//       const { mountSearch } = await import(new URL('../Posts/Search/Search.js', baseURL));
-//       mountSearch(contentContainer);
-//       break;
-//     }
-//     default:
-//       console.warn('未知标签:', tabName);
-//   }
-// }
-
-// // CSS 加载函数
-// function loadCSS(href) {
-//   const url = href.toString();
-//   if (document.querySelector(`link[href="${url}"]`)) return;
-//   const link = document.createElement('link');
-//   link.rel = 'stylesheet';
-//   link.href = url;
-//   document.head.appendChild(link);
-// }
-
-
-// docs/components/Home/Home.js
-import { getPageState, savePageState } from '../../store/pageStateStore.js'
-
-const baseURL = new URL('.', import.meta.url)
-let currentTab = 'discover'
-let cachedPosts = {}
-
-let containerRef = null  // 保存 container 引用，用于获取状态
-
-export async function mountHome(container, cachedState = null) {
-  if (!container) return
-  containerRef = container
-
-  // ----------------------
-  // 1️⃣ 加载 HTML
-  // ----------------------
-  const html = await fetch(new URL('Home.html', baseURL)).then(res => res.text())
-  container.innerHTML = html
-  console.log('[Home] HTML loaded length:', html.length)
-
-  // ----------------------
-  // 2️⃣ 加载 CSS
-  // ----------------------
-  loadCSS(new URL('Home.css', baseURL))
-
-  // ----------------------
-  // 3️⃣ 尝试恢复状态
-  // ----------------------
-  const state = cachedState || getPageState('home')
+  // 尝试恢复状态
+  const state = getPageState('home')
   if (state) {
-    currentTab = state.activeTab || 'discover'
-    cachedPosts = state.cachedPosts || {}
-    console.log('[Home] restored state:', state)
+    container.scrollTop = state.scrollTop
+    activateTab(state.activeTab)
+    renderPosts(state.cachedPosts)
   }
 
-  // ----------------------
-  // 4️⃣ 初始化 tab
-  // ----------------------
-  const tabs = container.querySelectorAll('.home-tab')
-  tabs.forEach(tab => {
-    const tabName = tab.dataset.tab
-    if (tabName === currentTab) tab.classList.add('active')
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'))
-      tab.classList.add('active')
-      currentTab = tabName
-      loadTabContent(tabName)
-    })
-  })
-
-  // ----------------------
-  // 5️⃣ 加载当前 tab 内容
-  // ----------------------
-  await loadTabContent(currentTab)
-
-  // ----------------------
-  // 6️⃣ 滚动监听，实时保存 scrollTop
-  // ----------------------
+  // 每次切换 tab 或滚动时保存状态
   container.addEventListener('scroll', () => {
     savePageState('home', {
       scrollTop: container.scrollTop,
@@ -153,90 +19,72 @@ export async function mountHome(container, cachedState = null) {
       cachedPosts
     })
   })
-
-  // ----------------------
-  // 7️⃣ 恢复 scrollTop（延迟保证内容渲染完成）
-  // ----------------------
-  if (state && state.scrollTop) {
-    requestAnimationFrame(() => {
-      container.scrollTop = state.scrollTop
-      console.log('[Home] restored scrollTop:', container.scrollTop)
-    })
-  }
 }
 
-// =========================
-// 导出函数给 Sidebar 调用，获取当前页面状态
-// =========================
-export function getHomeState() {
-  if (!containerRef) return null
-  return {
-    scrollTop: containerRef.scrollTop,
-    activeTab: currentTab,
-    cachedPosts
-  }
+const baseURL = new URL('.', import.meta.url);
+
+export async function mountHome(container) {
+  if (!container) return;
+
+  // 加载 HTML
+  const html = await fetch(new URL('Home.html', baseURL)).then(res => res.text());
+  container.innerHTML = html;
+
+  // 加载 CSS
+  loadCSS(new URL('Home.css', baseURL));
+
+  // 默认激活 Discover tab
+  const defaultTab = container.querySelector('.home-tab[data-tab="discover"]');
+  if (defaultTab) defaultTab.classList.add('active');
+  loadTabContent('discover');
+
+  // 绑定标题栏点击事件
+  const tabs = container.querySelectorAll('.home-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      loadTabContent(tab.dataset.tab);
+    });
+  });
 }
 
-// =========================
-// 加载 tab 内容
-// =========================
+// 根据标签加载内容
 async function loadTabContent(tabName) {
-  const contentContainer = document.getElementById('home-content')
-  if (!contentContainer) return
-  contentContainer.innerHTML = ''
+  const contentContainer = document.getElementById('home-content');
+  if (!contentContainer) return;
 
-  if (cachedPosts[tabName]) {
-    renderPosts(contentContainer, cachedPosts[tabName])
-    return
-  }
+  contentContainer.innerHTML = ''; // 清空内容
 
-  let mountFn = null
   switch (tabName) {
-    case 'discover':
-      mountFn = (await import(new URL('../Posts/Discover.js', baseURL))).mountDiscover
-      break
-    case 'following':
-      mountFn = (await import(new URL('../Posts/Following.js', baseURL))).mountFollowing
-      break
-    case 'search':
-      mountFn = (await import(new URL('../Posts/Search/Search.js', baseURL))).mountSearch
-      break
+    case 'discover': {
+      const { mountDiscover } = await import(new URL('../Posts/Discover.js', baseURL));
+      mountDiscover(contentContainer);
+      break;
+    }
+    case 'following': {
+      const { mountFollowing } = await import(new URL('../Posts/Following.js', baseURL));
+      mountFollowing(contentContainer);
+      break;
+    }
+    case 'search': {
+      const { mountSearch } = await import(new URL('../Posts/Search/Search.js', baseURL));
+      mountSearch(contentContainer);
+      break;
+    }
     default:
-      console.warn('未知标签:', tabName)
-  }
-
-  if (mountFn) {
-    const posts = await mountFn(contentContainer)
-    cachedPosts[tabName] = posts
+      console.warn('未知标签:', tabName);
   }
 }
 
-// =========================
-// 渲染 posts
-// =========================
-function renderPosts(container, posts) {
-  container.innerHTML = ''
-  const ul = document.createElement('ul')
-  ul.style.listStyle = 'none'
-  ul.style.padding = '0'
-  posts.forEach(p => {
-    const li = document.createElement('li')
-    li.textContent = p
-    li.style.padding = '8px'
-    li.style.borderBottom = '1px solid #eee'
-    ul.appendChild(li)
-  })
-  container.appendChild(ul)
-}
-
-// =========================
-// CSS 加载
-// =========================
+// CSS 加载函数
 function loadCSS(href) {
-  const url = href.toString()
-  if (document.querySelector(`link[href="${url}"]`)) return
-  const link = document.createElement('link')
-  link.rel = 'stylesheet'
-  link.href = url
-  document.head.appendChild(link)
+  const url = href.toString();
+  if (document.querySelector(`link[href="${url}"]`)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = url;
+  document.head.appendChild(link);
 }
+
+
