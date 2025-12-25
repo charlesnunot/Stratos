@@ -97,7 +97,6 @@ function createPostCard(post) {
   return card;
 }
 
-
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
