@@ -46,22 +46,17 @@ function createPostCard(post) {
   const imgUrl = images[0] || '';
 
   card.innerHTML = `
-    <!-- 头部 -->
-    <div class="post-header">
-      <div class="post-author-info">
-        <img src="${avatar}" alt="avatar" />
-        <span class="post-author-name">${author}</span>
-      </div>
-      <div class="post-menu">
-        <span class="material-symbols-outlined">more_horiz</span>
-      </div>
-    </div>
-
     <!-- 图片（正方形由 CSS 控制） -->
     <div class="post-image">
+      ${imgUrl ? `<img src="${imgUrl}" alt="post image" />` : ''}
+    </div>
+
+    <!-- 内容 -->
+    <div class="post-body">
+      <p class="post-excerpt">${content}</p>
       ${
-        imgUrl
-          ? `<img src="${imgUrl}" alt="post image" />`
+        translation
+          ? `<p class="post-translation">${translation}</p>`
           : ''
       }
     </div>
@@ -86,17 +81,22 @@ function createPostCard(post) {
       </div>
     </div>
 
-    <!-- 内容 -->
-    <p class="post-excerpt">${content}</p>
-    ${
-      translation
-        ? `<p class="post-translation">${translation}</p>`
-        : ''
-    }
+    <!-- 底部用户栏 -->
+    <div class="post-footer">
+      <div class="post-author-info">
+        <img src="${avatar}" alt="avatar" />
+        <span class="post-author-name">${author}</span>
+      </div>
+
+      <div class="post-menu">
+        <span class="material-symbols-outlined">more_horiz</span>
+      </div>
+    </div>
   `;
 
   return card;
 }
+
 
 function loadCSS(href) {
   const url = href.toString();
