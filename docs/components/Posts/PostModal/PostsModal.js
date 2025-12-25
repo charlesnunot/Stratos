@@ -14,12 +14,13 @@ export async function initPostModal(postsArray, startIndex = 0) {
 
     modal = document.querySelector('.post-modal');
 
+    // 关闭按钮
     modal.querySelector('.modal-close')
       .addEventListener('click', () => modal.style.display = 'none');
 
+    // 轮播按钮
     modal.querySelector('.carousel-prev')
       .addEventListener('click', () => showImage(currentImageIndex - 1));
-
     modal.querySelector('.carousel-next')
       .addEventListener('click', () => showImage(currentImageIndex + 1));
 
@@ -40,7 +41,6 @@ export async function initPostModal(postsArray, startIndex = 0) {
 
 function showPost(index) {
   if (!posts || posts.length === 0) return;
-
   if (index < 0 || index >= posts.length) {
     modal.style.display = 'none';
     return;
