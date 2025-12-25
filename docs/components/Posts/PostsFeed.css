@@ -2,14 +2,15 @@
    Feed 外层
    =============================== */
 .posts-feed {
-  width: 50%;
-  margin: 0 auto; /* 水平居中 */
+  width: 50%;                /* PC端总宽度占页面 50% */
+  margin: 0 auto;            /* 水平居中 */
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* 一行 3 个卡片 */
-  gap: 6px;
+  gap: 16px;                 /* 卡片间距 */
   max-width: 1200px;
   min-width: 600px;
   padding: 24px 0;
+  box-sizing: border-box;
 }
 
 /* ===============================
@@ -23,6 +24,8 @@
   display: flex;
   flex-direction: column;
   transition: transform 0.2s ease;
+  width: 100%;               /* 占满父容器格子 */
+  box-sizing: border-box;
 }
 
 .post:hover {
@@ -30,19 +33,21 @@
 }
 
 /* ===============================
-   图片（正方形）
+   图片（竖版 4:3）
    =============================== */
 .post-image {
   width: 100%;
-  aspect-ratio: 3 / 4; /* 强制正方形 */
+  aspect-ratio: 3 / 4;      /* 竖版比例 */
   background: #f2f2f2;
   overflow: hidden;
+  border-radius: 12px 12px 0 0; /* 图片顶部圆角 */
 }
 
 .post-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 /* ===============================
@@ -136,14 +141,21 @@
    =============================== */
 @media (max-width: 1024px) {
   .posts-feed {
-    width: 100%;
+    width: 70%;                  /* 平板占页面 70% */
     grid-template-columns: repeat(2, 1fr); /* 两列 */
+    min-width: unset;
   }
 }
 
 @media (max-width: 640px) {
   .posts-feed {
-    width: 100%;
-    grid-template-columns: 1fr; /* 一列 */
+    width: 100%;                 /* 手机占满页面宽度 */
+    grid-template-columns: 1fr;  /* 单列 */
+    min-width: unset;
+    padding: 16px 8px;           /* 内边距减小 */
+  }
+
+  .post {
+    width: 100%;                 /* 占满父容器格子，防止超宽 */
   }
 }
