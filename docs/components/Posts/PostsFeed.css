@@ -1,31 +1,41 @@
+/* =========================
+   帖子流容器
+   ========================= */
 .posts-feed {
   display: flex;
-  flex-direction: column;  /* 单列 */
-  align-items: center;     /* 卡片水平居中 */
+  flex-wrap: wrap;              /* ✅ 允许换行 */
+  justify-content: center;      /* ✅ 整体居中 */
   gap: 24px;
-  padding: 16px;
+  padding: 24px;
   background: #f9f9f9;
 }
 
-/* 单个卡片 */
+/* =========================
+   单个卡片
+   ========================= */
 .post {
-  width: 30%;  /* PC端占父容器宽度50% */
-  max-width: 600px; /* 可选最大宽度 */
+  flex: 0 0 20%;                /* ✅ 每个占 20% */
+  max-width: 20%;
+  min-width: 240px;             /* ✅ 防止太窄 */
+  
   background: #f9f9f9;
-  border-radius: 12px;   /* 卡片整体圆角 */
+  border-radius: 12px;
   overflow: hidden;
+
   display: flex;
   flex-direction: column;
   gap: 8px;
+
   transition: transform 0.15s ease;
 }
 
 .post:hover {
   transform: translateY(-2px);
-  /* 阴影去掉，保留平面效果 */
 }
 
-/* 头部 */
+/* =========================
+   头部
+   ========================= */
 .post-header {
   display: flex;
   justify-content: space-between;
@@ -57,24 +67,28 @@
   cursor: pointer;
 }
 
-/* 图片 */
+/* =========================
+   图片（竖版）
+   ========================= */
 .post-image {
   width: 100%;
-  aspect-ratio: 3/4; /* 黄金比竖图 */
-  overflow: hidden;
+  aspect-ratio: 3 / 4;
   background: #eee;
-  border-radius: 12px; /* 四个角都圆 */
+  overflow: hidden;
+  border-radius: 12px;
 }
 
 .post-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 12px;
   display: block;
-  border-radius: 12px; /* 四角圆 */
 }
 
-/* 操作栏 */
+/* =========================
+   操作栏
+   ========================= */
 .post-actions {
   display: flex;
   justify-content: space-between;
@@ -97,12 +111,15 @@
   cursor: pointer;
 }
 
-/* 内容文字 */
+/* =========================
+   内容
+   ========================= */
 .post-excerpt {
   padding: 0 12px;
   font-size: 0.9rem;
   color: #333;
   line-height: 1.3;
+
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -116,10 +133,22 @@
   font-style: italic;
 }
 
-/* 响应式 */
-@media (max-width: 768px) {
+/* =========================
+   响应式
+   ========================= */
+
+/* 平板：2 列 */
+@media (max-width: 1024px) {
   .post {
-    width: 100%; /* 手机端占满宽度 */
+    flex: 0 0 45%;
+    max-width: 45%;
+  }
+}
+
+/* 手机：1 列 */
+@media (max-width: 600px) {
+  .post {
+    flex: 0 0 100%;
     max-width: 100%;
   }
 }
