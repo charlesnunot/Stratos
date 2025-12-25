@@ -6,10 +6,10 @@
   margin: 0 auto;            /* 水平居中 */
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* 一行 3 个卡片 */
-  gap: 16px;                 /* 卡片间距 */
+  gap: 2px;                 /* 卡片间距 */
   max-width: 1200px;
   min-width: 600px;
-  padding: 24px 0;
+  padding: 12px 0;
   box-sizing: border-box;
 }
 
