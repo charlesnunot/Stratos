@@ -92,9 +92,14 @@ import { savePageState, getPageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
 
-// 当前激活 tab 和缓存数据
+// 保存每个 tab 的缓存数据和滚动位置
+const tabState = {
+  discover: { cachedPosts: [], scrollTop: 0 },
+  following: { cachedPosts: [], scrollTop: 0 },
+  search: { cachedPosts: [], scrollTop: 0 }
+}
+
 let currentTab = 'discover'
-let cachedPosts = []
 
 export async function mountHome(container) {
   if (!container) return
@@ -107,68 +112,102 @@ export async function mountHome(container) {
   loadCSS(new URL('Home.css', baseURL))
 
   // 尝试恢复状态
-  const state = getPageState('home')
-  if (state) {
-    currentTab = state.activeTab || 'discover'
-    cachedPosts = state.cachedPosts || []
+  const savedState = getPageState('home')
+  if (savedState) {
+    currentTab = savedState.activeTab || 'discover'
+    for (const tab of Object.keys(tabState)) {
+      if (savedState[tab]) {
+        tabState[tab] = savedState[tab]
+      }
+    }
   }
 
-  // 默认激活当前或 discover tab
+  // 绑定 tab 点击事件
   const tabs = container.querySelectorAll('.home-tab')
-  tabs.forEach(tab => {
-    const tabName = tab.dataset.tab
-    tab.classList.toggle('active', tabName === currentTab)
-
-    // 绑定点击事件
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'))
-      tab.classList.add('active')
+  tabs.forEach(tabEl => {
+    const tabName = tabEl.dataset.tab
+    tabEl.classList.toggle('active', tabName === currentTab)
+    tabEl.addEventListener('click', () => {
+      // 保存当前 tab 状态
+      saveCurrentTabState(container)
+      // 更新当前 tab
       currentTab = tabName
+      // 激活样式
+      tabs.forEach(t => t.classList.remove('active'))
+      tabEl.classList.add('active')
+      // 加载内容
       loadTabContent(tabName, container)
     })
   })
 
   // 初次加载内容
   loadTabContent(currentTab, container)
-
-  // 滚动事件保存状态
-  container.addEventListener('scroll', () => {
-    savePageState('home', {
-      scrollTop: container.scrollTop,
-      activeTab: currentTab,
-      cachedPosts
-    })
-  })
 }
 
-// 根据标签加载内容
+// 保存当前 tab 状态
+function saveCurrentTabState(container) {
+  const contentContainer = container.querySelector('#home-content')
+  if (!contentContainer) return
+  tabState[currentTab].scrollTop = contentContainer.scrollTop
+  // cachedPosts 可由各 mount 函数更新
+}
+
+// 加载 tab 内容
 async function loadTabContent(tabName, container) {
   const contentContainer = container.querySelector('#home-content')
   if (!contentContainer) return
 
-  contentContainer.innerHTML = '' // 清空内容
+  // 先显示缓存内容
+  contentContainer.innerHTML = tabState[tabName].cachedPosts?.length
+    ? renderCachedPosts(tabState[tabName].cachedPosts)
+    : ''
 
   switch (tabName) {
     case 'discover': {
       const { mountDiscover } = await import(new URL('../Posts/Discover.js', baseURL))
-      await mountDiscover(contentContainer, cachedPosts)
+      const posts = await mountDiscover(contentContainer, tabState[tabName].cachedPosts)
+      tabState[tabName].cachedPosts = posts
       break
     }
     case 'following': {
       const { mountFollowing } = await import(new URL('../Posts/Following.js', baseURL))
-      await mountFollowing(contentContainer, cachedPosts)
+      const posts = await mountFollowing(contentContainer, tabState[tabName].cachedPosts)
+      tabState[tabName].cachedPosts = posts
       break
     }
     case 'search': {
       const { mountSearch } = await import(new URL('../Posts/Search/Search.js', baseURL))
-      await mountSearch(contentContainer, cachedPosts)
+      const posts = await mountSearch(contentContainer, tabState[tabName].cachedPosts)
+      tabState[tabName].cachedPosts = posts
       break
     }
     default:
       console.warn('未知标签:', tabName)
   }
 
-  // 记录当前缓存（可选，根据 mountDiscover 等返回的数据更新 cachedPosts）
+  // 恢复滚动位置
+  contentContainer.scrollTop = tabState[tabName].scrollTop
+
+  // 滚动保存
+  contentContainer.addEventListener('scroll', () => {
+    tabState[tabName].scrollTop = contentContainer.scrollTop
+    saveAllTabsState()
+  }, { passive: true })
+}
+
+// 渲染缓存 posts（可按你实际 HTML 格式修改）
+function renderCachedPosts(posts) {
+  return posts.map(p => `<div class="post-item">${p.content || ''}</div>`).join('')
+}
+
+// 保存所有 tab 状态到 pageStateStore
+function saveAllTabsState() {
+  savePageState('home', {
+    activeTab: currentTab,
+    discover: tabState.discover,
+    following: tabState.following,
+    search: tabState.search
+  })
 }
 
 // CSS 加载函数
@@ -180,15 +219,3 @@ function loadCSS(href) {
   link.href = url
   document.head.appendChild(link)
 }
-
-// 页面状态保存接口（Sidebar 调用）
-export function saveState() {
-  const container = document.getElementById('main-root')
-  if (!container) return null
-  return {
-    scrollTop: container.scrollTop,
-    activeTab: currentTab,
-    cachedPosts
-  }
-}
-
