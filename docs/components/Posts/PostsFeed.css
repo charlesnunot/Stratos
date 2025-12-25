@@ -1,82 +1,40 @@
 /* ===============================
    Feed 外层
    =============================== */
-
 .posts-feed {
-  /* 关键：只占页面 50%，并水平居中 */
   width: 50%;
-  margin: 0 auto;
-
-  /* 三列严格固定，不允许自适应变多 */
+  margin: 0 auto; /* 水平居中 */
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-
-  /* 卡片间距 */
+  grid-template-columns: repeat(3, 1fr); /* 一行 3 个卡片 */
   gap: 24px;
-
-  /* 防止超宽 */
   max-width: 1200px;
   min-width: 600px;
+  padding: 24px 0;
 }
 
 /* ===============================
    单个卡片
    =============================== */
-
 .post {
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
-
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease;
 }
 
 .post:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 /* ===============================
-   头部
+   图片（正方形）
    =============================== */
-
-.post-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-}
-
-.post-author-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.post-author-info img {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.post-author-name {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.post-menu {
-  cursor: pointer;
-}
-
-/* ===============================
-   图片（正方形核心）
-   =============================== */
-
 .post-image {
   width: 100%;
-  aspect-ratio: 1 / 1; /* 🔥 强制正方形 */
+  aspect-ratio: 1 / 1; /* 强制正方形 */
   background: #f2f2f2;
   overflow: hidden;
 }
@@ -88,9 +46,34 @@
 }
 
 /* ===============================
+   内容
+   =============================== */
+.post-body {
+  padding: 12px 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.post-excerpt {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #222;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.post-translation {
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+}
+
+/* ===============================
    操作栏
    =============================== */
-
 .post-actions {
   display: flex;
   justify-content: space-between;
@@ -116,37 +99,51 @@
 }
 
 /* ===============================
-   内容
+   底部用户栏
    =============================== */
-
-.post-excerpt {
-  padding: 0 14px 10px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #222;
+.post-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-top: 1px solid #eee;
 }
 
-.post-translation {
-  padding: 0 14px 14px;
-  font-size: 13px;
-  color: #666;
-  font-style: italic;
+.post-author-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.post-author-info img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.post-author-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.post-menu {
+  cursor: pointer;
 }
 
 /* ===============================
-   响应式（可选，但安全）
+   响应式
    =============================== */
-
 @media (max-width: 1024px) {
   .posts-feed {
     width: 70%;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr); /* 两列 */
   }
 }
 
 @media (max-width: 640px) {
   .posts-feed {
     width: 100%;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* 一列 */
   }
 }
