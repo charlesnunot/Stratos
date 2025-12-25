@@ -264,6 +264,7 @@
 
 
 // docs/components/Sidebar/Sidebar.js
+// docs/components/Sidebar/Sidebar.js
 import { mountLogo } from '../Logo/Logo.js'
 import { subscribe as subscribeUser } from '../../store/userManager.js'
 import {
@@ -274,6 +275,7 @@ import { getPageState, savePageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
 let currentPage = null
+const pageModules = {} // 保存各页面模块引用
 
 export async function mountSidebar(container) {
   if (!container) return
@@ -281,10 +283,13 @@ export async function mountSidebar(container) {
   const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text())
   container.innerHTML = html
   loadCSS(new URL('Sidebar.css', baseURL))
+
   const topEl = document.getElementById('sidebar-top')
   if (topEl) mountLogo(topEl)
+
   mountNavItems()
   mountSidebarBottom()
+
   window.addEventListener('sidebar:navigate', onSidebarNavigate)
 }
 
@@ -359,17 +364,17 @@ async function mountSidebarBottom() {
 }
 
 // =========================
-// 核心：加载页面
+// 核心：加载页面（支持状态恢复）
 // =========================
 export async function loadMainPage(page) {
   const mainRoot = document.getElementById('main-root')
   if (!mainRoot) return
 
   // 切换前保存当前页面状态
-  if (currentPage && mainRoot.saveStateBeforeUnload) {
-    const savedState = mainRoot.saveStateBeforeUnload()
-    savePageState(currentPage, mainRoot.saveStateBeforeUnload())
-    console.log('[Sidebar] save state before unload ->', currentPage, savedState.scrollTop)
+  if (currentPage && pageModules[currentPage]?.getState) {
+    const state = pageModules[currentPage].getState()
+    savePageState(currentPage, state)
+    console.log('[Sidebar] saved state ->', currentPage, state)
   }
 
   mainRoot.innerHTML = ''
@@ -380,22 +385,27 @@ export async function loadMainPage(page) {
       case 'home':
         const homeMod = await import(new URL('../Home/Home.js', baseURL))
         mountFn = homeMod.mountHome
+        pageModules.home = homeMod
         break
       case 'market':
         const marketMod = await import(new URL('../Market/Market.js', baseURL))
         mountFn = marketMod.mountMarket
+        pageModules.market = marketMod
         break
       case 'publish':
         const pubMod = await import(new URL('../Publish/Publish.js', baseURL))
         mountFn = pubMod.mountPublish
+        pageModules.publish = pubMod
         break
       case 'messages':
         const msgMod = await import(new URL('../Messages/Messages.js', baseURL))
         mountFn = msgMod.mountMessages
+        pageModules.messages = msgMod
         break
       case 'profile':
         const profMod = await import(new URL('../Profile/Profile.js', baseURL))
         mountFn = profMod.mountProfile
+        pageModules.profile = profMod
         break
       default:
         console.warn('未实现的页面:', page)
