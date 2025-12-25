@@ -90,14 +90,14 @@
 
 // docs/components/Home/Home.js
 // docs/components/Home/Home.js
+// docs/components/Home/Home.js
 import { savePageState, getPageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
-
 let currentTab = 'discover'      // 当前激活的 tab
 let cachedPosts = {}              // 各 tab 的缓存数据
 
-export async function mountHome(container, state) {
+export async function mountHome(container, cachedState = null) {
   if (!container) return
 
   // ----------------------
@@ -114,6 +114,7 @@ export async function mountHome(container, state) {
   // ----------------------
   // 3️⃣ 尝试恢复状态
   // ----------------------
+  const state = cachedState || getPageState('home')
   if (state) {
     currentTab = state.activeTab || 'discover'
     cachedPosts = state.cachedPosts || {}
@@ -137,32 +138,25 @@ export async function mountHome(container, state) {
   // ----------------------
   // 5️⃣ 加载当前 tab 内容
   // ----------------------
-  loadTabContent(currentTab)
+  await loadTabContent(currentTab)
 
-  // =======================
+  // ----------------------
   // 6️⃣ 滚动监听，保存状态
-  // =======================
-  container.saveStateBeforeUnload = () => {
-    const state = {
+  // ----------------------
+  container.addEventListener('scroll', () => {
+    savePageState('home', {
       scrollTop: container.scrollTop,
       activeTab: currentTab,
       cachedPosts
-    }
-    console.log('[Home] saveStateBeforeUnload -> scrollTop:', state.scrollTop)
-    return state
-  }
-  
-  container.addEventListener('scroll', () => {
-    const state = container.saveStateBeforeUnload()
-    savePageState('home', state)
-    console.log('[Home] scroll event -> scrollTop:', state.scrollTop)
+    })
   })
-  
-  // 恢复状态
+
+  // 恢复 scrollTop
   if (state && state.scrollTop) {
-    console.log('[Home] restoring scrollTop:', state.scrollTop)
     container.scrollTop = state.scrollTop
+    console.log('[Home] restored scrollTop:', container.scrollTop)
   }
+}
 
 // =========================
 // 加载 tab 内容
@@ -171,7 +165,7 @@ async function loadTabContent(tabName) {
   const contentContainer = document.getElementById('home-content')
   if (!contentContainer) return
 
-  contentContainer.innerHTML = '' // 清空内容
+  contentContainer.innerHTML = ''
 
   // 如果有缓存数据，直接渲染
   if (cachedPosts[tabName]) {
@@ -201,7 +195,7 @@ async function loadTabContent(tabName) {
 }
 
 // =========================
-// 渲染 posts 的通用函数
+// 渲染 posts
 // =========================
 function renderPosts(container, posts) {
   container.innerHTML = ''
@@ -219,7 +213,7 @@ function renderPosts(container, posts) {
 }
 
 // =========================
-// CSS 加载函数
+// CSS 加载
 // =========================
 function loadCSS(href) {
   const url = href.toString()
