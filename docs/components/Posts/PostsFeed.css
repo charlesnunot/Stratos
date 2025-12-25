@@ -1,5 +1,5 @@
 .posts-feed {
-  width: 35%;
+  width: 50%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -50,23 +50,24 @@
   font-size: 20px;
 }
 
-/* 轮播图 - 4:3，贴边 */
+/* 轮播图 - 4:3，圆角 */
 .post-carousel {
   width: 100%;
   aspect-ratio: 4 / 3;
   overflow-x: auto;
   display: flex;
   scroll-snap-type: x mandatory;
-  margin: 0;             /* 去掉左右间距 */
+  margin: 0;
+  border-radius: 8px;
 }
 
 .post-carousel img {
   width: 100%;
   height: 100%;
-  object-fit: cover;     /* 填充满轮播图 */
+  object-fit: cover;
   flex-shrink: 0;
   scroll-snap-align: start;
-  border-radius: 0;      /* 去掉圆角，贴边 */
+  border-radius: 8px;
 }
 
 /* 互动栏 */
@@ -94,30 +95,55 @@
   font-size: 18px;
 }
 
-/* 内容区 - 只显示两行文字，点击展开 */
+/* 内容区 */
 .post-body {
   padding: 8px 12px;
   font-size: 14px;
   line-height: 1.5;
   color: #222;
   display: -webkit-box;
-  -webkit-line-clamp: 2;     /* 显示2行 */
+  -webkit-line-clamp: 1;     /* 默认只显示一行 */
   -webkit-box-orient: vertical;
   overflow: hidden;
   cursor: pointer;
+  position: relative;
 }
 
+.post-body::after {
+  content: '...更多';
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  background: #fff;
+  padding-left: 4px;
+  font-size: 13px;
+  color: #007bff;
+}
+
+/* 展开内容 */
 .post-body.expanded {
   -webkit-line-clamp: unset;
+}
+
+.post-translation {
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+  padding: 4px 12px;
+  cursor: pointer;
 }
 
 /* 评论区 */
 .post-comments {
   padding: 8px 12px;
-  border-top: 1px solid #eee;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  display: none; /* 默认隐藏 */
+}
+
+.post-comments.visible {
+  display: flex;
 }
 
 .comment {
@@ -127,10 +153,14 @@
 
 /* 输入评论区 */
 .post-comment-input {
-  display: flex;
+  display: none; /* 默认隐藏 */
+  flex-direction: row;
   padding: 8px 12px;
-  border-top: 1px solid #eee;
   gap: 8px;
+}
+
+.post-comment-input.visible {
+  display: flex;
 }
 
 .post-comment-input input {
