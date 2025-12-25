@@ -263,41 +263,31 @@
 
 
 
+// docs/components/Sidebar/Sidebar.js
 import { mountLogo } from '../Logo/Logo.js'
 import { subscribe as subscribeUser } from '../../store/userManager.js'
 import {
   subscribeSystemMessages,
   getUnreadCount
 } from '../../store/systemMessageStore.js'
-import { getPageState } from '../../store/pageStateStore.js' // 只用 getPageState
+import { getPageState, savePageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
-
-// 当前页面标识
 let currentPage = null
 
-// =========================
-// 主函数：挂载 Sidebar
-// =========================
 export async function mountSidebar(container) {
   if (!container) return
 
   const html = await fetch(new URL('Sidebar.html', baseURL)).then(res => res.text())
   container.innerHTML = html
   loadCSS(new URL('Sidebar.css', baseURL))
-
   const topEl = document.getElementById('sidebar-top')
   if (topEl) mountLogo(topEl)
-
   mountNavItems()
   mountSidebarBottom()
-
   window.addEventListener('sidebar:navigate', onSidebarNavigate)
 }
 
-// =========================
-// 挂载导航项
-// =========================
 function mountNavItems() {
   mountNavItem('#nav-home', 'home')
   mountNavItem('#nav-market', 'market')
@@ -309,19 +299,14 @@ function mountNavItems() {
 async function mountNavItem(selector, page) {
   const target = document.querySelector(selector)
   if (!target) return
-
   target.addEventListener('click', async () => {
     await loadMainPage(page)
   })
 }
 
-// =========================
-// Messages 导航
-// =========================
 function mountMessagesNav(selector) {
   const target = document.querySelector(selector)
   if (!target) return
-
   if (!target.innerHTML) {
     target.innerHTML = `
       <span class="material-symbols-outlined nav-icon">message</span>
@@ -329,17 +314,13 @@ function mountMessagesNav(selector) {
       <span class="nav-badge" style="display:none;"></span>
     `
   }
-
   const badge = target.querySelector('.nav-badge')
-
   target.addEventListener('click', async () => {
     await loadMainPage('messages')
   })
-
   subscribeUser(user => {
     if (!user) badge.style.display = 'none'
   })
-
   subscribeSystemMessages(() => {
     const count = getUnreadCount()
     badge.textContent = count > 99 ? '99+' : count
@@ -347,9 +328,6 @@ function mountMessagesNav(selector) {
   })
 }
 
-// =========================
-// 底部功能按钮
-// =========================
 async function mountSidebarBottom() {
   const moreBtn = document.getElementById('nav-more')
   const appBtn = document.getElementById('nav-app-download')
@@ -381,49 +359,47 @@ async function mountSidebarBottom() {
 }
 
 // =========================
-// 页面加载逻辑
+// 核心：加载页面
 // =========================
 export async function loadMainPage(page) {
   const mainRoot = document.getElementById('main-root')
   if (!mainRoot) return
 
+  // 切换前保存当前页面状态
+  if (currentPage && mainRoot.saveStateBeforeUnload) {
+    savePageState(currentPage, mainRoot.saveStateBeforeUnload())
+  }
+
   mainRoot.innerHTML = ''
 
   try {
     let mountFn = null
-
     switch (page) {
-      case 'home': {
-        const mod = await import(new URL('../Home/Home.js', baseURL))
-        mountFn = mod.mountHome
+      case 'home':
+        const homeMod = await import(new URL('../Home/Home.js', baseURL))
+        mountFn = homeMod.mountHome
         break
-      }
-      case 'market': {
-        const mod = await import(new URL('../Market/Market.js', baseURL))
-        mountFn = mod.mountMarket
+      case 'market':
+        const marketMod = await import(new URL('../Market/Market.js', baseURL))
+        mountFn = marketMod.mountMarket
         break
-      }
-      case 'publish': {
-        const mod = await import(new URL('../Publish/Publish.js', baseURL))
-        mountFn = mod.mountPublish
+      case 'publish':
+        const pubMod = await import(new URL('../Publish/Publish.js', baseURL))
+        mountFn = pubMod.mountPublish
         break
-      }
-      case 'messages': {
-        const mod = await import(new URL('../Messages/Messages.js', baseURL))
-        mountFn = mod.mountMessages
+      case 'messages':
+        const msgMod = await import(new URL('../Messages/Messages.js', baseURL))
+        mountFn = msgMod.mountMessages
         break
-      }
-      case 'profile': {
-        const mod = await import(new URL('../Profile/Profile.js', baseURL))
-        mountFn = mod.mountProfile
+      case 'profile':
+        const profMod = await import(new URL('../Profile/Profile.js', baseURL))
+        mountFn = profMod.mountProfile
         break
-      }
       default:
         console.warn('未实现的页面:', page)
     }
 
     if (mountFn) {
-      // 尝试恢复状态（页面内部自己处理状态保存）
       const cachedState = getPageState(page)
       await mountFn(mainRoot, cachedState)
       currentPage = page
@@ -435,18 +411,12 @@ export async function loadMainPage(page) {
   }
 }
 
-// =========================
-// 自定义事件处理
-// =========================
 function onSidebarNavigate(e) {
   const { page } = e.detail || {}
   if (!page) return
   loadMainPage(page)
 }
 
-// =========================
-// 工具函数
-// =========================
 function updateActiveNav(activePage) {
   document.querySelectorAll('.nav-item[data-page]').forEach(item => {
     const page = item.dataset.page
