@@ -89,28 +89,33 @@
 
 
 // docs/components/Home/Home.js
-// docs/components/Home/Home.js
-import { getPageState } from '../../store/pageStateStore.js'
+import { getPageState, savePageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
 let currentTab = 'discover'
 let cachedPosts = {}
 
-let containerRef = null  // 保存 container 引用，用于外部获取状态
+let containerRef = null  // 保存 container 引用，用于获取状态
 
 export async function mountHome(container, cachedState = null) {
   if (!container) return
   containerRef = container
 
+  // ----------------------
   // 1️⃣ 加载 HTML
+  // ----------------------
   const html = await fetch(new URL('Home.html', baseURL)).then(res => res.text())
   container.innerHTML = html
   console.log('[Home] HTML loaded length:', html.length)
 
+  // ----------------------
   // 2️⃣ 加载 CSS
+  // ----------------------
   loadCSS(new URL('Home.css', baseURL))
 
+  // ----------------------
   // 3️⃣ 尝试恢复状态
+  // ----------------------
   const state = cachedState || getPageState('home')
   if (state) {
     currentTab = state.activeTab || 'discover'
@@ -118,7 +123,9 @@ export async function mountHome(container, cachedState = null) {
     console.log('[Home] restored state:', state)
   }
 
+  // ----------------------
   // 4️⃣ 初始化 tab
+  // ----------------------
   const tabs = container.querySelectorAll('.home-tab')
   tabs.forEach(tab => {
     const tabName = tab.dataset.tab
@@ -131,17 +138,36 @@ export async function mountHome(container, cachedState = null) {
     })
   })
 
+  // ----------------------
   // 5️⃣ 加载当前 tab 内容
+  // ----------------------
   await loadTabContent(currentTab)
 
-  // 6️⃣ 恢复 scrollTop
+  // ----------------------
+  // 6️⃣ 滚动监听，实时保存 scrollTop
+  // ----------------------
+  container.addEventListener('scroll', () => {
+    savePageState('home', {
+      scrollTop: container.scrollTop,
+      activeTab: currentTab,
+      cachedPosts
+    })
+  })
+
+  // ----------------------
+  // 7️⃣ 恢复 scrollTop（延迟保证内容渲染完成）
+  // ----------------------
   if (state && state.scrollTop) {
-    container.scrollTop = state.scrollTop
-    console.log('[Home] restored scrollTop:', container.scrollTop)
+    requestAnimationFrame(() => {
+      container.scrollTop = state.scrollTop
+      console.log('[Home] restored scrollTop:', container.scrollTop)
+    })
   }
 }
 
+// =========================
 // 导出函数给 Sidebar 调用，获取当前页面状态
+// =========================
 export function getHomeState() {
   if (!containerRef) return null
   return {
@@ -151,14 +177,15 @@ export function getHomeState() {
   }
 }
 
+// =========================
 // 加载 tab 内容
+// =========================
 async function loadTabContent(tabName) {
   const contentContainer = document.getElementById('home-content')
   if (!contentContainer) return
   contentContainer.innerHTML = ''
 
-  // 如果已有缓存直接渲染
-  if (cachedPosts[tabName] && Array.isArray(cachedPosts[tabName]) && cachedPosts[tabName].length > 0) {
+  if (cachedPosts[tabName]) {
     renderPosts(contentContainer, cachedPosts[tabName])
     return
   }
@@ -166,13 +193,13 @@ async function loadTabContent(tabName) {
   let mountFn = null
   switch (tabName) {
     case 'discover':
-      mountFn = (await import('../Posts/Discover.js', import.meta.url)).mountDiscover
+      mountFn = (await import(new URL('../Posts/Discover.js', baseURL))).mountDiscover
       break
     case 'following':
-      mountFn = (await import('../Posts/Following.js', import.meta.url)).mountFollowing
+      mountFn = (await import(new URL('../Posts/Following.js', baseURL))).mountFollowing
       break
     case 'search':
-      mountFn = (await import('../Posts/Search/Search.js', import.meta.url)).mountSearch
+      mountFn = (await import(new URL('../Posts/Search/Search.js', baseURL))).mountSearch
       break
     default:
       console.warn('未知标签:', tabName)
@@ -180,13 +207,13 @@ async function loadTabContent(tabName) {
 
   if (mountFn) {
     const posts = await mountFn(contentContainer)
-    cachedPosts[tabName] = Array.isArray(posts) ? posts : []
-    renderPosts(contentContainer, cachedPosts[tabName])
-    console.log(`[Home] loaded posts for tab "${tabName}":`, cachedPosts[tabName])
+    cachedPosts[tabName] = posts
   }
 }
 
+// =========================
 // 渲染 posts
+// =========================
 function renderPosts(container, posts) {
   container.innerHTML = ''
   const ul = document.createElement('ul')
@@ -202,7 +229,9 @@ function renderPosts(container, posts) {
   container.appendChild(ul)
 }
 
+// =========================
 // CSS 加载
+// =========================
 function loadCSS(href) {
   const url = href.toString()
   if (document.querySelector(`link[href="${url}"]`)) return
