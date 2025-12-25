@@ -73,7 +73,7 @@ function createPostCard(post) {
     </div>
   `;
 
-  // 内容区点击展开全文
+  // 点击展开内容
   const postBody = card.querySelector('.post-body');
   postBody.addEventListener('click', () => {
     postBody.classList.toggle('expanded');
