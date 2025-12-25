@@ -21,12 +21,10 @@ function createPostCard(post) {
 
   const author = post.author || 'User';
   const avatar = post.author_avatar || 'https://via.placeholder.com/40';
-
   const likes = post.likes_count ?? 0;
   const favorites = post.favorites_count ?? 0;
   const commentsCount = post.comments_count ?? 0;
   const shares = post.shares_count ?? 0;
-
   const content = post.content || '';
   const translation = post.translation || '';
   const images = post.images || post.product_posts?.images || [];
@@ -34,7 +32,7 @@ function createPostCard(post) {
 
   const imagesHtml = images.length
     ? images.map(url => `<img src="${url}" alt="post image"/>`).join('')
-    : '<img src="https://via.placeholder.com/400x400" alt="placeholder"/>';
+    : '<img src="https://via.placeholder.com/400x648" alt="placeholder"/>';
 
   const commentsHtml = comments.slice(0,3).map(c => `<div class="comment"><strong>${c.user}:</strong> ${c.text}</div>`).join('');
 
