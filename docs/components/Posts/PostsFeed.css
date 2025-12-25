@@ -1,5 +1,5 @@
 .posts-feed {
-  width: 30%;
+  width: 35%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -50,23 +50,23 @@
   font-size: 20px;
 }
 
-/* 黄金比例轮播图 - 贴边 */
+/* 轮播图 - 4:3，贴边 */
 .post-carousel {
   width: 100%;
-  aspect-ratio: 1 / 1.618;
+  aspect-ratio: 4 / 3;
   overflow-x: auto;
   display: flex;
   scroll-snap-type: x mandatory;
-  margin: 0;               /* 去掉左右间距 */
+  margin: 0;             /* 去掉左右间距 */
 }
 
 .post-carousel img {
   width: 100%;
   height: 100%;
-  object-fit: cover;       /* 填充满整个轮播图 */
+  object-fit: cover;     /* 填充满轮播图 */
   flex-shrink: 0;
   scroll-snap-align: start;
-  border-radius: 0;        /* 去掉圆角，贴边 */
+  border-radius: 0;      /* 去掉圆角，贴边 */
 }
 
 /* 互动栏 */
@@ -156,17 +156,11 @@
   .posts-feed {
     width: 70%;
   }
-  .post-carousel {
-    max-width: 300px;
-  }
 }
 
 @media (max-width: 640px) {
   .posts-feed {
     width: 100%;
     padding: 16px 8px;
-  }
-  .post-carousel {
-    max-width: 100%;
   }
 }
