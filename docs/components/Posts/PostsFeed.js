@@ -1,19 +1,13 @@
-const baseURL = new URL('./', import.meta.url);
-
 export async function mountPostsFeed(container, postsArray) {
   if (!container || !Array.isArray(postsArray)) return;
 
-  // 加载 HTML
-  const html = await fetch(new URL('PostsFeed.html', baseURL)).then(res => res.text());
+  const html = await fetch(new URL('PostsFeed.html', import.meta.url)).then(res => res.text());
   container.innerHTML = html;
 
-  // 加载 CSS
-  loadCSS(new URL('PostsFeed.css', baseURL));
+  loadCSS(new URL('PostsFeed.css', import.meta.url));
 
   const feed = container.querySelector('.posts-feed');
   if (!feed) return;
-
-  // 清空旧内容
   feed.innerHTML = '';
 
   postsArray.forEach(post => {
@@ -26,27 +20,25 @@ function createPostCard(post) {
   const card = document.createElement('article');
   card.className = 'post';
 
-  // 作者信息
   const author = post.author || 'User';
   const avatar = post.author_avatar || 'https://via.placeholder.com/40';
 
-  // 帖子统计
   const likes = post.likes_count ?? 0;
   const favorites = post.favorites_count ?? 0;
   const comments = post.comments_count ?? 0;
   const shares = post.shares_count ?? 0;
 
-  // 内容与图片
   const content = post.content || '';
   const translation = post.translation || '';
   const images = post.images || post.product_posts?.images || [];
 
-  // 左侧图片轮播（简单实现：显示第一张）
-  const imagesHtml = images.map(url => `<img src="${url}" alt="post image" />`).join('');
+  const imagesHtml = images.length
+    ? images.map(url => `<img src="${url}" alt="post image" />`).join('')
+    : '<img src="https://via.placeholder.com/200x200" alt="post image" />';
 
   card.innerHTML = `
     <div class="post-left">
-      ${imagesHtml || '<img src="https://via.placeholder.com/200x200" alt="post image" />'}
+      ${imagesHtml}
     </div>
 
     <div class="post-right">
