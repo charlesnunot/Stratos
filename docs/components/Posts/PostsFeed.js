@@ -46,7 +46,7 @@ function createPostCard(post) {
   const imgUrl = images[0] || '';
 
   card.innerHTML = `
-    <!-- 图片（正方形由 CSS 控制） -->
+    <!-- 图片（正方形或黄金比由 CSS 控制） -->
     <div class="post-image">
       ${imgUrl ? `<img src="${imgUrl}" alt="post image" />` : ''}
     </div>
@@ -54,11 +54,7 @@ function createPostCard(post) {
     <!-- 内容 -->
     <div class="post-body">
       <p class="post-excerpt">${content}</p>
-      ${
-        translation
-          ? `<p class="post-translation">${translation}</p>`
-          : ''
-      }
+      ${translation ? `<p class="post-translation">${translation}</p>` : ''}
     </div>
 
     <!-- 操作栏 -->
