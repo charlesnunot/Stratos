@@ -36,4 +36,3 @@ export function clearPageState(pageName) {
 export function clearAllPageStates() {
   Object.keys(pageStates).forEach(key => delete pageStates[key])
 }
-
