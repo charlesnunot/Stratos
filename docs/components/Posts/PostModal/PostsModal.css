@@ -19,6 +19,7 @@
   background: #fff;
   overflow: hidden;
   box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  border-radius: 4px;
 }
 
 .modal-close {
@@ -44,6 +45,7 @@
   justify-content: center;
   align-items: center;
   position: relative;
+  overflow: hidden;
 }
 
 .modal-images-wrapper {
@@ -56,10 +58,11 @@
 }
 
 .modal-images img {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;       /* 横向铺满 */
+  height: auto;      /* 高度自适应 */
   object-fit: contain;
   display: none;
+  max-height: 100%;  /* 不超过父容器 */
 }
 
 .carousel-prev, .carousel-next {
