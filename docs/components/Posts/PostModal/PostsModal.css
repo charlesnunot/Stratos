@@ -58,11 +58,10 @@
 }
 
 .modal-images img {
-  width: 100%;       /* 横向铺满 */
-  height: auto;      /* 高度自适应 */
-  object-fit: contain;
+  max-width: 100%;   /* 横向不超过容器 */
+  max-height: 100%;  /* 纵向不超过容器 */
+  object-fit: contain; /* 保持比例完整显示 */
   display: none;
-  max-height: 100%;  /* 不超过父容器 */
 }
 
 .carousel-prev, .carousel-next {
