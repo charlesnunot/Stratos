@@ -10,13 +10,12 @@
 }
 
 .modal-container {
-  position: relative;
   display: flex;
-  background: #fff;
-  border-radius: 8px;
   width: 80%;
   max-width: 900px;
   height: 80%;
+  background: #fff;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -25,20 +24,12 @@
 }
 
 .modal-left {
-  flex: 1.2; /* 左边宽一点，图片大一些 */
+  flex: 1.2;
   background: #000;
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
-}
-
-.modal-right {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  overflow-y: auto;
 }
 
 .modal-images-wrapper {
@@ -54,6 +45,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  display: none;
 }
 
 .carousel-prev, .carousel-next {
@@ -66,17 +58,37 @@
   color: #fff;
   width: 40px; height: 60px;
   cursor: pointer;
+  z-index: 10;
 }
 
 .carousel-prev { left: 0; }
 .carousel-next { right: 0; }
 
-/* 右侧 */
+.modal-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow-y: auto;
+  position: relative;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
 }
+
 .author-avatar { width: 40px; height: 40px; border-radius: 50%; }
-.modal-actions { display: flex; gap: 16px; margin-top: auto; }
+.modal-content-wrapper { flex: 1; overflow-y: auto; }
+.modal-actions { display: flex; gap: 16px; margin-top: 12px; }
+.modal-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
