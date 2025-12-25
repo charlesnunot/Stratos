@@ -367,7 +367,9 @@ export async function loadMainPage(page) {
 
   // 切换前保存当前页面状态
   if (currentPage && mainRoot.saveStateBeforeUnload) {
+    const savedState = mainRoot.saveStateBeforeUnload()
     savePageState(currentPage, mainRoot.saveStateBeforeUnload())
+    console.log('[Sidebar] save state before unload ->', currentPage, savedState.scrollTop)
   }
 
   mainRoot.innerHTML = ''
