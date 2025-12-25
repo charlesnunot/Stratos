@@ -5,6 +5,7 @@ import {
   subscribeSystemMessages,
   getUnreadCount
 } from '../../store/systemMessageStore.js'
+import { getPageState, savePageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
 
@@ -166,6 +167,11 @@ async function mountSidebarBottom() {
 async function loadMainPage(page) {
   const mainRoot = document.getElementById('main-root')
   if (!mainRoot) return
+
+  // 保存当前页面状态
+  if (currentPage && window[currentPage]?.savePageState) {
+    savePageState(currentPage, window[currentPage].savePageState())
+  }
 
   mainRoot.innerHTML = ''
 
