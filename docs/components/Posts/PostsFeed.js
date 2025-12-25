@@ -32,7 +32,7 @@ function createPostCard(post) {
 
   const imagesHtml = images.length
     ? images.map(url => `<img src="${url}" alt="post image"/>`).join('')
-    : '<img src="https://via.placeholder.com/400x648" alt="placeholder"/>';
+    : '<img src="https://via.placeholder.com/400x300" alt="placeholder"/>';
 
   const commentsHtml = comments.slice(0,3).map(c => `<div class="comment"><strong>${c.user}:</strong> ${c.text}</div>`).join('');
 
@@ -46,7 +46,7 @@ function createPostCard(post) {
       <div class="post-menu">...</div>
     </div>
 
-    <!-- 黄金比例轮播图 -->
+    <!-- 轮播图 -->
     <div class="post-carousel">
       ${imagesHtml}
     </div>
