@@ -3,21 +3,30 @@ import { initPostModal } from './PostModal/PostsModal.js';
 const baseURL = new URL('./', import.meta.url);
 
 export async function mountPostsFeed(container, postsArray) {
-  if (!container) return;
+  if (!container || !Array.isArray(postsArray)) return;
 
+  // 加载 HTML
   const html = await fetch(new URL('PostsFeed.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
+
+  // 加载 CSS（只负责引入，不参与布局逻辑）
   loadCSS(new URL('PostsFeed.css', baseURL));
 
   const feed = container.querySelector('.posts-feed');
   if (!feed) return;
 
-  postsArray.forEach((post, i) => {
-    const card = createPostCard(post);
-    feed.appendChild(card);
+  // 清空，防止重复挂载
+  feed.innerHTML = '';
 
-    // 点击卡片弹模态，传入整个帖子数组和当前索引
-    card.addEventListener('click', () => initPostModal(postsArray, i));
+  postsArray.forEach((post, index) => {
+    const card = createPostCard(post);
+
+    // 点击卡片打开模态
+    card.addEventListener('click', () => {
+      initPostModal(postsArray, index);
+    });
+
+    feed.appendChild(card);
   });
 }
 
@@ -48,9 +57,13 @@ function createPostCard(post) {
       </div>
     </div>
 
-    <!-- 图片 -->
+    <!-- 图片（正方形由 CSS 控制） -->
     <div class="post-image">
-      <img src="${imgUrl}" alt="post image" />
+      ${
+        imgUrl
+          ? `<img src="${imgUrl}" alt="post image" />`
+          : ''
+      }
     </div>
 
     <!-- 操作栏 -->
@@ -75,20 +88,20 @@ function createPostCard(post) {
 
     <!-- 内容 -->
     <p class="post-excerpt">${content}</p>
-    ${translation ? `<p class="post-translation">${translation}</p>` : ''}
+    ${
+      translation
+        ? `<p class="post-translation">${translation}</p>`
+        : ''
+    }
   `;
-
-  // TODO: 右上菜单点击逻辑可在这里加 eventListener
 
   return card;
 }
 
-
-
-
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
+
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = url;
