@@ -89,6 +89,7 @@
 
 // docs/components/Home/Home.js
 // docs/components/Home/Home.js
+// docs/components/Home/Home.js
 import { savePageState, getPageState } from '../../store/pageStateStore.js';
 
 const baseURL = new URL('.', import.meta.url);
@@ -120,6 +121,9 @@ export async function mountHome(container, savedState) {
     }
   }
 
+  const contentContainer = container.querySelector('#home-content');
+  if (!contentContainer) return;
+
   // 绑定 tab 点击事件
   const tabs = container.querySelectorAll('.home-tab');
   tabs.forEach(tabEl => {
@@ -127,32 +131,43 @@ export async function mountHome(container, savedState) {
     tabEl.classList.toggle('active', tabName === currentTab);
     tabEl.addEventListener('click', async () => {
       // 保存当前 tab 状态
-      saveCurrentTabState(container);
+      saveCurrentTabState(contentContainer);
       // 更新当前 tab
       currentTab = tabName;
       // 激活样式
       tabs.forEach(t => t.classList.remove('active'));
       tabEl.classList.add('active');
       // 加载内容
-      await loadTabContent(tabName, container);
+      await loadTabContent(tabName, contentContainer);
     });
   });
 
+  // 只绑定一次滚动事件
+  if (!contentContainer._scrollListenerBound) {
+    contentContainer.addEventListener(
+      'scroll',
+      () => {
+        tabState[currentTab].scrollTop = contentContainer.scrollTop;
+        saveAllTabsState();
+      },
+      { passive: true }
+    );
+    contentContainer._scrollListenerBound = true;
+  }
+
   // 初次加载内容
-  await loadTabContent(currentTab, container);
+  await loadTabContent(currentTab, contentContainer);
 }
 
 // 保存当前 tab 状态
-function saveCurrentTabState(container) {
-  const contentContainer = container.querySelector('#home-content');
+function saveCurrentTabState(contentContainer) {
   if (!contentContainer) return;
   tabState[currentTab].scrollTop = contentContainer.scrollTop;
   saveAllTabsState();
 }
 
 // 加载 tab 内容
-async function loadTabContent(tabName, container) {
-  const contentContainer = container.querySelector('#home-content');
+async function loadTabContent(tabName, contentContainer) {
   if (!contentContainer) return;
 
   // 先显示缓存内容
@@ -187,18 +202,10 @@ async function loadTabContent(tabName, container) {
 
   tabState[tabName].cachedPosts = posts;
 
-  // 恢复滚动位置
-  contentContainer.scrollTop = tabState[tabName].scrollTop;
-
-  // 滚动保存
-  contentContainer.addEventListener(
-    'scroll',
-    () => {
-      tabState[tabName].scrollTop = contentContainer.scrollTop;
-      saveAllTabsState();
-    },
-    { passive: true }
-  );
+  // 恢复滚动位置，确保 DOM 已渲染
+  requestAnimationFrame(() => {
+    contentContainer.scrollTop = tabState[tabName].scrollTop;
+  });
 }
 
 // 渲染缓存 posts（按实际 HTML 格式修改）
