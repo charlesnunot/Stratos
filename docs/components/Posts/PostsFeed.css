@@ -6,7 +6,7 @@
   margin: 0 auto;            /* 水平居中 */
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* 一行 3 个卡片 */
-  gap: 4px;                 /* 卡片间距 */
+  gap: 6px;                 /* 卡片间距 */
   max-width: 1200px;
   min-width: 600px;
   padding: 12px 0;
@@ -18,7 +18,7 @@
    =============================== */
 .post {
   background: #fff;
-  border-radius: 4px;
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
   display: flex;
@@ -40,7 +40,7 @@
   aspect-ratio: 3 / 4;      /* 竖版比例 */
   background: #f2f2f2;
   overflow: hidden;
-  border-radius: 4px 4px 0 0; /* 图片顶部圆角 */
+  border-radius: 6px 6px 0 0; /* 图片顶部圆角 */
 }
 
 .post-image img {
