@@ -1,105 +1,94 @@
-const baseURL = new URL('./', import.meta.url);
+let modal = null;
+let posts = [];
+let currentIndex = 0;
+let currentImageIndex = 0;
 
-export async function mountPostsFeed(container, postsArray) {
-  if (!container || !Array.isArray(postsArray)) return;
+export async function initPostModal(postsArray, startIndex = 0) {
+  posts = postsArray;
+  currentIndex = startIndex;
 
-  container.innerHTML = '<div class="posts-feed"></div>';
-  loadCSS(new URL('PostsFeed.css', baseURL));
+  if (!modal) {
+    const html = await fetch(new URL('PostsModal.html', import.meta.url)).then(r => r.text());
+    document.body.insertAdjacentHTML('beforeend', html);
+    loadCSS(new URL('PostsModal.css', import.meta.url));
 
-  const feed = container.querySelector('.posts-feed');
-  feed.innerHTML = '';
+    modal = document.querySelector('.post-modal');
 
-  postsArray.forEach(post => {
-    const card = createPostCard(post);
-    feed.appendChild(card);
-  });
+    modal.querySelector('.modal-close')
+      .addEventListener('click', () => modal.style.display = 'none');
+
+    modal.querySelector('.carousel-prev')
+      .addEventListener('click', () => showImage(currentImageIndex - 1));
+
+    modal.querySelector('.carousel-next')
+      .addEventListener('click', () => showImage(currentImageIndex + 1));
+
+    // 点击遮罩关闭
+    modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+
+    // 键盘左右切换帖子
+    document.addEventListener('keydown', e => {
+      if (!modal || modal.style.display !== 'flex') return;
+      if (e.key === 'ArrowLeft') showPost(currentIndex - 1);
+      if (e.key === 'ArrowRight') showPost(currentIndex + 1);
+    });
+  }
+
+  showPost(currentIndex);
+  modal.style.display = 'flex';
 }
 
-function createPostCard(post) {
-  const card = document.createElement('article');
-  card.className = 'post';
+function showPost(index) {
+  if (!posts || posts.length === 0) return;
 
-  const author = post.author || 'User';
-  const avatar = post.author_avatar || 'https://via.placeholder.com/40';
-  const likes = post.likes_count ?? 0;
-  const favorites = post.favorites_count ?? 0;
-  const commentsCount = post.comments_count ?? 0;
-  const shares = post.shares_count ?? 0;
-  const content = post.content || '';
-  const translation = post.translation || '';
-  const images = post.images || post.product_posts?.images || [];
-  const comments = post.comments || [];
+  if (index < 0 || index >= posts.length) {
+    modal.style.display = 'none';
+    return;
+  }
 
-  const imagesHtml = images.length
-    ? images.map(url => `<img src="${url}" alt="post image"/>`).join('')
-    : '<img src="https://via.placeholder.com/400x300" alt="placeholder"/>';
+  currentIndex = index;
+  const post = posts[currentIndex];
 
-  const commentsHtml = comments.map(c => `<div class="comment"><strong>${c.user}:</strong> ${c.text}</div>`).join('');
+  // 作者
+  modal.querySelector('.author-avatar').src = post.author_avatar || 'https://via.placeholder.com/40';
+  modal.querySelector('.author-name').textContent = post.author || 'User';
 
-  card.innerHTML = `
-    <!-- 用户栏 -->
-    <div class="post-header">
-      <div class="post-author-info">
-        <img src="${avatar}" alt="avatar"/>
-        <span class="post-author-name">${author}</span>
-      </div>
-      <div class="post-menu">...</div>
-    </div>
+  // 内容
+  modal.querySelector('.modal-title').textContent = post.title || '';
+  modal.querySelector('.modal-content').textContent = post.content || '';
 
-    <!-- 轮播图 -->
-    <div class="post-carousel">${imagesHtml}</div>
+  // 操作数
+  modal.querySelector('.modal-actions .favorite .count').textContent = post.likes_count ?? 0;
+  modal.querySelector('.modal-actions .comment .count').textContent = post.comments_count ?? 0;
+  modal.querySelector('.modal-actions .share .count').textContent = post.shares_count ?? 0;
 
-    <!-- 互动栏 -->
-    <div class="post-actions">
-      <div class="left-actions">
-        <div class="action"><span class="material-symbols-outlined">favorite</span>${likes}</div>
-        <div class="action"><span class="material-symbols-outlined">bookmark</span>${favorites}</div>
-        <div class="action"><span class="material-symbols-outlined">comment</span>${commentsCount}</div>
-      </div>
-      <div class="right-actions">
-        <div class="action"><span class="material-symbols-outlined">share</span>${shares}</div>
-      </div>
-    </div>
-
-    <!-- 内容区 -->
-    <div class="post-body">${content}</div>
-    <div class="post-translation">${translation || '翻译'}</div>
-
-    <!-- 评论 -->
-    <div class="post-comments">${commentsHtml}</div>
-
-    <!-- 输入评论 -->
-    <div class="post-comment-input">
-      <input type="text" placeholder="Write a comment..." />
-      <button>Send</button>
-    </div>
-  `;
-
-  // 点击内容区展开
-  const postBody = card.querySelector('.post-body');
-  const commentsEl = card.querySelector('.post-comments');
-  const inputEl = card.querySelector('.post-comment-input');
-  const translationEl = card.querySelector('.post-translation');
-
-  postBody.addEventListener('click', () => {
-    postBody.classList.toggle('expanded');
-    commentsEl.classList.toggle('visible');
-    inputEl.classList.toggle('visible');
+  // 图片轮播
+  const imagesContainer = modal.querySelector('.modal-images');
+  imagesContainer.innerHTML = '';
+  const imgs = post.images || [];
+  imgs.forEach((url, idx) => {
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.display = idx === 0 ? 'block' : 'none';
+    imagesContainer.appendChild(img);
   });
+  currentImageIndex = 0;
+}
 
-  // 点击翻译切换（具体实现略）
-  translationEl.addEventListener('click', () => {
-    translationEl.classList.toggle('translated');
-    // 翻译内容逻辑可在此实现
-  });
+function showImage(idx) {
+  const imgs = modal.querySelectorAll('.modal-images img');
+  if (!imgs.length) return;
 
-  return card;
+  if (idx < 0) idx = imgs.length - 1;
+  if (idx >= imgs.length) idx = 0;
+
+  imgs.forEach((img, i) => img.style.display = i === idx ? 'block' : 'none');
+  currentImageIndex = idx;
 }
 
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
-
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = url;
