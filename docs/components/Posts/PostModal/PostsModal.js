@@ -7,7 +7,6 @@ export async function initPostModal(postsArray, startIndex = 0) {
   posts = postsArray;
   currentIndex = startIndex;
 
-  // 如果 modal 还没加载过，则动态加载 HTML + CSS
   if (!modal) {
     const htmlUrl = new URL('./PostsModal.html', import.meta.url);
     const cssUrl = new URL('./PostsModal.css', import.meta.url);
@@ -21,19 +20,14 @@ export async function initPostModal(postsArray, startIndex = 0) {
 
     // 3️⃣ 获取 modal 元素
     modal = document.querySelector('.post-modal');
-    if (!modal) throw new Error('PostsModal.html 加载失败，找不到 .post-modal');
+    if (!modal) throw new Error('PostsModal.html 加载失败');
 
-    // 4️⃣ 安全绑定按钮事件
+    // 4️⃣ 安全绑定按钮
     const closeBtn = modal.querySelector('.modal-close');
     const prevBtn = modal.querySelector('.carousel-prev');
     const nextBtn = modal.querySelector('.carousel-next');
 
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => modal.style.display = 'none');
-    } else {
-      console.warn('.modal-close 未找到');
-    }
-
+    if (closeBtn) closeBtn.addEventListener('click', () => modal.style.display = 'none');
     if (prevBtn) prevBtn.addEventListener('click', () => showImage(currentImageIndex - 1));
     if (nextBtn) nextBtn.addEventListener('click', () => showImage(currentImageIndex + 1));
 
@@ -48,7 +42,6 @@ export async function initPostModal(postsArray, startIndex = 0) {
     });
   }
 
-  // 显示当前帖子
   showPost(currentIndex);
   modal.style.display = 'flex';
 }
@@ -100,7 +93,6 @@ function showImage(idx) {
   currentImageIndex = idx;
 }
 
-// 加载 CSS（避免重复加载）
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
