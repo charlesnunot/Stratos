@@ -37,6 +37,7 @@ function createPostCard(post) {
   const commentsHtml = comments.slice(0,3).map(c => `<div class="comment"><strong>${c.user}:</strong> ${c.text}</div>`).join('');
 
   card.innerHTML = `
+    <!-- 顶部用户栏 -->
     <div class="post-header">
       <div class="post-author-info">
         <img src="${avatar}" alt="avatar"/>
@@ -45,10 +46,12 @@ function createPostCard(post) {
       <div class="post-menu">...</div>
     </div>
 
+    <!-- 黄金比例轮播图 -->
     <div class="post-carousel">
       ${imagesHtml}
     </div>
 
+    <!-- 底部区域 -->
     <div class="post-actions">
       <div class="left-actions">
         <div class="action"><span class="material-symbols-outlined">favorite</span>${likes}</div>
@@ -60,20 +63,21 @@ function createPostCard(post) {
       </div>
     </div>
 
-    <div class="post-body">
-      <p class="post-excerpt">${content}</p>
-      ${translation ? `<p class="post-translation">${translation}</p>` : ''}
-    </div>
+    <div class="post-body">${content}${translation ? `<p class="post-translation">${translation}</p>` : ''}</div>
 
-    <div class="post-comments">
-      ${commentsHtml}
-    </div>
+    <div class="post-comments">${commentsHtml}</div>
 
     <div class="post-comment-input">
       <input type="text" placeholder="Write a comment..." />
       <button>Send</button>
     </div>
   `;
+
+  // 内容区点击展开全文
+  const postBody = card.querySelector('.post-body');
+  postBody.addEventListener('click', () => {
+    postBody.classList.toggle('expanded');
+  });
 
   return card;
 }
