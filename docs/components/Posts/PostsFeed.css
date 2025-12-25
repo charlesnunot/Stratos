@@ -6,7 +6,7 @@
   margin: 0 auto;            /* 水平居中 */
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* 一行 3 个卡片 */
-  gap: 2px;                 /* 卡片间距 */
+  gap: 4px;                 /* 卡片间距 */
   max-width: 1200px;
   min-width: 600px;
   padding: 12px 0;
