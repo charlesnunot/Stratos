@@ -1,23 +1,17 @@
-/* =========================
-   帖子流容器
-   ========================= */
 .posts-feed {
   display: flex;
-  flex-wrap: wrap;              /* ✅ 允许换行 */
-  justify-content: center;      /* ✅ 整体居中 */
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 24px;
   padding: 24px;
   background: #f9f9f9;
 }
 
-/* =========================
-   单个卡片
-   ========================= */
 .post {
-  flex: 0 0 20%;                /* ✅ 每个占 20% */
-  max-width: 20%;
-  min-width: 240px;             /* ✅ 防止太窄 */
-  
+  flex: 0 0 calc(33.333% - 24px);
+  max-width: calc(33.333% - 24px);
+  min-width: 260px;
+
   background: #f9f9f9;
   border-radius: 12px;
   overflow: hidden;
@@ -25,13 +19,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-
-  transition: transform 0.15s ease;
 }
 
-.post:hover {
-  transform: translateY(-2px);
-}
 
 /* =========================
    头部
