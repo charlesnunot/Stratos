@@ -11,6 +11,7 @@ const pageStates = {}
 export function savePageState(pageName, state) {
   if (!pageName || !state) return
   pageStates[pageName] = state
+  console.log('[pageStateStore] savePageState ->', pageName, state)
 }
 
 /**
@@ -23,15 +24,14 @@ export function getPageState(pageName) {
 }
 
 /**
- * 清空某个页面的状态（可选）
- * @param {string} pageName 
+ * 清空某个页面的状态
  */
 export function clearPageState(pageName) {
   delete pageStates[pageName]
 }
 
 /**
- * 清空所有页面状态（可选）
+ * 清空所有页面状态
  */
 export function clearAllPageStates() {
   Object.keys(pageStates).forEach(key => delete pageStates[key])
