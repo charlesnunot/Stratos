@@ -52,15 +52,17 @@
   font-size: 20px;
 }
 
-/* 轮播图 - 黄金比例竖版 */
+/* 轮播图 - 固定宽度 + 黄金比例 */
 .post-carousel {
-  width: 100%;
-  aspect-ratio: 1 / 1.618; /* 黄金比例 */
-  overflow-x: auto;
+  width: 100%;               /* 占满帖子宽度 */
+  max-width: 400px;          /* PC端最大宽度 */
+  aspect-ratio: 1 / 1.618;   /* 黄金比例 */
+  overflow-x: auto;           /* 横向滑动 */
   display: flex;
   scroll-snap-type: x mandatory;
   border-radius: 8px;
   background: #f2f2f2;
+  margin: 0 auto;            /* 居中 */
 }
 
 .post-carousel img {
@@ -162,11 +164,17 @@
   .posts-feed {
     width: 70%;
   }
+  .post-carousel {
+    max-width: 300px;
+  }
 }
 
 @media (max-width: 640px) {
   .posts-feed {
     width: 100%;
     padding: 16px 8px;
+  }
+  .post-carousel {
+    max-width: 100%;
   }
 }
