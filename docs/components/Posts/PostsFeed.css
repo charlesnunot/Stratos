@@ -6,7 +6,7 @@
   margin: 0 auto; /* 水平居中 */
   display: grid;
   grid-template-columns: repeat(3, 1fr); /* 一行 3 个卡片 */
-  gap: 24px;
+  gap: 6px;
   max-width: 1200px;
   min-width: 600px;
   padding: 24px 0;
@@ -17,7 +17,7 @@
    =============================== */
 .post {
   background: #fff;
-  border-radius: 12px;
+  border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
   display: flex;
