@@ -26,7 +26,13 @@ export async function fetchDefaultPosts(limit = 20, offset = 0) {
       favorites_count,
       wants_count,
       created_at,
-      score
+      score,
+      user_profiles!posts_author_id_fkey (
+        nickname
+      ),
+      user_avatars!posts_author_id_fkey (
+        avatar_url
+      )
     `)
     .eq('is_deleted', false)
     .ilike('visibility', 'public')
@@ -41,10 +47,14 @@ export async function fetchDefaultPosts(limit = 20, offset = 0) {
     return []
   }
 
-  console.log('[API] fetchDefaultPosts ← raw data', data)
-  console.log('[API] fetchDefaultPosts ← count', data?.length ?? 0)
+  // 格式化数据，把 nickname 和 avatar_url 放到 top level
+  const formatted = (data ?? []).map(post => ({
+    ...post,
+    author: post.user_profiles?.nickname || 'User',
+    author_avatar: post.user_avatars?.avatar_url || DEFAULT_AVATAR
+  }))
 
-  return data ?? []
+  return formatted
 }
 
 /**
@@ -72,6 +82,12 @@ export async function fetchDefaultProductPosts(limit = 20, offset = 0) {
         link,
         wants_count,
         sales_count
+      ),
+      user_profiles!posts_author_id_fkey (
+        nickname
+      ),
+      user_avatars!posts_author_id_fkey (
+        avatar_url
       )
     `)
     .eq('is_deleted', false)
@@ -87,25 +103,23 @@ export async function fetchDefaultProductPosts(limit = 20, offset = 0) {
     return []
   }
 
-  console.log('[API] fetchDefaultProductPosts ← raw data', data)
-  console.log('[API] fetchDefaultProductPosts ← count', data?.length ?? 0)
+  const formatted = (data ?? []).map(post => ({
+    ...post,
+    author: post.user_profiles?.nickname || 'User',
+    author_avatar: post.user_avatars?.avatar_url || DEFAULT_AVATAR
+  }))
 
-  return data ?? []
+  return formatted
 }
 
 /**
  * 未登录用户：默认 Feed（普通 + 产品）
  */
 export async function fetchDefaultFeed(limit = 20, offset = 0) {
-  console.log('[API] fetchDefaultFeed → start', { limit, offset })
-
   const [normalPosts, productPosts] = await Promise.all([
     fetchDefaultPosts(limit, offset),
     fetchDefaultProductPosts(limit, offset)
   ])
-
-  console.log('[API] fetchDefaultFeed ← normalPosts', normalPosts)
-  console.log('[API] fetchDefaultFeed ← productPosts', productPosts)
 
   const allPosts = [...normalPosts, ...productPosts].sort((a, b) => {
     const scoreDiff = Number(b.score) - Number(a.score)
@@ -113,12 +127,8 @@ export async function fetchDefaultFeed(limit = 20, offset = 0) {
     return new Date(b.created_at) - new Date(a.created_at)
   })
 
-  console.log('[API] fetchDefaultFeed ← merged count', allPosts.length)
-  console.log('[API] fetchDefaultFeed ← merged data', allPosts)
-
   return allPosts
 }
-
 /**
  * 获取用户头像（未登录 / 已登录通用）
  */
