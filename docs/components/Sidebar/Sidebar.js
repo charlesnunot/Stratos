@@ -265,12 +265,15 @@
 
 import { mountLogo } from '../Logo/Logo.js'
 import { subscribe as subscribeUser } from '../../store/userManager.js'
-import { subscribeSystemMessages, getUnreadCount } from '../../store/systemMessageStore.js'
+import {
+  subscribeSystemMessages,
+  getUnreadCount
+} from '../../store/systemMessageStore.js'
 import { getPageState, savePageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
 let currentPage = null
-const pageModules = {} // 保存各页面模块引用
+const pageModules = {} // 保存页面模块引用
 
 export async function mountSidebar(container) {
   if (!container) return
@@ -347,7 +350,9 @@ async function mountSidebarBottom() {
       if (!mainRoot) return
       mainRoot.innerHTML = ''
       try {
-        const { mountAppDownload } = await import(new URL('../AppDownload/AppDownload.js', baseURL))
+        const { mountAppDownload } = await import(
+          new URL('../AppDownload/AppDownload.js', baseURL)
+        )
         mountAppDownload(mainRoot)
       } catch (err) {
         console.error('加载 App 下载页面失败:', err)
