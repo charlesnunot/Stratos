@@ -95,7 +95,8 @@ import { getPageState } from '../../store/pageStateStore.js'
 const baseURL = new URL('.', import.meta.url)
 let currentTab = 'discover'
 let cachedPosts = {}
-let containerRef = null  // 保存 container 引用
+
+let containerRef = null  // 保存 container 引用，用于外部获取状态
 
 export async function mountHome(container, cachedState = null) {
   if (!container) return
@@ -150,21 +151,10 @@ export async function mountHome(container, cachedState = null) {
     container.scrollTop = state.scrollTop
     console.log('[Home] restored scrollTop:', container.scrollTop)
   }
-
-  // ----------------------
-  // 7️⃣ 监听 scroll 保存状态
-  // ----------------------
-  container.addEventListener('scroll', () => {
-    savePageState('home', {
-      scrollTop: container.scrollTop,
-      activeTab: currentTab,
-      cachedPosts
-    })
-  })
 }
 
 // =========================
-// 导出给 Sidebar 获取状态
+// 导出函数给 Sidebar 调用，获取当前页面状态
 // =========================
 export function getHomeState() {
   if (!containerRef) return null
@@ -183,7 +173,7 @@ async function loadTabContent(tabName) {
   if (!contentContainer) return
   contentContainer.innerHTML = ''
 
-  if (cachedPosts[tabName]) {
+  if (cachedPosts[tabName] && Array.isArray(cachedPosts[tabName])) {
     renderPosts(contentContainer, cachedPosts[tabName])
     return
   }
@@ -191,13 +181,13 @@ async function loadTabContent(tabName) {
   let mountFn = null
   switch (tabName) {
     case 'discover':
-      mountFn = (await import(new URL('../Posts/Discover.js', baseURL))).mountDiscover
+      mountFn = (await import('../Posts/Discover.js', import.meta.url)).mountDiscover
       break
     case 'following':
-      mountFn = (await import(new URL('../Posts/Following.js', baseURL))).mountFollowing
+      mountFn = (await import('../Posts/Following.js', import.meta.url)).mountFollowing
       break
     case 'search':
-      mountFn = (await import(new URL('../Posts/Search/Search.js', baseURL))).mountSearch
+      mountFn = (await import('../Posts/Search/Search.js', import.meta.url)).mountSearch
       break
     default:
       console.warn('未知标签:', tabName)
@@ -205,7 +195,8 @@ async function loadTabContent(tabName) {
 
   if (mountFn) {
     const posts = await mountFn(contentContainer)
-    cachedPosts[tabName] = posts
+    cachedPosts[tabName] = Array.isArray(posts) ? posts : []
+    renderPosts(contentContainer, cachedPosts[tabName])
   }
 }
 
