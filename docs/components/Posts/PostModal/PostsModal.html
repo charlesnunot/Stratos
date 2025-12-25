@@ -1,13 +1,29 @@
 <div class="post-modal" style="display:none;">
   <div class="modal-container">
     <button class="modal-close">×</button>
-    <button class="modal-prev">‹</button>
-    <button class="modal-next">›</button>
 
-    <div class="modal-content-wrapper">
-      <h3 class="modal-title"></h3>
-      <div class="modal-images"></div>
-      <p class="modal-content"></p>
+    <div class="modal-left">
+      <div class="modal-images-wrapper">
+        <button class="carousel-prev">‹</button>
+        <div class="modal-images"></div>
+        <button class="carousel-next">›</button>
+      </div>
+    </div>
+
+    <div class="modal-right">
+      <div class="modal-header">
+        <img class="author-avatar" src="" alt="avatar">
+        <span class="author-name"></span>
+      </div>
+      <div class="modal-content-wrapper">
+        <h3 class="modal-title"></h3>
+        <p class="modal-content"></p>
+      </div>
+      <div class="modal-actions">
+        <div class="action favorite">❤ <span class="count">0</span></div>
+        <div class="action comment">💬 <span class="count">0</span></div>
+        <div class="action share">↗ <span class="count">0</span></div>
+      </div>
     </div>
   </div>
 </div>
