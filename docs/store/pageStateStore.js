@@ -25,6 +25,7 @@ export function getPageState(pageName) {
 
 /**
  * 清空某个页面的状态
+ * @param {string} pageName 
  */
 export function clearPageState(pageName) {
   delete pageStates[pageName]
