@@ -24,7 +24,7 @@ export function getPageState(pageName) {
 }
 
 /**
- * 清空某个页面的状态
+ * 清空某个页面的状态（可选）
  * @param {string} pageName 
  */
 export function clearPageState(pageName) {
@@ -32,7 +32,7 @@ export function clearPageState(pageName) {
 }
 
 /**
- * 清空所有页面状态
+ * 清空所有页面状态（可选）
  */
 export function clearAllPageStates() {
   Object.keys(pageStates).forEach(key => delete pageStates[key])
