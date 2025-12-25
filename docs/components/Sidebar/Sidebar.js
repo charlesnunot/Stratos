@@ -8,6 +8,7 @@ import {
 import { getPageState, savePageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
+let currentPage = null
 
 // =========================
 // 主函数：挂载 Sidebar
@@ -176,6 +177,7 @@ async function loadMainPage(page) {
   mainRoot.innerHTML = ''
 
   try {
+    let mountFn = null
     switch (page) {
       case 'home': {
         const { mountHome } = await import(new URL('../Home/Home.js', baseURL))
@@ -204,6 +206,12 @@ async function loadMainPage(page) {
       }
       default:
         console.warn('未实现的页面:', page)
+    }
+    if (mountFn) {
+      // 尝试恢复状态
+      const cachedState = getPageState(page)
+      await mountFn(mainRoot, cachedState)
+      currentPage = page
     }
 
     // 页面加载完成后更新导航高亮
