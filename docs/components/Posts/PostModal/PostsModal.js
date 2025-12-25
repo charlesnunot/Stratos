@@ -7,22 +7,35 @@ export async function initPostModal(postsArray, startIndex = 0) {
   posts = postsArray;
   currentIndex = startIndex;
 
+  // 如果 modal 还没加载过，则动态加载 HTML + CSS
   if (!modal) {
-    const html = await fetch(new URL('PostsModal.html', import.meta.url)).then(r => r.text());
+    const htmlUrl = new URL('./PostsModal.html', import.meta.url);
+    const cssUrl = new URL('./PostsModal.css', import.meta.url);
+
+    // 1️⃣ 加载 HTML
+    const html = await fetch(htmlUrl).then(res => res.text());
     document.body.insertAdjacentHTML('beforeend', html);
-    loadCSS(new URL('PostsModal.css', import.meta.url));
 
+    // 2️⃣ 加载 CSS
+    loadCSS(cssUrl);
+
+    // 3️⃣ 获取 modal 元素
     modal = document.querySelector('.post-modal');
+    if (!modal) throw new Error('PostsModal.html 加载失败，找不到 .post-modal');
 
-    // 关闭按钮
-    modal.querySelector('.modal-close')
-      .addEventListener('click', () => modal.style.display = 'none');
+    // 4️⃣ 安全绑定按钮事件
+    const closeBtn = modal.querySelector('.modal-close');
+    const prevBtn = modal.querySelector('.carousel-prev');
+    const nextBtn = modal.querySelector('.carousel-next');
 
-    // 轮播按钮
-    modal.querySelector('.carousel-prev')
-      .addEventListener('click', () => showImage(currentImageIndex - 1));
-    modal.querySelector('.carousel-next')
-      .addEventListener('click', () => showImage(currentImageIndex + 1));
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => modal.style.display = 'none');
+    } else {
+      console.warn('.modal-close 未找到');
+    }
+
+    if (prevBtn) prevBtn.addEventListener('click', () => showImage(currentImageIndex - 1));
+    if (nextBtn) nextBtn.addEventListener('click', () => showImage(currentImageIndex + 1));
 
     // 点击遮罩关闭
     modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
@@ -35,6 +48,7 @@ export async function initPostModal(postsArray, startIndex = 0) {
     });
   }
 
+  // 显示当前帖子
   showPost(currentIndex);
   modal.style.display = 'flex';
 }
@@ -49,7 +63,7 @@ function showPost(index) {
   currentIndex = index;
   const post = posts[currentIndex];
 
-  // 作者
+  // 作者信息
   modal.querySelector('.author-avatar').src = post.author_avatar || 'https://via.placeholder.com/40';
   modal.querySelector('.author-name').textContent = post.author || 'User';
 
@@ -86,6 +100,7 @@ function showImage(idx) {
   currentImageIndex = idx;
 }
 
+// 加载 CSS（避免重复加载）
 function loadCSS(href) {
   const url = href.toString();
   if (document.querySelector(`link[href="${url}"]`)) return;
