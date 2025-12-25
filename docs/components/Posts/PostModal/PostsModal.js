@@ -1,4 +1,37 @@
+let modal = null;
+let posts = [];
+let currentIndex = 0;
 let currentImageIndex = 0;
+
+export async function initPostModal(postsArray, startIndex = 0) {
+  posts = postsArray;
+  currentIndex = startIndex;
+
+  if (!modal) {
+    const html = await fetch(new URL('PostsModal.html', import.meta.url)).then(r => r.text());
+    document.body.insertAdjacentHTML('beforeend', html);
+    modal = document.querySelector('.post-modal');
+
+    loadCSS(new URL('PostsModal.css', import.meta.url));
+
+    modal.querySelector('.modal-close').addEventListener('click', () => modal.style.display = 'none');
+    modal.querySelector('.carousel-prev').addEventListener('click', () => showImage(currentImageIndex - 1));
+    modal.querySelector('.carousel-next').addEventListener('click', () => showImage(currentImageIndex + 1));
+
+    modal.addEventListener('click', e => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+
+    document.addEventListener('keydown', e => {
+      if (!modal || modal.style.display !== 'flex') return;
+      if (e.key === 'ArrowLeft') showPost(currentIndex - 1);
+      if (e.key === 'ArrowRight') showPost(currentIndex + 1);
+    });
+  }
+
+  showPost(currentIndex);
+  modal.style.display = 'flex';
+}
 
 function showPost(index) {
   if (!posts || posts.length === 0) return;
@@ -33,14 +66,6 @@ function showPost(index) {
   currentImageIndex = 0;
 }
 
-// 左右轮播
-modal.querySelector('.carousel-prev').addEventListener('click', () => {
-  showImage(currentImageIndex - 1);
-});
-modal.querySelector('.carousel-next').addEventListener('click', () => {
-  showImage(currentImageIndex + 1);
-});
-
 function showImage(idx) {
   const imgs = modal.querySelectorAll('.modal-images img');
   if (!imgs.length) return;
@@ -49,4 +74,14 @@ function showImage(idx) {
 
   imgs.forEach((img, i) => img.style.display = i === idx ? 'block' : 'none');
   currentImageIndex = idx;
+}
+
+function loadCSS(href) {
+  const url = href.toString();
+  if (document.querySelector(`link[href="${url}"]`)) return;
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = url;
+  document.head.appendChild(link);
 }
