@@ -90,78 +90,78 @@
 
 // docs/components/Home/Home.js
 // docs/components/Home/Home.js
-import { savePageState, getPageState } from '../../store/pageStateStore.js'
+import { getPageState } from '../../store/pageStateStore.js'
 
 const baseURL = new URL('.', import.meta.url)
-let currentTab = 'discover'      // 当前激活的 tab
-let cachedPosts = {}              // 各 tab 的缓存数据
+let currentTab = 'discover'
+let cachedPosts = {}
+
+let containerRef = null  // 保存 container 引用，用于外部获取状态
 
 export async function mountHome(container, cachedState = null) {
   if (!container) return
+  containerRef = container
 
-  try {
-    // ----------------------
-    // 1️⃣ 加载 HTML
-    // ----------------------
-    const html = await fetch(new URL('Home.html', baseURL)).then(res => res.text())
-    console.log('[Home] HTML loaded length:', html.length)
-    container.innerHTML = html
+  // ----------------------
+  // 1️⃣ 加载 HTML
+  // ----------------------
+  const html = await fetch(new URL('Home.html', baseURL)).then(res => res.text())
+  container.innerHTML = html
+  console.log('[Home] HTML loaded length:', html.length)
 
-    // ----------------------
-    // 2️⃣ 加载 CSS
-    // ----------------------
-    loadCSS(new URL('Home.css', baseURL))
+  // ----------------------
+  // 2️⃣ 加载 CSS
+  // ----------------------
+  loadCSS(new URL('Home.css', baseURL))
 
-    // ----------------------
-    // 3️⃣ 尝试恢复状态
-    // ----------------------
-    const state = cachedState || getPageState('home')
-    if (state) {
-      currentTab = state.activeTab || 'discover'
-      cachedPosts = state.cachedPosts || {}
-    }
+  // ----------------------
+  // 3️⃣ 尝试恢复状态
+  // ----------------------
+  const state = cachedState || getPageState('home')
+  if (state) {
+    currentTab = state.activeTab || 'discover'
+    cachedPosts = state.cachedPosts || {}
     console.log('[Home] restored state:', state)
+  }
 
-    // ----------------------
-    // 4️⃣ 初始化 tab
-    // ----------------------
-    const tabs = container.querySelectorAll('.home-tab')
-    tabs.forEach(tab => {
-      const tabName = tab.dataset.tab
-      if (tabName === currentTab) tab.classList.add('active')
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'))
-        tab.classList.add('active')
-        currentTab = tabName
-        loadTabContent(tabName)
-      })
+  // ----------------------
+  // 4️⃣ 初始化 tab
+  // ----------------------
+  const tabs = container.querySelectorAll('.home-tab')
+  tabs.forEach(tab => {
+    const tabName = tab.dataset.tab
+    if (tabName === currentTab) tab.classList.add('active')
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'))
+      tab.classList.add('active')
+      currentTab = tabName
+      loadTabContent(tabName)
     })
+  })
 
-    // ----------------------
-    // 5️⃣ 加载当前 tab 内容
-    // ----------------------
-    await loadTabContent(currentTab)
+  // ----------------------
+  // 5️⃣ 加载当前 tab 内容
+  // ----------------------
+  await loadTabContent(currentTab)
 
-    // ----------------------
-    // 6️⃣ 滚动监听，保存状态
-    // ----------------------
-    container.addEventListener('scroll', () => {
-      const scrollState = {
-        scrollTop: container.scrollTop,
-        activeTab: currentTab,
-        cachedPosts
-      }
-      savePageState('home', scrollState)
-      console.log('[Home] saved scrollTop:', container.scrollTop)
-    })
+  // ----------------------
+  // 6️⃣ 恢复 scrollTop
+  // ----------------------
+  if (state && state.scrollTop) {
+    container.scrollTop = state.scrollTop
+    console.log('[Home] restored scrollTop:', container.scrollTop)
+  }
+}
 
-    // 恢复 scrollTop
-    if (state && state.scrollTop) {
-      container.scrollTop = state.scrollTop
-      console.log('[Home] restored scrollTop:', container.scrollTop)
-    }
-  } catch (err) {
-    console.error('[Home] mount failed:', err)
+// =========================
+// 导出函数给 Sidebar 调用，获取当前页面状态
+// =========================
+export function getHomeState() {
+  if (!containerRef) return null
+  return {
+    scrollTop: containerRef.scrollTop,
+    activeTab: currentTab,
+    cachedPosts
   }
 }
 
@@ -171,10 +171,8 @@ export async function mountHome(container, cachedState = null) {
 async function loadTabContent(tabName) {
   const contentContainer = document.getElementById('home-content')
   if (!contentContainer) return
-
   contentContainer.innerHTML = ''
 
-  // 如果有缓存数据，直接渲染
   if (cachedPosts[tabName]) {
     renderPosts(contentContainer, cachedPosts[tabName])
     return
