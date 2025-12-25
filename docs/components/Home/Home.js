@@ -139,23 +139,30 @@ export async function mountHome(container, state) {
   // ----------------------
   loadTabContent(currentTab)
 
-  // ----------------------
+  // =======================
   // 6️⃣ 滚动监听，保存状态
-  // ----------------------
-  container.saveStateBeforeUnload = () => ({
-    scrollTop: container.scrollTop,
-    activeTab: currentTab,
-    cachedPosts
-  })
-
+  // =======================
+  container.saveStateBeforeUnload = () => {
+    const state = {
+      scrollTop: container.scrollTop,
+      activeTab: currentTab,
+      cachedPosts
+    }
+    console.log('[Home] saveStateBeforeUnload -> scrollTop:', state.scrollTop)
+    return state
+  }
+  
   container.addEventListener('scroll', () => {
-    savePageState('home', container.saveStateBeforeUnload())
+    const state = container.saveStateBeforeUnload()
+    savePageState('home', state)
+    console.log('[Home] scroll event -> scrollTop:', state.scrollTop)
   })
-
+  
+  // 恢复状态
   if (state && state.scrollTop) {
+    console.log('[Home] restoring scrollTop:', state.scrollTop)
     container.scrollTop = state.scrollTop
   }
-}
 
 // =========================
 // 加载 tab 内容
