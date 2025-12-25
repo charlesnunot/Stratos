@@ -1,5 +1,3 @@
-import { initPostModal } from './PostModal/PostsModal.js';
-
 const baseURL = new URL('./', import.meta.url);
 
 export async function mountPostsFeed(container, postsArray) {
@@ -9,23 +7,17 @@ export async function mountPostsFeed(container, postsArray) {
   const html = await fetch(new URL('PostsFeed.html', baseURL)).then(res => res.text());
   container.innerHTML = html;
 
-  // 加载 CSS（只负责引入，不参与布局逻辑）
+  // 加载 CSS
   loadCSS(new URL('PostsFeed.css', baseURL));
 
   const feed = container.querySelector('.posts-feed');
   if (!feed) return;
 
-  // 清空，防止重复挂载
+  // 清空旧内容
   feed.innerHTML = '';
 
-  postsArray.forEach((post, index) => {
+  postsArray.forEach(post => {
     const card = createPostCard(post);
-
-    // 点击卡片打开模态
-    card.addEventListener('click', () => {
-      initPostModal(postsArray, index);
-    });
-
     feed.appendChild(card);
   });
 }
@@ -48,48 +40,40 @@ function createPostCard(post) {
   const content = post.content || '';
   const translation = post.translation || '';
   const images = post.images || post.product_posts?.images || [];
-  const imgUrl = images[0] || '';
+
+  // 左侧图片轮播（简单实现：显示第一张）
+  const imagesHtml = images.map(url => `<img src="${url}" alt="post image" />`).join('');
 
   card.innerHTML = `
-    <!-- 图片 -->
-    <div class="post-image">
-      ${imgUrl ? `<img src="${imgUrl}" alt="post image" />` : ''}
+    <div class="post-left">
+      ${imagesHtml || '<img src="https://via.placeholder.com/200x200" alt="post image" />'}
     </div>
 
-    <!-- 内容 -->
-    <div class="post-body">
-      <p class="post-excerpt">${content}</p>
-      ${translation ? `<p class="post-translation">${translation}</p>` : ''}
-    </div>
+    <div class="post-right">
+      <div class="post-body">
+        <p class="post-excerpt">${content}</p>
+        ${translation ? `<p class="post-translation">${translation}</p>` : ''}
+      </div>
 
-    <!-- 操作栏 -->
-    <div class="post-actions">
-      <div class="left-actions">
-        <div class="action">
-          <span class="material-symbols-outlined">favorite</span>${likes}
+      <div class="post-actions">
+        <div class="left-actions">
+          <div class="action"><span class="material-symbols-outlined">favorite</span>${likes}</div>
+          <div class="action"><span class="material-symbols-outlined">bookmark</span>${favorites}</div>
+          <div class="action"><span class="material-symbols-outlined">comment</span>${comments}</div>
         </div>
-        <div class="action">
-          <span class="material-symbols-outlined">bookmark</span>${favorites}
-        </div>
-        <div class="action">
-          <span class="material-symbols-outlined">comment</span>${comments}
+        <div class="right-actions">
+          <div class="action"><span class="material-symbols-outlined">share</span>${shares}</div>
         </div>
       </div>
-      <div class="right-actions">
-        <div class="action">
-          <span class="material-symbols-outlined">share</span>${shares}
-        </div>
-      </div>
-    </div>
 
-    <!-- 底部用户栏 -->
-    <div class="post-footer">
-      <div class="post-author-info">
-        <img src="${avatar}" alt="avatar" />
-        <span class="post-author-name">${author}</span>
-      </div>
-      <div class="post-menu">
-        <span class="material-symbols-outlined">more_horiz</span>
+      <div class="post-footer">
+        <div class="post-author-info">
+          <img src="${avatar}" alt="avatar" />
+          <span class="post-author-name">${author}</span>
+        </div>
+        <div class="post-menu">
+          <span class="material-symbols-outlined">more_horiz</span>
+        </div>
       </div>
     </div>
   `;
