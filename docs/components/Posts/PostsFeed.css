@@ -136,7 +136,7 @@
    =============================== */
 @media (max-width: 1024px) {
   .posts-feed {
-    width: 70%;
+    width: 100%;
     grid-template-columns: repeat(2, 1fr); /* 两列 */
   }
 }
