@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:pages": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "next lint",
     "clean": "powershell -ExecutionPolicy Bypass -File ./scripts/clean.ps1",
