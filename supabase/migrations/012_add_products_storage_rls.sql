@@ -1,0 +1,87 @@
+-- 为 products storage bucket 添加 RLS 策略
+-- 文件路径格式：products/${user.id}/${timestamp}-random.ext
+--
+-- ⚠️ 重要提示：Storage RLS 策略不能通过 SQL 直接创建
+-- 必须在 Supabase Dashboard 的 Storage 管理界面中手动配置
+--
+-- 配置步骤：
+-- 1. 进入 Supabase Dashboard
+-- 2. 选择左侧菜单的 "Storage"
+-- 3. 确保已创建名为 "products" 的 bucket（如未创建，先创建它）
+-- 4. 点击 "products" bucket
+-- 5. 点击 "Policies" 标签
+-- 6. 按照下面的策略定义创建 4 个策略
+--
+-- ============================================
+-- 策略配置说明
+-- ============================================
+--
+-- 策略 1: 允许认证用户上传到 products/${user.id}/ 文件夹（INSERT）
+-- Policy Name: "Users can upload to products folder"
+-- Target roles: authenticated
+-- Operation: INSERT
+-- Policy definition:
+-- (
+--   bucket_id = 'products' AND
+--   (
+--     (storage.foldername(name))[1] = 'products' AND
+--     (storage.foldername(name))[2] = (auth.uid())::text
+--   )
+--   OR
+--   (storage.foldername(name))[1] = (auth.uid())::text
+-- )
+--
+-- 策略 2: 允许所有人查看 products bucket 中的文件（SELECT）
+-- Policy Name: "Anyone can view products"
+-- Target roles: public (或留空表示所有人)
+-- Operation: SELECT
+-- Policy definition:
+-- bucket_id = 'products'
+--
+-- 策略 3: 允许用户删除自己的文件（DELETE）
+-- Policy Name: "Users can delete own product files"
+-- Target roles: authenticated
+-- Operation: DELETE
+-- Policy definition:
+-- (
+--   bucket_id = 'products' AND
+--   (
+--     (
+--       (storage.foldername(name))[1] = 'products' AND
+--       (storage.foldername(name))[2] = (auth.uid())::text
+--     )
+--     OR
+--     (storage.foldername(name))[1] = (auth.uid())::text
+--   )
+-- )
+--
+-- 策略 4: 允许用户更新自己的文件（UPDATE）
+-- Policy Name: "Users can update own product files"
+-- Target roles: authenticated
+-- Operation: UPDATE
+-- Policy definition:
+-- (
+--   bucket_id = 'products' AND
+--   (
+--     (
+--       (storage.foldername(name))[1] = 'products' AND
+--       (storage.foldername(name))[2] = (auth.uid())::text
+--     )
+--     OR
+--     (storage.foldername(name))[1] = (auth.uid())::text
+--   )
+-- )
+--
+-- ============================================
+-- 快速配置（如果 Dashboard 支持使用 SQL）
+-- ============================================
+-- 如果 Supabase Dashboard 允许在 Policies 界面粘贴 SQL，
+-- 可以尝试使用下面的 SQL 语句（在某些版本中可能支持）：
+--
+-- 注意：以下 SQL 仅供参考，通常需要通过 Dashboard UI 配置
+--
+-- INSERT INTO storage.buckets (id, name, public) 
+-- VALUES ('products', 'products', true) 
+-- ON CONFLICT (id) DO NOTHING;
+--
+-- 然后在 Dashboard 的 Storage > products > Policies 中创建上述策略
