@@ -340,3 +340,6 @@ export function useFavorites(itemType?: FavoriteItemType) {
     },
   })
 }
+
+// 显式重新导出 FavoriteItemType 以确保 TypeScript 构建时能正确识别
+export type { FavoriteItemType }
