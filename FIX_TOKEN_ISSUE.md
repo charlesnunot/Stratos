@@ -23,7 +23,7 @@ GitHub 的推送保护功能检测到代码中包含 Personal Access Token，阻
 
 4. **⚠️ 重要：推送成功后立即撤销该 token**
    - 访问：https://github.com/settings/tokens
-   - 找到并撤销 token：`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`
+   - 找到并撤销泄露的 token（在 GitHub 设置中查看）
    - 创建新的 token（如果需要）
 
 ### 方案 2: 从历史中移除 token（彻底解决）
@@ -41,7 +41,7 @@ GitHub 的推送保护功能检测到代码中包含 Personal Access Token，阻
 2. **创建替换文件**：
    创建 `tokens.txt` 文件，内容：
    ```
-   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==>
+   YOUR_TOKEN_HERE==>
    ```
 
 3. **清理历史**：
@@ -101,7 +101,7 @@ GitHub 的推送保护功能检测到代码中包含 Personal Access Token，阻
 
 3. **撤销旧 token**：
    - 访问：https://github.com/settings/tokens
-   - 撤销 token：`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`
+   - 撤销泄露的 token（在 GitHub 设置中查看）
 
 4. **创建新 token**（如果需要）：
    - 访问：https://github.com/settings/tokens/new

@@ -41,8 +41,14 @@ if ($choice -eq "1") {
     }
     
     # 使用 filter-branch 替换 token
-    $token = "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"
-    git filter-branch --force --index-filter "git rm --cached --ignore-unmatch -r . && git reset --hard" --prune-empty --tag-name-filter cat -- --all
+    # 注意：请将 YOUR_TOKEN_HERE 替换为实际的 token（从环境变量或输入获取，不要硬编码）
+    Write-Host "请输入要移除的 token（或按 Enter 跳过）：" -ForegroundColor Yellow
+    $token = Read-Host
+    if ($token) {
+        git filter-branch --force --index-filter "git rm --cached --ignore-unmatch -r . && git reset --hard" --prune-empty --tag-name-filter cat -- --all
+    } else {
+        Write-Host "已跳过 token 替换" -ForegroundColor Gray
+    }
     
     Write-Host ""
     Write-Host "✅ 历史已清理" -ForegroundColor Green
@@ -62,8 +68,8 @@ if ($choice -eq "1") {
     Write-Host "然后运行：" -ForegroundColor Cyan
     Write-Host "  bfg --replace-text tokens.txt" -ForegroundColor White
     Write-Host ""
-    Write-Host "其中 tokens.txt 包含：" -ForegroundColor Cyan
-    Write-Host "  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==>" -ForegroundColor White
+    Write-Host "其中 tokens.txt 包含（将 YOUR_TOKEN_HERE 替换为实际 token）：" -ForegroundColor Cyan
+    Write-Host "  YOUR_TOKEN_HERE==>" -ForegroundColor White
     
 } elseif ($choice -eq "3") {
     Write-Host ""
