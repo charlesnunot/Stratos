@@ -43,7 +43,7 @@ git add .
 git commit -m "Add deployment scripts and prepare for Vercel deployment"
 
 # 5. 配置远程仓库（如果需要）
-git remote set-url origin https://charlesnunot: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@github.com/charlesnunot/Stratos.git
+git remote set-url origin https://github.com/charlesnunot/Stratos.git
 
 # 6. 推送到 GitHub
 git push -u origin main

@@ -27,7 +27,7 @@ $env:http_proxy = ""
 $env:https_proxy = ""
 
 # 设置包含令牌的URL
-git remote set-url origin https://charlesnunot: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@github.com/charlesnunot/Stratos.git
+git remote set-url origin https://github.com/charlesnunot/Stratos.git
 
 # 推送
 git push origin main

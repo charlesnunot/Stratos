@@ -42,7 +42,7 @@ try {
     Write-Host ""
     Write-Host "如果提示需要输入凭据：" -ForegroundColor Yellow
     Write-Host "  Username: charlesnunot" -ForegroundColor White
-    Write-Host "  Password: 您的个人访问令牌（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）" -ForegroundColor White
+    Write-Host "  Password: 您的个人访问令牌（从 https://github.com/settings/tokens 获取）" -ForegroundColor White
     Write-Host ""
     Write-Host "或者手动运行：" -ForegroundColor Yellow
     Write-Host "  git push -u origin main" -ForegroundColor White

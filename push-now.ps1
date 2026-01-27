@@ -17,9 +17,9 @@ $env:https_proxy = $null
 [Environment]::SetEnvironmentVariable("http_proxy", $null, "Process")
 [Environment]::SetEnvironmentVariable("https_proxy", $null, "Process")
 
-# 设置包含令牌的远程URL
+# 配置远程仓库（使用普通 URL，Git 会提示输入凭据）
 Write-Host "配置远程仓库..." -ForegroundColor Yellow
-git remote set-url origin https://charlesnunot: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@github.com/charlesnunot/Stratos.git
+git remote set-url origin https://github.com/charlesnunot/Stratos.git
 
 # 清除本地凭据缓存
 git config --local credential.helper ""

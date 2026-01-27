@@ -13,9 +13,8 @@ $env:HTTPS_PROXY = ""
 $env:http_proxy = ""
 $env:https_proxy = ""
 
-# 设置包含令牌的URL
-# 如果您的令牌已更新，请替换下面的令牌
-git remote set-url origin https://charlesnunot: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@github.com/charlesnunot/Stratos.git
+# 配置远程仓库（使用普通 URL，Git 会提示输入凭据）
+git remote set-url origin https://github.com/charlesnunot/Stratos.git
 
 # 推送
 Write-Host "正在推送配置..." -ForegroundColor Yellow

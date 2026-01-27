@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { handleError } from '@/lib/utils/handleError'
 
-type FavoriteItemType = 'post' | 'product' | 'user' | 'comment' | 'order' | 'affiliate_post' | 'tip' | 'message'
+export type FavoriteItemType = 'post' | 'product' | 'user' | 'comment' | 'order' | 'affiliate_post' | 'tip' | 'message'
 
 export interface Favorite {
   id: string

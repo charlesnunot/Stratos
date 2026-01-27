@@ -1,8 +1,8 @@
 # 快速推送指南
 
-## ✅ 您的令牌已准备好
+## ✅ 准备推送
 
-**令牌**：`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`
+**注意**：需要 GitHub Personal Access Token（从 https://github.com/settings/tokens 获取）
 
 ## 🚀 方法1：使用推送脚本（推荐）
 
@@ -17,7 +17,7 @@
 
 3. **如果提示输入凭据**
    - Username: `charlesnunot`
-   - Password: `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`
+   - Password: 您的 GitHub Personal Access Token（从 https://github.com/settings/tokens 获取）
 
 ## 🚀 方法2：手动推送
 
@@ -38,15 +38,15 @@
 
 3. **输入凭据**
    - Username: `charlesnunot`
-   - Password: `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`
+   - Password: 您的 GitHub Personal Access Token（从 https://github.com/settings/tokens 获取）
 
-## 🚀 方法3：使用包含令牌的URL（一次性）
+## 🚀 方法3：使用 Git 凭据管理器（推荐）
 
 ```powershell
 cd C:\Users\admin\Desktop\Stratos
 
-# 设置包含令牌的URL
-git remote set-url origin https://charlesnunot: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@github.com/charlesnunot/Stratos.git
+# 配置 Git 凭据管理器
+git config --global credential.helper manager-core
 
 # 清除代理
 $env:HTTP_PROXY = ""
@@ -54,11 +54,8 @@ $env:HTTPS_PROXY = ""
 $env:http_proxy = ""
 $env:https_proxy = ""
 
-# 推送
+# 推送（首次会提示输入凭据，之后会自动保存）
 git push -u origin main
-
-# 推送成功后，改回普通URL（安全考虑）
-git remote set-url origin https://github.com/charlesnunot/Stratos.git
 ```
 
 ## ✅ 推送成功后
