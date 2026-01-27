@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react'
 import Image from 'next/image'
 import { Link, useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
-import { Heart, MessageCircle, MoreHorizontal, MoreVertical, Flag, UserMinus, Star, ExternalLink, Share2, Repeat2, Link2, X } from 'lucide-react'
+import { Heart, MessageCircle, MoreHorizontal, MoreVertical, Flag, UserMinus, Star, ExternalLink, Share2, Repeat2, Link2, X, Pencil, Trash2, BarChart3 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LikeButton } from './LikeButton'
@@ -16,8 +16,10 @@ import { useIsFollowing, useFollow } from '@/lib/hooks/useProfile'
 import { useRepost } from '@/lib/hooks/useRepost'
 import { RepostDialog } from './RepostDialog'
 import { ShareDialog } from './ShareDialog'
+import { PostStatsDialog } from './PostStatsDialog'
 import { createClient } from '@/lib/supabase/client'
 import { showSuccess, showError, showInfo, showWarning } from '@/lib/utils/toast'
+import { useQueryClient } from '@tanstack/react-query'
 
 function formatPostDate(createdAt: string, updatedAt?: string): string | null {
   const date = updatedAt ? new Date(updatedAt) : new Date(createdAt)
@@ -88,6 +90,13 @@ export function PostCard({ post }: PostCardProps) {
   
   // 分享相关
   const [showShareDialog, setShowShareDialog] = useState(false)
+  
+  // 数据对话框
+  const [showStatsDialog, setShowStatsDialog] = useState(false)
+  
+  // 删除相关
+  const [isDeleting, setIsDeleting] = useState(false)
+  const queryClient = useQueryClient()
   
   // 计算菜单位置
   useEffect(() => {
@@ -241,6 +250,58 @@ export function PostCard({ post }: PostCardProps) {
     }
   }
 
+  // 处理编辑帖子
+  const handleEditPost = () => {
+    setIsMenuOpen(false)
+    router.push(`/post/${post.id}/edit`)
+  }
+
+  // 处理删除帖子
+  const handleDeletePost = async () => {
+    setIsMenuOpen(false)
+    if (!user || user.id !== post.user_id) {
+      showError('您没有权限删除此帖子')
+      return
+    }
+
+    if (!confirm(t('confirmDeletePost'))) {
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      if (!supabase) {
+        throw new Error('客户端未初始化')
+      }
+
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', post.id)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+
+      showSuccess(t('postDeleted'))
+      
+      // 刷新相关查询
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['userPosts'] })
+      queryClient.invalidateQueries({ queryKey: ['post', post.id] })
+    } catch (error: any) {
+      console.error('Delete post error:', error)
+      showError(t('deletePostFailed'))
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // 处理查看数据
+  const handleViewStats = () => {
+    setIsMenuOpen(false)
+    setShowStatsDialog(true)
+  }
+
   const handleCardClick = () => {
     router.push(`/post/${post.id}`)
   }
@@ -370,6 +431,38 @@ export function PostCard({ post }: PostCardProps) {
                           role="menu"
                         >
                           <div className="space-y-1">
+                            {/* 自己的帖子：编辑、删除、数据 */}
+                            {user && user.id === post.user_id && (
+                              <>
+                                <button
+                                  onClick={handleEditPost}
+                                  className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm transition-colors hover:bg-accent"
+                                  role="menuitem"
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  <span>{t('editPost')}</span>
+                                </button>
+                                <button
+                                  onClick={handleViewStats}
+                                  className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm transition-colors hover:bg-accent"
+                                  role="menuitem"
+                                >
+                                  <BarChart3 className="mr-2 h-4 w-4" />
+                                  <span>{t('postStats')}</span>
+                                </button>
+                                <button
+                                  onClick={handleDeletePost}
+                                  disabled={isDeleting}
+                                  className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm transition-colors hover:bg-accent text-destructive hover:text-destructive"
+                                  role="menuitem"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <span>{isDeleting ? tCommon('processing') : t('deletePost')}</span>
+                                </button>
+                                <div className="border-t my-1" />
+                              </>
+                            )}
+
                             {/* 举报 */}
                             <button
                               onClick={handleReport}
@@ -461,6 +554,20 @@ export function PostCard({ post }: PostCardProps) {
       onClose={() => setShowReportDialog(false)}
       reportedType="post"
       reportedId={post.id}
+    />
+
+    {/* 帖子数据对话框 */}
+    <PostStatsDialog
+      open={showStatsDialog}
+      onClose={() => setShowStatsDialog(false)}
+      post={{
+        like_count: post.like_count,
+        comment_count: post.comment_count,
+        share_count: post.share_count,
+        repost_count: post.repost_count,
+        favorite_count: post.favorite_count,
+        tip_amount: post.tip_amount,
+      }}
     />
     </>
   )

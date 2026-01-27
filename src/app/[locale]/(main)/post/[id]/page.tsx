@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { usePost } from '@/lib/hooks/usePosts'
 import { CommentSection } from '@/components/social/CommentSection'
 import { TipButton } from '@/components/social/TipButton'
@@ -10,14 +10,16 @@ import { FollowButton } from '@/components/social/FollowButton'
 import { TopicTag } from '@/components/social/TopicTag'
 import { ReportDialog } from '@/components/social/ReportDialog'
 import { ChatButton } from '@/components/social/ChatButton'
+import { ProductCard } from '@/components/ecommerce/ProductCard'
 import { Button } from '@/components/ui/button'
-import { Loader2, MessageCircle, Share2, ChevronLeft, ChevronRight, Flag, Repeat2 } from 'lucide-react'
+import { Loader2, MessageCircle, Share2, ChevronLeft, ChevronRight, Flag, Repeat2, ShoppingBag } from 'lucide-react'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useParams } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useRepost } from '@/lib/hooks/useRepost'
+import { useRecordView } from '@/lib/hooks/useViewHistory'
 import { RepostDialog } from '@/components/social/RepostDialog'
 import { ShareDialog } from '@/components/social/ShareDialog'
 import { showSuccess, showInfo, showError, showWarning } from '@/lib/utils/toast'
@@ -31,6 +33,8 @@ export default function PostPage() {
   const { user } = useAuth()
   const t = useTranslations('posts')
   const tMessages = useTranslations('messages')
+  const tCommon = useTranslations('common')
+  const tAffiliate = useTranslations('affiliate')
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [showRepostDialog, setShowRepostDialog] = useState(false)
@@ -38,6 +42,9 @@ export default function PostPage() {
   
   // 转发相关
   const repostMutation = useRepost()
+  
+  // 记录浏览历史
+  const recordViewMutation = useRecordView()
   
   // Supabase 客户端
   const supabase = useMemo(() => {
@@ -47,12 +54,49 @@ export default function PostPage() {
     return null
   }, [])
 
+  // 记录浏览历史
+  useEffect(() => {
+    if (user && post && post.status === 'approved') {
+      recordViewMutation.mutate({
+        itemType: 'post',
+        itemId: postId,
+      })
+    }
+  }, [user, post, postId, recordViewMutation])
+
   if (isLoading) {
     return <LoadingState />
   }
 
   if (error || !post) {
-    return <EmptyState title="帖子不存在或加载失败" />
+    // 区分不同类型的错误
+    let errorTitle = t('postNotFoundOrLoadFailed')
+    let errorDescription = ""
+    
+    if (error) {
+      const errorMessage = String(error.message || '')
+      if (errorMessage.includes('not found') || errorMessage.includes('不存在')) {
+        errorTitle = t('postNotFound')
+        errorDescription = t('postNotFoundDescription')
+      } else if (errorMessage.includes('permission') || errorMessage.includes('权限')) {
+        errorTitle = t('noPermissionToView')
+        errorDescription = t('noPermissionToViewDescription')
+      } else if (errorMessage.includes('network') || errorMessage.includes('网络')) {
+        errorTitle = t('networkError')
+        errorDescription = t('networkErrorDescription')
+      } else {
+        errorDescription = errorMessage
+      }
+    }
+    
+    return (
+      <div className="mx-auto w-full max-w-7xl px-2 sm:px-4 py-4 md:py-6">
+        <EmptyState 
+          title={errorTitle}
+          description={errorDescription}
+        />
+      </div>
+    )
   }
 
   const images = post.image_urls || []
@@ -72,7 +116,7 @@ export default function PostPage() {
 
   const handleRepost = () => {
     if (!user) {
-      showInfo('请先登录后再转发')
+      showInfo(t('pleaseLoginToRepost'))
       return
     }
     setShowRepostDialog(true)
@@ -90,18 +134,18 @@ export default function PostPage() {
         onSuccess: (result) => {
           setShowRepostDialog(false)
           if (result.count > 0 && result.alreadyExists > 0) {
-            showSuccess(`已转发给 ${result.count} 个用户（${result.alreadyExists} 个用户已接收过）`)
+            showSuccess(t('repostSuccessWithExists', { count: result.count, alreadyExists: result.alreadyExists }))
           } else if (result.count > 0) {
-            showSuccess(`已转发给 ${result.count} 个用户`)
+            showSuccess(t('repostSuccess', { count: result.count }))
           } else if (result.alreadyExists > 0) {
-            showInfo(`这些用户已经接收过此转发`)
+            showInfo(t('repostAlreadyExists'))
           } else {
-            showError('转发失败，请重试')
+            showError(t('repostFailed'))
           }
         },
         onError: (error: any) => {
           console.error('Repost error:', error)
-          showError('转发失败，请重试')
+          showError(t('repostFailed'))
         },
       }
     )
@@ -153,7 +197,7 @@ export default function PostPage() {
                               ? 'w-8 bg-white'
                               : 'w-2 bg-white/50 hover:bg-white/70'
                           }`}
-                          aria-label={`查看图片 ${index + 1}`}
+                          aria-label={t('viewImage', { index: index + 1 })}
                         />
                       ))}
                     </div>
@@ -163,7 +207,7 @@ export default function PostPage() {
             </div>
           ) : (
             <div className="flex aspect-[4/3] items-center justify-center rounded-lg bg-muted md:min-h-[600px]">
-              <span className="text-muted-foreground">无图片</span>
+              <span className="text-muted-foreground">{tCommon('noImage')}</span>
             </div>
           )}
         </div>
@@ -211,7 +255,7 @@ export default function PostPage() {
                   </Link>
                 </div>
                 {user && user.id !== post.user_id && (
-                  <div className="shrink-0 flex gap-2 flex-wrap">
+                  <div className="shrink-0 flex gap-2 flex-wrap relative z-10" style={{ pointerEvents: 'auto' }}>
                     <FollowButton userId={post.user_id} />
                     <ChatButton
                       targetUserId={post.user_id}
@@ -232,12 +276,12 @@ export default function PostPage() {
                       size="sm"
                       onClick={() => {
                         if (!user) {
-                          showInfo('请先登录后再举报')
+                          showInfo(t('pleaseLoginToReport'))
                           return
                         }
                         setShowReportDialog(true)
                       }}
-                      title="举报"
+                      title={t('report')}
                     >
                       <Flag className="h-4 w-4" />
                     </Button>
@@ -295,9 +339,32 @@ export default function PostPage() {
               />
             </div>
 
+            {/* Affiliate Product */}
+            {post.affiliatePost?.product && (
+              <div className="pt-4 border-t min-w-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <ShoppingBag className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">{t('promotedProduct')}</h3>
+                </div>
+                <ProductCard 
+                  product={{
+                    ...post.affiliatePost.product,
+                    images: post.affiliatePost.product.images || [],
+                    stock: 0,
+                    status: 'active',
+                    like_count: 0,
+                    want_count: 0,
+                    share_count: 0,
+                    repost_count: 0,
+                    favorite_count: 0,
+                  }} 
+                />
+              </div>
+            )}
+
             {/* Comments Section */}
             <div className="pt-4 border-t min-w-0 overflow-visible">
-              <h2 className="mb-4 text-lg font-semibold break-words">评论</h2>
+              <h2 className="mb-4 text-lg font-semibold break-words">{t('comments')}</h2>
               <div className="min-w-0 overflow-visible">
                 <CommentSection postId={postId} />
               </div>

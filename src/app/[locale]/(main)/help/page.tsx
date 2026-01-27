@@ -1,10 +1,14 @@
 'use client'
 
 import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { useTranslations } from 'next-intl'
+import { Link } from '@/i18n/navigation'
+import { MessageSquare, List } from 'lucide-react'
 
 export default function HelpPage() {
   const t = useTranslations('menu')
+  const tSupport = useTranslations('support')
 
   return (
     <div className="mx-auto max-w-7xl px-2 sm:px-4">
@@ -21,10 +25,24 @@ export default function HelpPage() {
               我们正在整理常见问题解答，敬请期待。
             </p>
             <h3 className="text-lg font-semibold text-foreground mt-4 mb-2">联系我们</h3>
-            <p>
+            <p className="mb-4">
               如果您需要帮助，请通过应用内的客服工单系统联系我们。
-              您可以在导航菜单中找到"客服工单"选项。
+              您可以在导航菜单的「更多」中找到「{t('supportTickets')}」，或直接使用下方按钮。
             </p>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/support/tickets/create">
+                <Button>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  {tSupport('createTicket')}
+                </Button>
+              </Link>
+              <Link href="/support/tickets">
+                <Button variant="outline">
+                  <List className="mr-2 h-4 w-4" />
+                  {t('supportTickets')}
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </Card>

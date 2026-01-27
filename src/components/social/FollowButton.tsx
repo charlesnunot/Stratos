@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { showError, showSuccess } from '@/lib/utils/toast'
+import { useTranslations } from 'next-intl'
 
 interface FollowButtonProps {
   userId: string
@@ -20,6 +21,8 @@ export function FollowButton({ userId }: FollowButtonProps) {
   const followMutation = useFollow()
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
+  const t = useTranslations('profile')
+  const tCommon = useTranslations('common')
 
   // ✅ useEffect always called, condition handled inside
   useEffect(() => {
@@ -61,13 +64,13 @@ export function FollowButton({ userId }: FollowButtonProps) {
         followingId: userId,
         shouldFollow: !isFollowing,
       })
-      showSuccess(isFollowing ? '已取消关注' : '关注成功')
+      showSuccess(isFollowing ? t('unfollowSuccess') : t('followSuccess'))
     } catch (error: any) {
       console.error('Follow error:', error)
-      const errorMessage = error?.message || '操作失败，请重试'
+      const errorMessage = error?.message || tCommon('operationFailed')
       showError(errorMessage)
     }
-  }, [user, userId, isFollowing, followMutation])
+  }, [user, userId, isFollowing, followMutation, t, tCommon])
 
   // ✅ Conditional rendering in JSX, not early return
   // All Hooks have been called above, so we can safely return null here
@@ -84,12 +87,12 @@ export function FollowButton({ userId }: FollowButtonProps) {
       {followMutation.isPending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          处理中...
+          {tCommon('processing')}
         </>
       ) : isFollowing ? (
-        '取消关注'
+        t('unfollow')
       ) : (
-        '关注'
+        t('follow')
       )}
     </Button>
   )

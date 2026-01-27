@@ -21,14 +21,19 @@ import {
   MoreVertical,
   HelpCircle,
   Settings,
-  Info
+  Info,
+  Store,
+  Package,
+  Shield
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from '@/i18n/navigation'
 import { useEffect, useState, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { WelcomeCard } from './WelcomeCard'
+import { useCartStore } from '@/store/cartStore'
 
 interface SidebarProps {
   isMobile?: boolean
@@ -70,6 +75,25 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   
   // 获取用户资料
   const { data: profile } = useProfile(user?.id || '')
+
+  // 卖家身份以 subscriptions 为准（与首页、useSellerGuard 一致），不依赖 profile.subscription_type
+  const { data: sellerSubscription } = useQuery({
+    queryKey: ['sellerSubscription', user?.id],
+    queryFn: async () => {
+      if (!user) return null
+      const { data } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('subscription_type', 'seller')
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
+        .limit(1)
+        .maybeSingle()
+      return data
+    },
+    enabled: !!user,
+  })
   
   // 获取最后登录时间
   const [lastSeen, setLastSeen] = useState<Date | null>(null)
@@ -77,18 +101,64 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   // 未读通知数量
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   
+  // 购物车商品数量
+  const cartItems = useCartStore((state) => state.items)
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+  
   // 更多菜单状态
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
   
   useEffect(() => {
-    if (user) {
-      supabase.auth.getUser().then(({ data }) => {
+    if (!user) return
+    
+    let mounted = true
+    
+    supabase.auth.getUser()
+      .then(({ data, error }) => {
+        if (!mounted) return
+        
+        // 忽略 AbortError
+        if (error) {
+          const errorMessage = error.message || ''
+          const errorName = (error as any)?.name || ''
+          
+          if (
+            errorName === 'AbortError' ||
+            errorMessage.includes('aborted') ||
+            errorMessage.includes('cancelled') ||
+            errorMessage === 'signal is aborted without reason'
+          ) {
+            return
+          }
+          
+          console.error('getUser error:', error)
+          return
+        }
+        
         if (data.user?.last_sign_in_at) {
           setLastSeen(new Date(data.user.last_sign_in_at))
         }
       })
+      .catch((err: any) => {
+        if (!mounted) return
+        
+        // 忽略 AbortError
+        if (
+          err?.name === 'AbortError' ||
+          err?.message?.includes('aborted') ||
+          err?.message?.includes('cancelled') ||
+          err?.message === 'signal is aborted without reason'
+        ) {
+          return
+        }
+        
+        console.error('getUser catch error:', err)
+      })
+    
+    return () => {
+      mounted = false
     }
   }, [user, supabase])
 
@@ -210,6 +280,13 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
     }
   }
 
+  // 检查是否为卖家（有效 seller 订阅，与 useSellerGuard / 首页一致）
+  const isSeller = !!sellerSubscription
+
+  // 检查是否为管理员或支持人员
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'support'
+  
+  // 基础导航项
   const navItems = [
     { href: '/', icon: Home, label: t('home') },
     { href: '/feed', icon: Clock, label: t('feed') },
@@ -220,6 +297,22 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
     { href: '/messages', icon: MessageSquare, label: t('messages') },
     { href: '/notifications', icon: Bell, label: t('notifications') },
   ]
+  
+  // 如果是管理员或支持人员，添加管理后台导航
+  if (isAdmin) {
+    navItems.push(
+      { href: '/admin/dashboard', icon: Shield, label: '管理后台' }
+    )
+  }
+  
+  // 如果是卖家，添加卖家相关导航
+  if (isSeller) {
+    navItems.push(
+      { href: '/seller/dashboard', icon: Store, label: tProfile('sellerCenter') },
+      { href: '/seller/products', icon: Package, label: tProfile('myProducts') },
+      { href: '/seller/orders', icon: ShoppingCart, label: tProfile('myOrders') }
+    )
+  }
 
   return (
     <aside className={`${isMobile ? 'flex' : 'hidden md:flex'} fixed left-0 top-0 h-screen w-64 bg-background p-4 z-50`}>
@@ -251,7 +344,9 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
             const Icon = item.icon
             const isActive = pathname === item.href
             const isNotification = item.href === '/notifications'
-            const showBadge = isNotification && unreadNotificationCount > 0
+            const isCart = item.href === '/cart'
+            const showNotificationBadge = isNotification && unreadNotificationCount > 0
+            const showCartBadge = isCart && cartItemCount > 0
             return (
               <Link
                 key={item.href}
@@ -265,9 +360,14 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
               >
                 <Icon className="h-5 w-5" />
                 <span>{item.label}</span>
-                {showBadge && (
+                {showNotificationBadge && (
                   <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
                     {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                  </span>
+                )}
+                {showCartBadge && (
+                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                    {cartItemCount > 9 ? '9+' : cartItemCount}
                   </span>
                 )}
               </Link>
@@ -386,6 +486,19 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
                         <span>{tMenu('help')}</span>
                       </Link>
 
+                      {/* 客服工单 */}
+                      <Link
+                        href="/support/tickets"
+                        onClick={() => {
+                          setIsMoreMenuOpen(false)
+                          handleLinkClick()
+                        }}
+                        className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm transition-colors hover:bg-accent"
+                      >
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        <span>{tMenu('supportTickets')}</span>
+                      </Link>
+
                       {/* 设置 */}
                       <Link
                         href="/settings"
@@ -413,7 +526,13 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
                         </button>
                       ) : (
                         <Link
-                          href="/login"
+                          href={
+                            pathname &&
+                            !pathname.startsWith('/login') &&
+                            !pathname.startsWith('/register')
+                              ? `/login?redirect=${encodeURIComponent(pathname)}`
+                              : '/login'
+                          }
                           onClick={() => {
                             setIsMoreMenuOpen(false)
                             handleLinkClick()

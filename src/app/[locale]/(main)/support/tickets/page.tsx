@@ -6,8 +6,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Loader2, Plus, MessageSquare, CheckCircle, Clock, XCircle } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 
 export default function SupportTicketsPage() {

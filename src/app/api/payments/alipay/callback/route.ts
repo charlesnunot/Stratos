@@ -52,6 +52,172 @@ export async function POST(request: NextRequest) {
       }
     )
 
+    // Handle subscription payment (out_trade_no = sub_<subscriptionId>_<timestamp>)
+    if (out_trade_no.startsWith('sub_')) {
+      const parts = out_trade_no.split('_')
+      const subscriptionId = parts[1]
+      if (!subscriptionId) {
+        return NextResponse.json({ success: true })
+      }
+      const paidAmount = parseFloat(total_amount)
+      const { activatePendingSubscription } = await import('@/lib/payments/process-subscription-payment')
+      const result = await activatePendingSubscription({
+        subscriptionId,
+        provider: 'alipay',
+        providerRef: trade_no,
+        paidAmount,
+        currency: 'CNY',
+        supabaseAdmin,
+      })
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error || 'Failed to activate subscription' },
+          { status: 400 }
+        )
+      }
+      return NextResponse.json({ success: true })
+    }
+
+    // Handle platform fee payment (out_trade_no = platform_fee_<userId>_<timestamp>)
+    if (out_trade_no.startsWith('platform_fee_')) {
+      const parts = out_trade_no.split('_')
+      const userId = parts[2] // platform_fee_<userId>_<timestamp>
+      if (!userId) {
+        return NextResponse.json({ success: true })
+      }
+      
+      // Find payment transaction by provider_ref
+      const { data: transaction, error: txError } = await supabaseAdmin
+        .from('payment_transactions')
+        .select('id, related_id, amount, currency, metadata')
+        .eq('provider', 'alipay')
+        .eq('provider_ref', trade_no)
+        .eq('type', 'order')
+        .maybeSingle()
+
+      if (txError || !transaction) {
+        // Try to find by metadata
+        const { data: txByMetadata } = await supabaseAdmin
+          .from('payment_transactions')
+          .select('id, related_id, amount, currency, metadata')
+          .eq('type', 'order')
+          .eq('related_id', userId)
+          .contains('metadata', { type: 'platform_fee' })
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (txByMetadata) {
+          // Update transaction status
+          await supabaseAdmin
+            .from('payment_transactions')
+            .update({
+              status: 'paid',
+              paid_at: new Date().toISOString(),
+              provider_ref: trade_no,
+            })
+            .eq('id', txByMetadata.id)
+
+          // Create notification
+          const paidAmount = parseFloat(total_amount)
+          const reason = (txByMetadata.metadata as any)?.reason || '平台服务费'
+          await supabaseAdmin.from('notifications').insert({
+            user_id: userId,
+            type: 'system',
+            title: '平台服务费支付成功',
+            content: `您已成功支付平台服务费 ${paidAmount.toFixed(2)} CNY。原因：${reason}`,
+            related_type: 'order',
+            related_id: txByMetadata.id,
+            link: '/orders',
+          })
+        }
+      } else {
+        // Update transaction status
+        await supabaseAdmin
+          .from('payment_transactions')
+          .update({
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+          })
+          .eq('id', transaction.id)
+
+        // Create notification
+        const paidAmount = parseFloat(total_amount)
+        const reason = (transaction.metadata as any)?.reason || '平台服务费'
+        await supabaseAdmin.from('notifications').insert({
+          user_id: userId,
+          type: 'system',
+          title: '平台服务费支付成功',
+          content: `您已成功支付平台服务费 ${paidAmount.toFixed(2)} CNY。原因：${reason}`,
+          related_type: 'order',
+          related_id: transaction.id,
+          link: '/orders',
+        })
+      }
+      return NextResponse.json({ success: true })
+    }
+
+    // Handle deposit payment (out_trade_no = deposit_<lotId>_<timestamp>)
+    if (out_trade_no.startsWith('deposit_')) {
+      const parts = out_trade_no.split('_')
+      const depositLotId = parts[1]
+      if (!depositLotId) {
+        return NextResponse.json({ success: true })
+      }
+      const { data: lot } = await supabaseAdmin
+        .from('seller_deposit_lots')
+        .select('id, seller_id, required_amount')
+        .eq('id', depositLotId)
+        .single()
+
+      if (!lot) {
+        console.error('Deposit lot not found for Alipay callback:', depositLotId)
+        return NextResponse.json({ success: true })
+      }
+
+      const paidAmount = parseFloat(total_amount)
+      const { data: existingTx } = await supabaseAdmin
+        .from('payment_transactions')
+        .select('id, status')
+        .eq('provider', 'alipay')
+        .eq('provider_ref', trade_no)
+        .eq('type', 'deposit')
+        .eq('related_id', depositLotId)
+        .maybeSingle()
+
+      if (existingTx?.status === 'paid') {
+        return NextResponse.json({ success: true })
+      }
+      if (!existingTx) {
+        await supabaseAdmin.from('payment_transactions').insert({
+          type: 'deposit',
+          provider: 'alipay',
+          provider_ref: trade_no,
+          amount: paidAmount,
+          currency: 'CNY',
+          status: 'paid',
+          related_id: depositLotId,
+          paid_at: new Date().toISOString(),
+          metadata: { out_trade_no, trade_no, trade_status },
+        })
+      } else {
+        await supabaseAdmin
+          .from('payment_transactions')
+          .update({ status: 'paid', paid_at: new Date().toISOString() })
+          .eq('id', existingTx.id)
+      }
+
+      await supabaseAdmin
+        .from('seller_deposit_lots')
+        .update({ status: 'held', held_at: new Date().toISOString() })
+        .eq('id', depositLotId)
+        .eq('seller_id', lot.seller_id)
+
+      const { enableSellerPayment } = await import('@/lib/deposits/payment-control')
+      await enableSellerPayment(lot.seller_id, supabaseAdmin)
+      return NextResponse.json({ success: true })
+    }
+
     const supabase = await createClient()
 
     // Find order by order number

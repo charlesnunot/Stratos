@@ -12,6 +12,7 @@ import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { OnboardingGuide } from '@/components/onboarding/OnboardingGuide'
+import { useMemo } from 'react'
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth()

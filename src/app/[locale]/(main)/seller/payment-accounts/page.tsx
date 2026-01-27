@@ -57,17 +57,30 @@ export default function PaymentAccountsPage() {
   const [editingAccount, setEditingAccount] = useState<PaymentAccount | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const { data: accounts, isLoading } = useQuery({
+  const { data: accountsData, isLoading } = useQuery({
     queryKey: ['payment-accounts', user?.id],
     queryFn: async () => {
-      if (!user) return []
+      if (!user) return { accounts: [], profileStatus: null }
       const response = await fetch('/api/payment-accounts')
       if (!response.ok) throw new Error('Failed to fetch accounts')
       const data = await response.json()
-      return data.accounts as PaymentAccount[]
+      return {
+        accounts: data.accounts as PaymentAccount[],
+        profileStatus: data.profileStatus as {
+          payment_provider: string | null
+          payment_account_id: string | null
+          provider_charges_enabled: boolean | null
+          provider_payouts_enabled: boolean | null
+          provider_account_status: string | null
+          seller_payout_eligibility: 'eligible' | 'blocked' | 'pending_review' | null
+        } | null
+      }
     },
     enabled: !!user,
   })
+
+  const accounts = accountsData?.accounts || []
+  const profileStatus = accountsData?.profileStatus
 
   const deleteMutation = useMutation({
     mutationFn: async (accountId: string) => {
@@ -200,8 +213,80 @@ export default function PaymentAccountsPage() {
     return null
   }
 
+  // Get eligibility status badge
+  const getEligibilityBadge = (eligibility: 'eligible' | 'blocked' | 'pending_review' | null | undefined) => {
+    if (!eligibility) {
+      return (
+        <Badge variant="outline">
+          <Clock className="mr-1 h-3 w-3" />
+          未设置
+        </Badge>
+      )
+    }
+    if (eligibility === 'eligible') {
+      return (
+        <Badge variant="default" className="bg-green-500">
+          <CheckCircle className="mr-1 h-3 w-3" />
+          可正常收款
+        </Badge>
+      )
+    }
+    if (eligibility === 'pending_review') {
+      return (
+        <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+          <Clock className="mr-1 h-3 w-3" />
+          待审核
+        </Badge>
+      )
+    }
+    if (eligibility === 'blocked') {
+      return (
+        <Badge variant="destructive">
+          <XCircle className="mr-1 h-3 w-3" />
+          收款已禁用
+        </Badge>
+      )
+    }
+    return null
+  }
+
   return (
     <div className="space-y-6">
+      {/* Status Banner */}
+      {profileStatus && (
+        <Card className={profileStatus.seller_payout_eligibility === 'eligible' ? 'border-green-500' : profileStatus.seller_payout_eligibility === 'blocked' ? 'border-red-500' : 'border-yellow-500'}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {profileStatus.seller_payout_eligibility === 'eligible' && <CheckCircle className="h-5 w-5 text-green-500" />}
+                {profileStatus.seller_payout_eligibility === 'blocked' && <XCircle className="h-5 w-5 text-red-500" />}
+                {(profileStatus.seller_payout_eligibility === 'pending_review' || !profileStatus.seller_payout_eligibility) && <Clock className="h-5 w-5 text-yellow-500" />}
+                <div>
+                  <p className="font-semibold">收款账户状态</p>
+                  <p className="text-sm text-muted-foreground">
+                    {profileStatus.seller_payout_eligibility === 'eligible' && '您的账户可以正常接收付款'}
+                    {profileStatus.seller_payout_eligibility === 'blocked' && '您的账户已被禁用，无法接收付款'}
+                    {profileStatus.seller_payout_eligibility === 'pending_review' && '您的账户正在审核中，暂时无法接收付款'}
+                    {!profileStatus.seller_payout_eligibility && '请绑定收款账户以开始接收付款'}
+                  </p>
+                </div>
+              </div>
+              {getEligibilityBadge(profileStatus.seller_payout_eligibility)}
+            </div>
+            {profileStatus.payment_provider && (
+              <div className="mt-4 text-sm text-muted-foreground">
+                <p>支付方式: {profileStatus.payment_provider}</p>
+                {profileStatus.payment_provider === 'stripe' && (
+                  <p>
+                    账户状态: {profileStatus.provider_charges_enabled && profileStatus.provider_payouts_enabled ? '已启用' : '待完成'}
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">支付账户管理</h1>

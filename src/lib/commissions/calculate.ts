@@ -5,6 +5,7 @@
 interface OrderDetails {
   id: string
   affiliate_id?: string | null
+  affiliate_post_id?: string | null
   total_amount: number
   product_id?: string | null
   order_items?: Array<{
@@ -22,7 +23,29 @@ export async function calculateAndCreateCommissions(
   supabaseAdmin: any
 ) {
   // If no affiliate is associated, no commission needed
-  if (!order.affiliate_id) {
+  // Check both affiliate_post_id and affiliate_id for backward compatibility
+  if (!order.affiliate_post_id && !order.affiliate_id) {
+    return null
+  }
+
+  // If we have affiliate_post_id, get affiliate_id from it
+  let affiliateId = order.affiliate_id
+  if (order.affiliate_post_id && !affiliateId) {
+    const { data: affiliatePost } = await supabaseAdmin
+      .from('affiliate_posts')
+      .select('affiliate_id')
+      .eq('id', order.affiliate_post_id)
+      .single()
+    
+    if (affiliatePost) {
+      affiliateId = affiliatePost.affiliate_id
+    } else {
+      // Invalid affiliate_post_id, skip commission calculation
+      return null
+    }
+  }
+
+  if (!affiliateId) {
     return null
   }
 
@@ -41,13 +64,19 @@ export async function calculateAndCreateCommissions(
       if (!product) continue
 
       // Check if there's an affiliate_product record for this specific combination
-      const { data: affiliateProduct } = await supabaseAdmin
+      // If we have affiliate_post_id, also match by post_id for more precise matching
+      let affiliateProductQuery = supabaseAdmin
         .from('affiliate_products')
         .select('commission_rate')
         .eq('product_id', item.product_id)
-        .eq('affiliate_id', order.affiliate_id)
+        .eq('affiliate_id', affiliateId)
         .eq('status', 'active')
-        .single()
+      
+      if (order.affiliate_post_id) {
+        affiliateProductQuery = affiliateProductQuery.eq('post_id', order.affiliate_post_id)
+      }
+      
+      const { data: affiliateProduct } = await affiliateProductQuery.single()
 
       // Use affiliate_product commission_rate if available, otherwise use product commission_rate
       const commissionRate = affiliateProduct?.commission_rate || product.commission_rate
@@ -60,19 +89,19 @@ export async function calculateAndCreateCommissions(
 
       if (commissionAmount <= 0) continue
 
-      // Create commission record
-      const { data: commission, error } = await supabaseAdmin
-        .from('affiliate_commissions')
-        .insert({
-          affiliate_id: order.affiliate_id,
-          order_id: order.id,
-          product_id: item.product_id,
-          amount: commissionAmount,
-          commission_rate: commissionRate,
-          status: 'pending', // Will be paid after order completion
-        })
-        .select()
-        .single()
+        // Create commission record
+        const { data: commission, error } = await supabaseAdmin
+          .from('affiliate_commissions')
+          .insert({
+            affiliate_id: affiliateId,
+            order_id: order.id,
+            product_id: item.product_id,
+            amount: commissionAmount,
+            commission_rate: commissionRate,
+            status: 'pending', // Will be paid after order completion
+          })
+          .select()
+          .single()
 
       if (error) {
         console.error('Error creating commission:', error)
@@ -89,7 +118,7 @@ export async function calculateAndCreateCommissions(
 
         // Create notification for affiliate
         await supabaseAdmin.from('notifications').insert({
-          user_id: order.affiliate_id,
+          user_id: affiliateId,
           type: 'commission',
           title: '收到新佣金',
           content: `订单 ${order.id.substring(0, 8)}... 产生了 ¥${commissionAmount.toFixed(2)} 佣金`,
@@ -111,13 +140,19 @@ export async function calculateAndCreateCommissions(
 
     if (product) {
       // Check if there's an affiliate_product record
-      const { data: affiliateProduct } = await supabaseAdmin
+      // If we have affiliate_post_id, also match by post_id for more precise matching
+      let affiliateProductQuery = supabaseAdmin
         .from('affiliate_products')
         .select('commission_rate')
         .eq('product_id', order.product_id)
-        .eq('affiliate_id', order.affiliate_id)
+        .eq('affiliate_id', affiliateId)
         .eq('status', 'active')
-        .single()
+      
+      if (order.affiliate_post_id) {
+        affiliateProductQuery = affiliateProductQuery.eq('post_id', order.affiliate_post_id)
+      }
+      
+      const { data: affiliateProduct } = await affiliateProductQuery.single()
 
       // Use affiliate_product commission_rate if available, otherwise use product commission_rate
       const commissionRate = affiliateProduct?.commission_rate || product.commission_rate
@@ -131,7 +166,7 @@ export async function calculateAndCreateCommissions(
           const { data: commission, error } = await supabaseAdmin
             .from('affiliate_commissions')
             .insert({
-              affiliate_id: order.affiliate_id,
+              affiliate_id: affiliateId,
               order_id: order.id,
               product_id: order.product_id,
               amount: commissionAmount,
@@ -156,7 +191,7 @@ export async function calculateAndCreateCommissions(
 
             // Create notification for affiliate
             await supabaseAdmin.from('notifications').insert({
-              user_id: order.affiliate_id,
+              user_id: affiliateId,
               type: 'commission',
               title: '收到新佣金',
               content: `订单 ${order.id.substring(0, 8)}... 产生了 ¥${commissionAmount.toFixed(2)} 佣金`,

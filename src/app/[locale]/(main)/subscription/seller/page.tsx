@@ -15,6 +15,8 @@ import { Info } from 'lucide-react'
 import { getCurrencyFromBrowser } from '@/lib/currency/detect-currency'
 import { formatCurrency } from '@/lib/currency/format-currency'
 import { getSellerTiers, getSubscriptionPrice } from '@/lib/subscriptions/pricing'
+import { getWeChatQRCodeUrl } from '@/lib/utils/share'
+import Link from 'next/link'
 import type { Currency } from '@/lib/currency/detect-currency'
 
 export default function SellerSubscriptionPage() {
@@ -23,6 +25,8 @@ export default function SellerSubscriptionPage() {
   const [currentTier, setCurrentTier] = useState<number | null>(null)
   const [currency, setCurrency] = useState<Currency>('USD')
   const [tiers, setTiers] = useState<SubscriptionTier[]>([])
+  const [wechatCodeUrl, setWechatCodeUrl] = useState<string | null>(null)
+  const [wechatSubscriptionId, setWechatSubscriptionId] = useState<string | null>(null)
   const { user } = useAuth()
   const router = useRouter()
   const supabase = createClient()
@@ -134,36 +138,70 @@ export default function SellerSubscriptionPage() {
         window.location.href = url
       } else if (paymentMethod === 'paypal') {
         return
-      } else {
-        const { error } = await supabase.from('subscriptions').insert({
-          user_id: user.id,
-          subscription_type: 'seller',
-          subscription_tier: selectedTier,
-          deposit_credit: selectedTier,
-          payment_method: paymentMethod,
-          amount,
-          currency: payCurrency,
-          starts_at: new Date().toISOString(),
-          expires_at: expiresAt.toISOString(),
-          status: 'pending',
+      } else if (paymentMethod === 'alipay' || paymentMethod === 'wechat') {
+        const pendingRes = await fetch('/api/subscriptions/create-pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscriptionType: 'seller',
+            subscriptionTier: selectedTier,
+            paymentMethod,
+            currency: payCurrency,
+          }),
         })
-
-        if (error) throw error
-
-        await supabase
-          .from('profiles')
-          .update({
-            subscription_type: 'seller',
-            seller_subscription_tier: selectedTier,
-            subscription_expires_at: expiresAt.toISOString(),
+        if (!pendingRes.ok) {
+          const err = await pendingRes.json()
+          throw new Error(err.error || 'Failed to create pending subscription')
+        }
+        const { subscriptionId } = await pendingRes.json()
+        const payRes = await fetch('/api/subscriptions/create-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscriptionId, paymentMethod }),
+        })
+        if (!payRes.ok) {
+          const err = await payRes.json()
+          throw new Error(err.error || 'Failed to create payment')
+        }
+        const result = await payRes.json()
+        if (paymentMethod === 'alipay' && result.formAction && result.formData) {
+          const form = document.createElement('form')
+          form.method = 'POST'
+          form.action = result.formAction
+          Object.entries(result.formData).forEach(([k, v]) => {
+            const input = document.createElement('input')
+            input.type = 'hidden'
+            input.name = k
+            input.value = v
+            form.appendChild(input)
           })
-          .eq('id', user.id)
-
-        toast({
-          variant: 'success',
-          title: '成功',
-          description: '订阅已创建，请完成支付',
+          document.body.appendChild(form)
+          form.submit()
+          return
+        }
+        if (paymentMethod === 'wechat' && result.codeUrl) {
+          setWechatCodeUrl(result.codeUrl)
+          setWechatSubscriptionId(result.subscriptionId || subscriptionId)
+          toast({ variant: 'default', title: '请使用微信扫码支付', description: '支付成功后请刷新订阅管理页' })
+          return
+        }
+        throw new Error('Unexpected payment response')
+      } else {
+        const response = await fetch('/api/subscriptions/create-pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscriptionType: 'seller',
+            subscriptionTier: selectedTier,
+            paymentMethod,
+            currency: payCurrency,
+          }),
         })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to create pending subscription')
+        }
+        toast({ variant: 'success', title: '成功', description: '订阅已创建，请完成支付' })
         router.push('/subscription/manage')
       }
     } catch (error: any) {
@@ -201,7 +239,7 @@ export default function SellerSubscriptionPage() {
         currentTier={currentTier || undefined}
         currency={currency}
         onSelectTier={handleSelectTier}
-        loading={loading}
+        loading={loading || !!wechatCodeUrl}
       />
 
       {selectedTier && selectedTierConfig && (
@@ -240,11 +278,39 @@ export default function SellerSubscriptionPage() {
             <Button
               className="mt-4 w-full"
               onClick={handleSubscribe}
-              disabled={loading}
+              disabled={loading || !!wechatCodeUrl}
             >
               {loading ? '处理中...' : `订阅 ${formatCurrency(selectedTierConfig.price, currency)}/月`}
             </Button>
           )}
+        </Card>
+      )}
+
+      {wechatCodeUrl && (
+        <Card className="p-6">
+          <h3 className="mb-4 text-sm font-semibold">微信扫码支付</h3>
+          <div className="flex flex-col items-center gap-4">
+            <img
+              src={getWeChatQRCodeUrl(wechatCodeUrl)}
+              alt="微信支付二维码"
+              className="h-48 w-48"
+            />
+            <p className="text-sm text-muted-foreground">支付成功后请刷新订阅管理页</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setWechatCodeUrl(null)
+                  setWechatSubscriptionId(null)
+                }}
+              >
+                返回重选
+              </Button>
+              <Button asChild>
+                <Link href="/subscription/manage">前往订阅管理</Link>
+              </Button>
+            </div>
+          </div>
         </Card>
       )}
     </div>

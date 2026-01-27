@@ -5,8 +5,10 @@
 
 import { SupabaseClient } from '@supabase/supabase-js'
 import { enableSellerPayment } from '../deposits/payment-control'
-import { logPaymentSuccess, logPaymentFailure, logIdempotencyHit } from './logger'
+import { logPaymentSuccess, logPaymentFailure, logIdempotencyHit, logPayment, LogLevel } from './logger'
 import { createPaymentError, logPaymentError } from './error-handler'
+import { convertCurrency } from '@/lib/currency/convert-currency'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 interface ProcessSubscriptionPaymentParams {
   userId: string
@@ -69,25 +71,23 @@ export async function processSubscriptionPayment({
       return { success: false, error: paymentError.userMessage }
     }
 
-    // Update user profile
-    const updateData: any = {
-      subscription_type: subscriptionType,
-      subscription_expires_at: expiresAt.toISOString(),
-    }
+    // Sync profile subscription-derived fields from subscriptions table
+    // This is the single source of truth for subscription state (Risk 3)
+    // The sync function will calculate subscription_type, subscription_expires_at,
+    // seller_subscription_tier, tip_enabled, and role from active subscriptions
+    const { error: syncError } = await supabaseAdmin.rpc('sync_profile_subscription_derived', {
+      p_user_id: userId,
+    })
 
-    // For seller subscriptions, update seller_subscription_tier
-    if (subscriptionType === 'seller' && subscriptionTier) {
-      updateData.seller_subscription_tier = subscriptionTier
-      updateData.role = 'seller'
+    if (syncError) {
+      logPayment(LogLevel.ERROR, 'Error syncing profile subscription state', {
+        userId,
+        subscriptionType,
+        error: syncError.message || 'Unknown error',
+      })
+      // Don't fail the payment if sync fails, but log it
+      // The subscription is already created, sync can be retried later
     }
-
-    // For tip subscriptions, update tip_enabled
-    // Note: The database trigger will also handle this, but we update it here for consistency
-    if (subscriptionType === 'tip') {
-      updateData.tip_enabled = true
-    }
-
-    await supabaseAdmin.from('profiles').update(updateData).eq('id', userId)
 
     // If seller subscription, check if payment should be enabled
     if (subscriptionType === 'seller') {
@@ -134,5 +134,136 @@ export async function processSubscriptionPayment({
     })
     logPaymentError(paymentError)
     return { success: false, error: paymentError.userMessage }
+  }
+}
+
+/**
+ * Activate a pending subscription (e.g. after Alipay/WeChat callback or bank approval).
+ * Updates status to 'active', syncs profile, sends notification.
+ */
+export async function activatePendingSubscription({
+  subscriptionId,
+  provider,
+  providerRef,
+  paidAmount,
+  currency,
+  supabaseAdmin,
+}: {
+  subscriptionId: string
+  provider: 'alipay' | 'wechat' | 'bank'
+  providerRef: string
+  paidAmount: number
+  currency: string
+  supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data: sub, error: subErr } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id, user_id, subscription_type, subscription_tier, amount, status')
+      .eq('id', subscriptionId)
+      .single()
+
+    if (subErr || !sub) {
+      return { success: false, error: 'Subscription not found' }
+    }
+    if (sub.status !== 'pending') {
+      logIdempotencyHit('subscription', {
+        subscriptionId,
+        provider,
+        providerRef,
+      })
+      return { success: true }
+    }
+
+    const { data: existingTx } = await supabaseAdmin
+      .from('payment_transactions')
+      .select('id, status')
+      .eq('provider', provider)
+      .eq('provider_ref', providerRef)
+      .eq('type', 'subscription')
+      .eq('related_id', subscriptionId)
+      .maybeSingle()
+
+    if (existingTx?.status === 'paid') {
+      return { success: true }
+    }
+
+    const amountUsd = parseFloat(String(sub.amount))
+    const expectedInPaymentCurrency = convertCurrency(amountUsd, 'USD', currency as Currency)
+    if (Math.abs(paidAmount - expectedInPaymentCurrency) > 0.02) {
+      return { success: false, error: `Amount mismatch: expected ${expectedInPaymentCurrency} ${currency}, got ${paidAmount}` }
+    }
+
+    if (!existingTx) {
+      await supabaseAdmin.from('payment_transactions').insert({
+        type: 'subscription',
+        provider,
+        provider_ref: providerRef,
+        amount: paidAmount,
+        currency,
+        status: 'paid',
+        related_id: subscriptionId,
+        paid_at: new Date().toISOString(),
+        metadata: { subscription_type: sub.subscription_type },
+      })
+    } else {
+      await supabaseAdmin
+        .from('payment_transactions')
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .eq('id', existingTx.id)
+    }
+
+    await supabaseAdmin
+      .from('subscriptions')
+      .update({ status: 'active' })
+      .eq('id', subscriptionId)
+
+    const { error: syncError } = await supabaseAdmin.rpc('sync_profile_subscription_derived', {
+      p_user_id: sub.user_id,
+    })
+    if (syncError) {
+      logPayment(LogLevel.ERROR, 'Error syncing profile after activating subscription', {
+        subscriptionId,
+        userId: sub.user_id,
+        error: syncError.message,
+      })
+    }
+
+    if (sub.subscription_type === 'seller') {
+      await enableSellerPayment(sub.user_id, supabaseAdmin)
+    }
+
+    const tierText = sub.subscription_tier ? ` (${sub.subscription_tier} USD档位)` : ''
+    const nameMap: Record<string, string> = {
+      seller: '卖家订阅',
+      affiliate: '带货者订阅',
+      tip: '打赏功能订阅',
+    }
+    const subName = nameMap[sub.subscription_type] || '订阅'
+    await supabaseAdmin.from('notifications').insert({
+      user_id: sub.user_id,
+      type: 'system',
+      title: '订阅激活成功',
+      content: `您的${subName}已成功激活${tierText}`,
+      related_type: 'user',
+      link: '/subscription/manage',
+    })
+
+    logPaymentSuccess('subscription', {
+      subscriptionId,
+      userId: sub.user_id,
+      subscriptionType: sub.subscription_type,
+      amount: paidAmount,
+      currency,
+      paymentMethod: provider,
+    })
+    return { success: true }
+  } catch (e: any) {
+    logPayment(LogLevel.ERROR, 'activatePendingSubscription error', {
+      subscriptionId,
+      provider,
+      error: e.message || 'Unknown error',
+    })
+    return { success: false, error: e.message || 'Unknown error' }
   }
 }

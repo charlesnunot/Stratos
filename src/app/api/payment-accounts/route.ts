@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkSellerPermission } from '@/lib/auth/check-subscription'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +18,20 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check seller permission (including subscription status)
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
+    if (!sellerCheck.hasPermission) {
+      return NextResponse.json(
+        { error: sellerCheck.reason || 'Seller subscription required' },
+        { status: 403 }
+      )
     }
 
     // Get all payment accounts for this user
@@ -33,7 +49,37 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ accounts: accounts || [] })
+    // Get seller payment account status from profiles table (new model)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('payment_provider, payment_account_id, provider_charges_enabled, provider_payouts_enabled, provider_account_status, seller_payout_eligibility')
+      .eq('id', user.id)
+      .single()
+
+    // Combine payment_accounts data with profiles status
+    const accountsWithStatus = (accounts || []).map((account) => ({
+      ...account,
+      // Add status from profiles if this is the bound account
+      ...(profile && profile.payment_provider === account.account_type && profile.payment_account_id ? {
+        provider_charges_enabled: profile.provider_charges_enabled,
+        provider_payouts_enabled: profile.provider_payouts_enabled,
+        provider_account_status: profile.provider_account_status,
+        seller_payout_eligibility: profile.seller_payout_eligibility,
+      } : {}),
+    }))
+
+    return NextResponse.json({ 
+      accounts: accountsWithStatus,
+      // Also return profile status for display
+      profileStatus: profile ? {
+        payment_provider: profile.payment_provider,
+        payment_account_id: profile.payment_account_id,
+        provider_charges_enabled: profile.provider_charges_enabled,
+        provider_payouts_enabled: profile.provider_payouts_enabled,
+        provider_account_status: profile.provider_account_status,
+        seller_payout_eligibility: profile.seller_payout_eligibility,
+      } : null,
+    })
   } catch (error: any) {
     console.error('Get payment accounts error:', error)
     return NextResponse.json(
@@ -146,6 +192,20 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check seller permission (including subscription status)
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
+    if (!sellerCheck.hasPermission) {
+      return NextResponse.json(
+        { error: sellerCheck.reason || 'Seller subscription required' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { id, accountName, accountInfo, currency, supportedCurrencies, isDefault } = body
 
@@ -238,6 +298,20 @@ export async function DELETE(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check seller permission (including subscription status)
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
+    if (!sellerCheck.hasPermission) {
+      return NextResponse.json(
+        { error: sellerCheck.reason || 'Seller subscription required' },
+        { status: 403 }
+      )
     }
 
     const { searchParams } = new URL(request.url)

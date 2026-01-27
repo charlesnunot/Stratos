@@ -4,30 +4,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/require-admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Unified admin check
+    const authResult = await requireAdmin(request)
+    if (!authResult.success) {
+      return authResult.response
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const { supabase } = authResult.data
 
     // Get all platform payment accounts
     const { data: accounts, error: accountsError } = await supabase
@@ -55,26 +43,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Unified admin check
+    const authResult = await requireAdmin(request)
+    if (!authResult.success) {
+      return authResult.response
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const { supabase } = authResult.data
 
     const body = await request.json()
     const {
@@ -111,17 +86,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if platform account of this type already exists
+    // Check if active platform account of this type already exists
+    // Only active accounts have uniqueness constraint
     const { data: existingAccount } = await supabase
       .from('payment_accounts')
-      .select('id')
+      .select('id, status')
       .eq('is_platform_account', true)
       .eq('account_type', accountType)
-      .single()
+      .eq('status', 'active')
+      .maybeSingle()
 
     if (existingAccount) {
       return NextResponse.json(
-        { error: `Platform account of type ${accountType} already exists. Please update or delete the existing one first.` },
+        { error: `An active platform account of type ${accountType} already exists. Please disable the existing one first.` },
         { status: 400 }
       )
     }
@@ -139,6 +116,7 @@ export async function POST(request: NextRequest) {
         is_platform_account: true,
         is_verified: true, // Platform accounts are auto-verified
         verification_status: 'verified',
+        status: 'active', // New accounts are active by default
       })
       .select()
       .single()

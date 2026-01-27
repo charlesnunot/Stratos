@@ -1,6 +1,8 @@
 // Alipay payment helper functions
 // Using Alipay Open Platform API
 
+import { logPayment, LogLevel } from './logger'
+
 const ALIPAY_GATEWAY = process.env.NODE_ENV === 'production'
   ? 'https://openapi.alipay.com/gateway.do'
   : 'https://openapi.alipaydev.com/gateway.do'
@@ -42,8 +44,11 @@ async function getPlatformAlipayConfig(currency: string = 'CNY'): Promise<{ appI
     }
 
     return null
-  } catch (error) {
-    console.error('Error getting platform Alipay config:', error)
+  } catch (error: any) {
+    logPayment(LogLevel.ERROR, 'Error getting platform Alipay config', {
+      provider: 'alipay',
+      error: error.message || 'Unknown error',
+    })
     return null
   }
 }
@@ -81,6 +86,18 @@ async function getAlipayConfig(currency: string = 'CNY'): Promise<AlipayConfig> 
 
 import crypto from 'crypto'
 
+// Generate Alipay timestamp format: "yyyy-MM-dd HH:mm:ss"
+function getAlipayTimestamp(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  const seconds = String(now.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+
 // Sign function using RSA-SHA256
 function sign(data: string, privateKey: string): string {
   try {
@@ -89,7 +106,10 @@ function sign(data: string, privateKey: string): string {
     const signature = sign.sign(privateKey, 'base64')
     return signature
   } catch (error: any) {
-    console.error('Alipay sign error:', error)
+    logPayment(LogLevel.ERROR, 'Alipay sign error', {
+      provider: 'alipay',
+      error: error.message || 'Unknown error',
+    })
     throw new Error(`Failed to sign data: ${error.message}`)
   }
 }
@@ -101,7 +121,10 @@ function verifySign(data: string, signature: string, publicKey: string): boolean
     verify.update(data, 'utf8')
     return verify.verify(publicKey, signature, 'base64')
   } catch (error: any) {
-    console.error('Alipay verify signature error:', error)
+    logPayment(LogLevel.ERROR, 'Alipay verify signature error', {
+      provider: 'alipay',
+      error: error.message || 'Unknown error',
+    })
     return false
   }
 }
@@ -147,7 +170,7 @@ export async function createAlipayOrder(params: CreateAlipayOrderParams) {
     method: 'alipay.trade.app.pay',
     charset: 'utf-8',
     sign_type: 'RSA2',
-    timestamp: new Date().toISOString().replace(/[-:]/g, '').split('.')[0],
+    timestamp: getAlipayTimestamp(),
     version: '1.0',
     biz_content: JSON.stringify(bizContent),
   }
@@ -193,8 +216,11 @@ export async function verifyAlipayCallback(params: AlipayCallbackParams): Promis
       .join('&')
 
     return verifySign(signString, signature || '', config.publicKey)
-  } catch (error) {
-    console.error('Alipay callback verification error:', error)
+  } catch (error: any) {
+    logPayment(LogLevel.ERROR, 'Alipay callback verification error', {
+      provider: 'alipay',
+      error: error.message || 'Unknown error',
+    })
     return false
   }
 }
@@ -204,35 +230,154 @@ export interface AlipayRefundParams {
   refundAmount: number
   refundReason?: string
   outRequestNo?: string
+  tradeNo?: string // 支付宝交易号（与out_trade_no二选一）
 }
 
-export async function createAlipayRefund(params: AlipayRefundParams) {
+export interface AlipayRefundResponse {
+  code: string
+  msg: string
+  sub_code?: string
+  sub_msg?: string
+  out_trade_no?: string
+  trade_no?: string
+  buyer_logon_id?: string
+  fund_change?: string
+  refund_fee?: string
+  refund_currency?: string
+  gmt_refund_pay?: string
+  refund_detail_item_list?: Array<{
+    fund_channel: string
+    amount: string
+    real_amount: string
+  }>
+  store_name?: string
+  buyer_user_id?: string
+  refund_preset_paytool_list?: Array<{
+    amount: string[]
+    assert_type_code: string
+  }>
+  refund_settlement_id?: string
+  present_refund_buyer_amount?: string
+  present_refund_discount_amount?: string
+  present_refund_mdiscount_amount?: string
+}
+
+/**
+ * Create Alipay refund. Returns actual API response from Alipay.
+ */
+export async function createAlipayRefund(params: AlipayRefundParams): Promise<AlipayRefundResponse> {
   const currency = 'CNY' // Alipay typically uses CNY
   const config = await getAlipayConfig(currency)
-  const { outTradeNo, refundAmount, refundReason, outRequestNo } = params
+  const { outTradeNo, refundAmount, refundReason, outRequestNo, tradeNo } = params
 
-  const bizContent = {
-    out_trade_no: outTradeNo,
+  // Build biz_content (at least one of out_trade_no or trade_no is required)
+  const bizContent: Record<string, string> = {
     refund_amount: refundAmount.toFixed(2),
-    ...(refundReason && { refund_reason: refundReason }),
-    ...(outRequestNo && { out_request_no: outRequestNo }),
+  }
+  
+  if (outTradeNo) {
+    bizContent.out_trade_no = outTradeNo
+  }
+  if (tradeNo) {
+    bizContent.trade_no = tradeNo
+  }
+  if (!outTradeNo && !tradeNo) {
+    throw new Error('Either out_trade_no or trade_no must be provided')
+  }
+  
+  if (refundReason) {
+    bizContent.refund_reason = refundReason.substring(0, 256) // Max 256 chars
+  }
+  if (outRequestNo) {
+    bizContent.out_request_no = outRequestNo.substring(0, 64) // Max 64 chars
   }
 
-  const requestParams = {
+  // Build request parameters
+  const requestParams: Record<string, string> = {
     app_id: config.appId,
     method: 'alipay.trade.refund',
+    format: 'JSON',
     charset: 'utf-8',
     sign_type: 'RSA2',
-    timestamp: new Date().toISOString().replace(/[-:]/g, '').split('.')[0],
+    timestamp: getAlipayTimestamp(),
     version: '1.0',
     biz_content: JSON.stringify(bizContent),
   }
 
-  // In production, make actual API call to Alipay
-  // For now, return mock response
-  return {
-    out_trade_no: outTradeNo,
-    refund_amount: refundAmount.toFixed(2),
-    refund_reason: refundReason || 'User requested refund',
+  // Sort parameters and build sign string
+  const sortedKeys = Object.keys(requestParams).sort()
+  const signString = sortedKeys
+    .map(key => `${key}=${requestParams[key]}`)
+    .join('&')
+
+  // Generate signature
+  const signature = sign(signString, config.privateKey)
+  requestParams['sign'] = signature
+
+  // Build query string for POST request
+  const queryString = sortedKeys
+    .map(key => `${key}=${encodeURIComponent(requestParams[key])}`)
+    .concat([`sign=${encodeURIComponent(signature)}`])
+    .join('&')
+
+  // Make API request
+  const response = await fetch(`${ALIPAY_GATEWAY}?${queryString}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Alipay refund API request failed: ${response.statusText}`)
   }
+
+  const responseData = await response.json()
+  
+  // Response format: { alipay_trade_refund_response: {...}, sign: "..." }
+  const refundResponse = responseData.alipay_trade_refund_response as AlipayRefundResponse
+  
+  if (!refundResponse) {
+    throw new Error('Invalid Alipay refund response format')
+  }
+
+  // Verify response signature
+  const responseSign = responseData.sign
+  if (responseSign) {
+    // Build sign string from response object (exclude sign field)
+    const responseSignString = Object.keys(refundResponse)
+      .sort()
+      .filter(key => {
+        const value = refundResponse[key as keyof AlipayRefundResponse]
+        return value !== undefined && value !== null && value !== '' && key !== 'sign'
+      })
+      .map(key => {
+        const value = refundResponse[key as keyof AlipayRefundResponse]
+        // Handle array values (convert to JSON string)
+        if (Array.isArray(value)) {
+          return `${key}=${JSON.stringify(value)}`
+        }
+        return `${key}=${value}`
+      })
+      .join('&')
+    
+    const isValid = verifySign(responseSignString, responseSign, config.publicKey)
+    if (!isValid) {
+      logPayment(LogLevel.WARN, 'Alipay refund response signature verification failed', {
+        provider: 'alipay',
+        outTradeNo,
+        tradeNo,
+      })
+      // Continue processing but log warning (in production, you may want to fail)
+    }
+  }
+
+  // Check if refund was successful
+  if (refundResponse.code !== '10000') {
+    throw new Error(
+      `Alipay refund failed: ${refundResponse.msg}${refundResponse.sub_msg ? ` (${refundResponse.sub_msg})` : ''}`
+    )
+  }
+
+  return refundResponse
 }

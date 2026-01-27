@@ -50,10 +50,10 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    // Get proof details
+    // Get proof details with payment transaction info
     const { data: proof, error: proofError } = await supabaseAdmin
       .from('bank_payment_proofs')
-      .select('*, order_id, payment_transaction_id')
+      .select('*, order_id, payment_transaction_id, payment_transactions(type, related_id, amount, currency, status)')
       .eq('id', proofId)
       .single()
 
@@ -82,47 +82,88 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // If approved, process the order payment
-    if (approved && proof.order_id) {
-      // Get order details
-      const { data: order, error: orderError } = await supabaseAdmin
-        .from('orders')
-        .select('id, total_amount, payment_status')
-        .eq('id', proof.order_id)
+    // If approved, process the payment based on transaction type
+    if (approved && proof.payment_transaction_id) {
+      // Get payment transaction details
+      const { data: transaction, error: txError } = await supabaseAdmin
+        .from('payment_transactions')
+        .select('type, related_id, amount, currency, status')
+        .eq('id', proof.payment_transaction_id)
         .single()
 
-      if (!orderError && order && order.payment_status !== 'paid') {
-        // Update payment transaction
-        if (proof.payment_transaction_id) {
-          await supabaseAdmin
-            .from('payment_transactions')
-            .update({
-              status: 'paid',
-              paid_at: new Date().toISOString(),
-            })
-            .eq('id', proof.payment_transaction_id)
-        }
-
-        // Process order payment using unified service layer
-        const result = await processOrderPayment({
-          orderId: order.id,
-          amount: order.total_amount,
-          supabaseAdmin,
-        })
-
-        if (!result.success) {
-          console.error('Failed to process order payment:', result.error)
-        }
-
-        // Update order with payment method
+      if (!txError && transaction && transaction.status !== 'paid') {
+        // Update payment transaction status
         await supabaseAdmin
-          .from('orders')
+          .from('payment_transactions')
           .update({
-            payment_method: 'bank',
-            payment_status: 'paid',
+            status: 'paid',
             paid_at: new Date().toISOString(),
           })
-          .eq('id', order.id)
+          .eq('id', proof.payment_transaction_id)
+
+        // Handle subscription payment
+        if (transaction.type === 'subscription') {
+          const subscriptionId = transaction.related_id
+          const { activatePendingSubscription } = await import('@/lib/payments/process-subscription-payment')
+          const result = await activatePendingSubscription({
+            subscriptionId,
+            provider: 'bank',
+            providerRef: proof.payment_transaction_id,
+            paidAmount: parseFloat(String(transaction.amount)),
+            currency: transaction.currency || 'CNY',
+            supabaseAdmin,
+          })
+
+          if (!result.success) {
+            console.error('Failed to activate subscription:', result.error)
+            return NextResponse.json(
+              { 
+                success: false, 
+                error: result.error || 'Failed to activate subscription',
+                message: '凭证审核通过，但订阅激活失败' 
+              },
+              { status: 500 }
+            )
+          }
+
+          return NextResponse.json({
+            success: true,
+            message: '凭证审核通过，订阅已激活',
+          })
+        }
+
+        // Handle order payment
+        if (transaction.type === 'order' && proof.order_id) {
+          // Get order details
+          const { data: order, error: orderError } = await supabaseAdmin
+            .from('orders')
+            .select('id, total_amount, payment_status')
+            .eq('id', proof.order_id)
+            .single()
+
+          if (!orderError && order && order.payment_status !== 'paid') {
+            // Process order payment using unified service layer
+            const result = await processOrderPayment({
+              orderId: order.id,
+              amount: order.total_amount,
+              supabaseAdmin,
+            })
+
+            if (!result.success) {
+              console.error('Failed to process order payment:', result.error)
+            }
+
+            // Update order with payment method
+            await supabaseAdmin
+              .from('orders')
+              .update({
+                payment_method: 'bank',
+                payment_status: 'paid',
+                paid_at: new Date().toISOString(),
+              })
+              .eq('id', order.id)
+          }
+        }
       }
     }
 

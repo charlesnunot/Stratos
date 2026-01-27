@@ -1,17 +1,19 @@
 'use client'
 
-import { useState } from 'react'
-import { Coins } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Coins, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { createClient } from '@/lib/supabase/client'
+import { useProfile } from '@/lib/hooks/useProfile'
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector'
 import { PayPalButton } from '@/components/payments/PayPalButton'
-import { useRouter } from 'next/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { useToast } from '@/lib/hooks/useToast'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 
 interface TipButtonProps {
   postId: string
@@ -26,18 +28,70 @@ export function TipButton({
 }: TipButtonProps) {
   const [showModal, setShowModal] = useState(false)
   const [amount, setAmount] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<
-    'stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank'
-  >('stripe')
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal'>('stripe')
   const [loading, setLoading] = useState(false)
   const { user } = useAuth()
-  const supabase = createClient()
+  const { data: profile, isLoading: profileLoading } = useProfile(user?.id ?? '')
   const router = useRouter()
   const { toast } = useToast()
   const t = useTranslations('tips')
   const tCommon = useTranslations('common')
+  const supabase = useMemo(() => createClient(), [])
 
-  if (!user) return null
+  // 检查打赏订阅是否过期
+  const { data: tipSubscription } = useQuery({
+    queryKey: ['tipSubscription', user?.id],
+    queryFn: async () => {
+      if (!user) return null
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('expires_at')
+        .eq('user_id', user.id)
+        .eq('subscription_type', 'tip')
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
+        .single()
+      
+      if (error && error.code !== 'PGRST116') throw error
+      return data
+    },
+    enabled: !!user && !!profile?.tip_enabled,
+  })
+
+  const tipEnabled = !!profile?.tip_enabled && !!tipSubscription
+
+  // 未登录用户显示"登录后打赏"按钮
+  if (!user) {
+    return (
+      <Button variant="outline" size="sm" className="gap-2" asChild>
+        <Link href={`/login?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`}>
+          <Coins className="h-4 w-4" />
+          {t('tip') || '打赏'}
+        </Link>
+      </Button>
+    )
+  }
+
+  if (profileLoading) {
+    return (
+      <Button variant="outline" size="sm" className="gap-2" disabled>
+        <Coins className="h-4 w-4" />
+        <span className="text-xs">{t('tip')}</span>
+        <span className="text-xs text-muted-foreground ml-1">加载中...</span>
+      </Button>
+    )
+  }
+
+  if (!tipEnabled) {
+    return (
+      <Button variant="outline" size="sm" className="gap-2" asChild>
+        <Link href="/subscription/tip">
+          <Coins className="h-4 w-4" />
+          {t('enableTip')}
+        </Link>
+      </Button>
+    )
+  }
 
   const handleTip = async () => {
     const tipAmount = parseFloat(amount)
@@ -61,48 +115,42 @@ export function TipButton({
 
     setLoading(true)
     try {
-      if (paymentMethod === 'stripe') {
-        // Create Stripe checkout session for tip
-        const response = await fetch('/api/payments/stripe/create-tip-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: tipAmount,
-            postId: postId,
-            postAuthorId: postAuthorId,
-            successUrl: `${window.location.origin}?tip=success`,
-            cancelUrl: window.location.href,
-          }),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to create checkout session')
-        }
-
-        const { url } = await response.json()
-        window.location.href = url
-      } else {
-        // For other payment methods, create tip record with pending status
-        const { error } = await supabase.from('tips').insert({
-          post_id: postId,
-          tipper_id: user.id,
-          recipient_id: postAuthorId,
+      const response = await fetch('/api/payments/stripe/create-tip-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           amount: tipAmount,
-          payment_method: paymentMethod,
-          payment_status: 'pending',
-        })
+          postId,
+          postAuthorId,
+          successUrl: `${window.location.origin}?tip=success`,
+          cancelUrl: window.location.href,
+          currency: 'CNY',
+        }),
+      })
 
-        if (error) throw error
-
-        toast({
-          variant: 'success',
-          title: '成功',
-          description: t('tipCreated'),
-        })
-        setShowModal(false)
-        router.refresh()
+      if (!response.ok) {
+        const err = await response.json()
+        const errorMessage = err.error || 'Failed to create checkout session'
+        
+        // 根据错误类型显示更具体的错误信息
+        let userFriendlyMessage = errorMessage
+        if (errorMessage.includes('subscription')) {
+          userFriendlyMessage = '您的打赏订阅已过期，请续费后再试'
+        } else if (errorMessage.includes('Tip feature subscription required')) {
+          userFriendlyMessage = '请先开通打赏功能订阅'
+        } else if (errorMessage.includes('Tip subscription expired')) {
+          userFriendlyMessage = '您的打赏订阅已过期，请续费后再试'
+        } else if (errorMessage.includes('Cannot tip yourself')) {
+          userFriendlyMessage = '不能给自己打赏'
+        } else if (errorMessage.includes('Tip limit exceeded')) {
+          userFriendlyMessage = '打赏限额已超，请稍后再试'
+        }
+        
+        throw new Error(userFriendlyMessage)
       }
+
+      const { url } = await response.json()
+      window.location.href = url
     } catch (error: any) {
       console.error('Tip error:', error)
       toast({
@@ -127,9 +175,24 @@ export function TipButton({
         {t('tip')}
       </Button>
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md p-6">
-            <h3 className="mb-4 text-lg font-semibold">{t('tipCreator')}</h3>
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false)
+            }
+          }}
+        >
+          <Card className="w-full max-w-md p-6 relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-2 top-2 h-6 w-6"
+              onClick={() => setShowModal(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <h3 className="mb-4 text-lg font-semibold pr-8">{t('tipCreator')}</h3>
             <p className="mb-4 text-sm text-muted-foreground">
               {t('currentTipAmount')}: ¥{currentAmount.toFixed(2)}
             </p>
@@ -145,6 +208,7 @@ export function TipButton({
                 onChange={(e) => setAmount(e.target.value)}
                 disabled={paymentMethod === 'paypal'}
               />
+              <p className="text-xs text-muted-foreground">最小打赏金额：¥0.01</p>
             </div>
 
             <div className="mb-4">
@@ -152,6 +216,7 @@ export function TipButton({
               <PaymentMethodSelector
                 selectedMethod={paymentMethod}
                 onSelect={setPaymentMethod}
+                availableMethods={['stripe', 'paypal']}
               />
             </div>
 

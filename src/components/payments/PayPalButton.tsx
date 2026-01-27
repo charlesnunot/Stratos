@@ -147,8 +147,10 @@ export function PayPalButton({
 
     const container = document.getElementById(containerId)
     if (container) {
-      // Clear previous buttons
-      container.innerHTML = ''
+      // Clear previous buttons safely (remove all child nodes)
+      while (container.firstChild) {
+        container.removeChild(container.firstChild)
+      }
       buttons.render(container).catch((err: any) => {
         console.error('PayPal button render error:', err)
       })
@@ -157,7 +159,10 @@ export function PayPalButton({
     return () => {
       const container = document.getElementById(containerId)
       if (container) {
-        container.innerHTML = ''
+        // Clear safely using removeChild instead of innerHTML
+        while (container.firstChild) {
+          container.removeChild(container.firstChild)
+        }
       }
     }
   }, [paypalLoaded, disabled, containerId, createOrder, onApprove])

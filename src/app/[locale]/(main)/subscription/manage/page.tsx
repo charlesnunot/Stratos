@@ -5,12 +5,14 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Clock, History, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
+import { useState } from 'react'
 
 export default function SubscriptionManagePage() {
   const { user } = useAuth()
   const supabase = createClient()
+  const [showHistory, setShowHistory] = useState(false)
 
   const { data: subscription, isLoading } = useQuery({
     queryKey: ['subscription', user?.id],
@@ -29,6 +31,17 @@ export default function SubscriptionManagePage() {
       return data
     },
     enabled: !!user,
+  })
+
+  const { data: historyData, isLoading: historyLoading } = useQuery({
+    queryKey: ['subscription-history', user?.id],
+    queryFn: async () => {
+      if (!user) return null
+      const response = await fetch('/api/subscriptions/history')
+      if (!response.ok) throw new Error('Failed to fetch subscription history')
+      return response.json()
+    },
+    enabled: !!user && showHistory,
   })
 
   const { data: profile } = useQuery({
@@ -60,7 +73,17 @@ export default function SubscriptionManagePage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">订阅管理</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">订阅管理</h1>
+        <Button
+          variant="outline"
+          onClick={() => setShowHistory(!showHistory)}
+          className="flex items-center gap-2"
+        >
+          <History className="h-4 w-4" />
+          {showHistory ? '隐藏历史' : '查看历史'}
+        </Button>
+      </div>
 
       {!subscription && !profile?.subscription_type ? (
         <Card className="p-8 text-center">
@@ -150,6 +173,109 @@ export default function SubscriptionManagePage() {
                 <Button className="w-full">续费订阅</Button>
               </Link>
             </div>
+          )}
+        </Card>
+      )}
+
+      {/* Subscription History */}
+      {showHistory && (
+        <Card className="p-6">
+          <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
+            <History className="h-5 w-5" />
+            订阅历史
+          </h2>
+
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : historyData?.stats ? (
+            <>
+              {/* Statistics */}
+              <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="rounded-lg border p-3">
+                  <p className="text-sm text-muted-foreground">总订阅数</p>
+                  <p className="text-2xl font-bold">{historyData.stats.total}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-sm text-muted-foreground">活跃</p>
+                  <p className="text-2xl font-bold text-green-600">{historyData.stats.active}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-sm text-muted-foreground">已过期</p>
+                  <p className="text-2xl font-bold text-red-600">{historyData.stats.expired}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-sm text-muted-foreground">总支出</p>
+                  <p className="text-2xl font-bold">
+                    ¥{historyData.stats.totalSpent.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              {/* History List */}
+              {historyData.subscriptions && historyData.subscriptions.length > 0 ? (
+                <div className="space-y-3">
+                  {historyData.subscriptions.map((sub: any) => {
+                    const isActive = sub.status === 'active' && new Date(sub.expires_at) > new Date()
+                    const isExpired = sub.status === 'expired' || new Date(sub.expires_at) <= new Date()
+                    
+                    return (
+                      <div
+                        key={sub.id}
+                        className="rounded-lg border p-4 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-semibold">
+                              {sub.subscription_type === 'seller' && '卖家订阅'}
+                              {sub.subscription_type === 'affiliate' && '带货者订阅'}
+                              {sub.subscription_type === 'tip' && '打赏功能订阅'}
+                              {sub.subscription_tier && ` (${sub.subscription_tier} USD档位)`}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(sub.created_at).toLocaleString('zh-CN')}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            {isActive ? (
+                              <span className="flex items-center gap-1 text-green-600 text-sm">
+                                <CheckCircle className="h-4 w-4" />
+                                活跃
+                              </span>
+                            ) : isExpired ? (
+                              <span className="flex items-center gap-1 text-red-600 text-sm">
+                                <XCircle className="h-4 w-4" />
+                                已过期
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-yellow-600 text-sm">
+                                <Clock className="h-4 w-4" />
+                                {sub.status}
+                              </span>
+                            )}
+                            <p className="text-sm font-semibold mt-1">
+                              ¥{sub.amount?.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>
+                            {new Date(sub.starts_at).toLocaleDateString('zh-CN')} -{' '}
+                            {new Date(sub.expires_at).toLocaleDateString('zh-CN')}
+                          </span>
+                          <span className="capitalize">{sub.payment_method}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">暂无订阅历史</p>
+              )}
+            </>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">加载失败</p>
           )}
         </Card>
       )}

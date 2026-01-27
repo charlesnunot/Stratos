@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { parseError } from '@/lib/types/errors'
+import { useTranslations } from 'next-intl'
 
 interface RetryableErrorProps {
   error: unknown
@@ -12,6 +13,7 @@ interface RetryableErrorProps {
 
 export function RetryableError({ error, onRetry, title }: RetryableErrorProps) {
   const appError = parseError(error)
+  const t = useTranslations('common')
   
   return (
     <div className="py-12 text-center">
@@ -21,7 +23,7 @@ export function RetryableError({ error, onRetry, title }: RetryableErrorProps) {
       {appError.retryable && onRetry && (
         <Button onClick={onRetry} variant="outline">
           <RefreshCw className="mr-2 h-4 w-4" />
-          重试
+          {t('retry')}
         </Button>
       )}
     </div>

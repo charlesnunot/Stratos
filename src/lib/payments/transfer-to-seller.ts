@@ -6,6 +6,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { logTransferInitiated, logTransferSuccess, logTransferFailure } from './logger'
 import { createPaymentError, logPaymentError } from './error-handler'
+import { collectDebtFromPayout } from '@/lib/debts/collect-debt'
 
 export interface TransferToSellerParams {
   sellerId: string
@@ -74,21 +75,48 @@ export async function transferToSeller({
 
     const account = paymentAccount[0]
 
-    // Log transfer initiation
-    logTransferInitiated({
+    // Deduct debt from payout before transferring
+    const debtResult = await collectDebtFromPayout(
       sellerId,
       amount,
       currency,
+      supabaseAdmin
+    )
+
+    // Use actual payout amount after debt deduction
+    const actualAmount = debtResult.success 
+      ? debtResult.actualPayoutAmount 
+      : amount
+
+    // If all amount was deducted for debt, no need to transfer
+    if (actualAmount <= 0) {
+      return {
+        success: true,
+        transferId: undefined,
+        transferRef: 'debt_deduction_only',
+        error: debtResult.deductedDebtAmount > 0 
+          ? `All payout amount (${amount} ${currency}) was deducted for debt repayment. Remaining debt: ${debtResult.remainingDebt} ${currency}`
+          : undefined,
+      }
+    }
+
+    // Log transfer initiation
+    logTransferInitiated({
+      sellerId,
+      amount: actualAmount,
+      currency,
       paymentMethod,
       orderId,
+      originalAmount: amount,
+      deductedDebt: debtResult.deductedDebtAmount,
     })
 
-    // Create pending transfer record
+    // Create pending transfer record with actual amount
     const { data: transferRecord, error: transferError } = await supabaseAdmin
       .from('payment_transfers')
       .insert({
         seller_id: sellerId,
-        amount,
+        amount: actualAmount,
         currency,
         transfer_method: paymentMethod,
         status: 'processing',
@@ -98,6 +126,9 @@ export async function transferToSeller({
         metadata: {
           order_id: orderId,
           account_id: account.id,
+          original_amount: amount,
+          deducted_debt: debtResult.deductedDebtAmount,
+          remaining_debt: debtResult.remainingDebt,
         },
       })
       .select()
@@ -117,7 +148,7 @@ export async function transferToSeller({
       case 'stripe':
         transferResult = await transferViaStripe({
           sellerId,
-          amount,
+          amount: actualAmount,
           currency,
           accountInfo: account.account_info,
           transferId: transferRecord.id,
@@ -127,7 +158,7 @@ export async function transferToSeller({
       case 'paypal':
         transferResult = await transferViaPayPal({
           sellerId,
-          amount,
+          amount: actualAmount,
           currency,
           accountInfo: account.account_info,
           transferId: transferRecord.id,
@@ -137,7 +168,7 @@ export async function transferToSeller({
       case 'alipay':
         transferResult = await transferViaAlipay({
           sellerId,
-          amount,
+          amount: actualAmount,
           currency,
           accountInfo: account.account_info,
           transferId: transferRecord.id,
@@ -147,7 +178,7 @@ export async function transferToSeller({
       case 'wechat':
         transferResult = await transferViaWeChat({
           sellerId,
-          amount,
+          amount: actualAmount,
           currency,
           accountInfo: account.account_info,
           transferId: transferRecord.id,
@@ -188,10 +219,12 @@ export async function transferToSeller({
       logTransferSuccess({
         transferId: transferRecord.id,
         sellerId,
-        amount,
+        amount: actualAmount,
         currency,
         paymentMethod,
         orderId,
+        originalAmount: amount,
+        deductedDebt: debtResult.deductedDebtAmount,
       })
     } else {
       // Check if we should retry

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -9,25 +10,54 @@ import { useToast } from '@/lib/hooks/useToast'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ReportDialog } from '@/components/social/ReportDialog'
-import { Loader2, Package, CheckCircle, XCircle, Clock, Flag } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Loader2, Package, CheckCircle, XCircle, Clock, Flag, MessageSquare } from 'lucide-react'
 import { showInfo } from '@/lib/utils/toast'
-import Link from 'next/link'
 import { useOrderFeedback } from '@/lib/hooks/useSellerFeedback'
+import { useTranslations } from 'next-intl'
 
 export default function OrderPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const orderId = params.id as string
   const { user } = useAuth()
   const supabase = createClient()
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const tSupport = useTranslations('support')
   const [cancelling, setCancelling] = useState(false)
   const [showReportDialog, setShowReportDialog] = useState(false)
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
+
+  // 检查是否已有反馈
+  const { data: existingFeedback } = useOrderFeedback(orderId, user?.id)
+
+  // If payment was successful (e.g. Stripe redirect), clean up the URL param
+  useEffect(() => {
+    const paymentSuccess = searchParams.get('payment')
+    if (paymentSuccess === 'success') {
+      // Remove the query parameter from URL
+      const newUrl = window.location.pathname
+      window.history.replaceState({}, '', newUrl)
+    }
+  }, [searchParams])
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => {
+      // 检查用户是否登录
+      if (!user) {
+        throw new Error('请先登录')
+      }
+
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -42,7 +72,7 @@ export default function OrderPage() {
       if (error) throw error
       return data
     },
-    enabled: !!orderId,
+    enabled: !!orderId && !!user,
   })
 
   // Get order items if table exists
@@ -116,6 +146,7 @@ export default function OrderPage() {
         description: '订单已成功取消' + (order?.payment_status === 'paid' ? '，退款将退回您的账户' : ''),
       })
       router.refresh()
+      setShowCancelDialog(false)
     } catch (error: any) {
       console.error('Cancel order error:', error)
       toast({
@@ -201,7 +232,14 @@ export default function OrderPage() {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">支付方式</p>
-            <p className="font-semibold capitalize">{order.payment_method}</p>
+            {order.payment_method ? (
+              <div>
+                <p className="font-semibold capitalize">{order.payment_method}</p>
+                <p className="text-xs text-muted-foreground mt-1">结算时已选择</p>
+              </div>
+            ) : (
+              <p className="font-semibold text-muted-foreground">未选择</p>
+            )}
           </div>
           <div>
             <p className="text-sm text-muted-foreground">创建时间</p>
@@ -277,17 +315,10 @@ export default function OrderPage() {
               {order.order_status !== 'shipped' && (
                 <Button
                   variant="outline"
-                  onClick={handleCancelOrder}
+                  onClick={() => setShowCancelDialog(true)}
                   disabled={cancelling}
                 >
-                  {cancelling ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      处理中...
-                    </>
-                  ) : (
-                    '取消订单'
-                  )}
+                  取消订单
                 </Button>
               )}
             </>
@@ -315,6 +346,14 @@ export default function OrderPage() {
               <Flag className="mr-2 h-4 w-4" />
               举报订单
             </Button>
+          )}
+          {user && (
+            <Link href="/support/tickets/create">
+              <Button variant="outline">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                {tSupport('contactSupport')}
+              </Button>
+            </Link>
           )}
         </div>
       </Card>

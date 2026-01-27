@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/payments/stripe'
+import { checkTipEnabled, checkTipLimits } from '@/lib/payments/check-tip-limits'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
-    // Payment library will check platform account first, then fallback to env vars
-
     const supabase = await createClient()
     const {
       data: { user },
@@ -16,10 +16,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { amount, postId, postAuthorId, successUrl, cancelUrl } =
+    const { amount, postId, postAuthorId, successUrl, cancelUrl, currency = 'CNY' } =
       await request.json()
 
-    // Validate required fields
     if (!amount || !postId || !postAuthorId || !successUrl || !cancelUrl) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -27,13 +26,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate amount
     const numericAmount = parseFloat(amount)
     if (isNaN(numericAmount) || numericAmount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
     }
 
-    // Validate URLs
     try {
       new URL(successUrl)
       new URL(cancelUrl)
@@ -44,17 +41,147 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create checkout session with tip metadata
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    // Check if user has tip feature enabled
+    const tipEnabled = await checkTipEnabled(user.id, supabaseAdmin)
+    if (!tipEnabled) {
+      return NextResponse.json(
+        { error: 'Tip feature subscription required. Please subscribe to enable tipping.' },
+        { status: 403 }
+      )
+    }
+
+    // Check subscription status to ensure it's active and not expired
+    const { data: tipSubscription } = await supabaseAdmin
+      .from('subscriptions')
+      .select('status, expires_at')
+      .eq('user_id', user.id)
+      .eq('subscription_type', 'tip')
+      .eq('status', 'active')
+      .gt('expires_at', new Date().toISOString())
+      .single()
+
+    if (!tipSubscription) {
+      return NextResponse.json(
+        { error: 'Tip subscription expired or not found. Please renew your subscription.' },
+        { status: 403 }
+      )
+    }
+
+    // Check if user is trying to tip themselves
+    if (postAuthorId === user.id) {
+      return NextResponse.json(
+        { error: 'Cannot tip yourself' },
+        { status: 400 }
+      )
+    }
+
+    // ✅ 修复 P1: 检查黑名单 - 如果被拉黑，不能打赏
+    const { data: blocked } = await supabaseAdmin
+      .from('blocked_users')
+      .select('id')
+      .eq('blocker_id', postAuthorId)
+      .eq('blocked_id', user.id)
+      .limit(1)
+      .maybeSingle()
+
+    if (blocked) {
+      return NextResponse.json(
+        { error: 'You have been blocked by this user' },
+        { status: 403 }
+      )
+    }
+
+    // Verify post exists and validate post author
+    const { data: post } = await supabaseAdmin
+      .from('posts')
+      .select('id, user_id, status')
+      .eq('id', postId)
+      .single()
+
+    if (!post) {
+      return NextResponse.json(
+        { error: 'Post not found' },
+        { status: 404 }
+      )
+    }
+
+    if (post.user_id !== postAuthorId) {
+      return NextResponse.json(
+        { error: 'Post author mismatch' },
+        { status: 400 }
+      )
+    }
+
+    if (post.status !== 'approved') {
+      return NextResponse.json(
+        { error: 'Post not approved' },
+        { status: 400 }
+      )
+    }
+
+    // ✅ 修复 P2: 检查接收者是否开启打赏功能
+    const { data: recipientProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('tip_enabled')
+      .eq('id', postAuthorId)
+      .single()
+
+    if (!recipientProfile?.tip_enabled) {
+      return NextResponse.json(
+        { error: 'This user has not enabled tipping' },
+        { status: 403 }
+      )
+    }
+
+    // 检查接收者的打赏订阅是否有效
+    const { data: recipientTipSubscription } = await supabaseAdmin
+      .from('subscriptions')
+      .select('status, expires_at')
+      .eq('user_id', postAuthorId)
+      .eq('subscription_type', 'tip')
+      .eq('status', 'active')
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle()
+
+    if (!recipientTipSubscription) {
+      return NextResponse.json(
+        { error: 'This user\'s tip subscription has expired' },
+        { status: 403 }
+      )
+    }
+
+    // Check tip limits
+    const limitCheck = await checkTipLimits(
+      user.id,
+      postAuthorId,
+      numericAmount,
+      String(currency || 'CNY').toUpperCase(),
+      supabaseAdmin
+    )
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { error: limitCheck.reason || 'Tip limit exceeded' },
+        { status: 400 }
+      )
+    }
+
     const session = await createCheckoutSession(
       numericAmount,
       successUrl,
       cancelUrl,
       {
         userId: user.id,
-        postId: postId,
-        postAuthorId: postAuthorId,
+        postId,
+        postAuthorId,
         type: 'tip',
-      }
+      },
+      String(currency || 'CNY').toLowerCase()
     )
 
     if (!session || !session.url) {

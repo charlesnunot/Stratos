@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Save account ID to payment_accounts (temporary, will be updated after onboarding)
+    // Save account ID to profiles table (new model) and payment_accounts (backward compatibility)
     const { createClient: createAdminClient } = await import('@supabase/supabase-js')
     const supabaseAdmin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,7 +83,21 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    // Check if payment account already exists
+    // Update profiles table with payment account information (new model)
+    // Account status will be updated after onboarding completion in callback
+    await supabaseAdmin
+      .from('profiles')
+      .update({
+        payment_provider: 'stripe',
+        payment_account_id: accountResult.accountId,
+        // Initial status - will be updated after onboarding
+        provider_charges_enabled: false,
+        provider_payouts_enabled: false,
+        provider_account_status: 'pending',
+      })
+      .eq('id', user.id)
+
+    // Also update payment_accounts table for backward compatibility
     const { data: existingAccount } = await supabaseAdmin
       .from('payment_accounts')
       .select('id')

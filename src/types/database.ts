@@ -23,6 +23,7 @@ export interface Database {
           role: string
           subscription_type: string | null
           subscription_expires_at: string | null
+          status: string
           created_at: string
           updated_at: string
         }
@@ -39,6 +40,7 @@ export interface Database {
           role?: string
           subscription_type?: string | null
           subscription_expires_at?: string | null
+          status?: string
           created_at?: string
           updated_at?: string
         }
@@ -55,6 +57,7 @@ export interface Database {
           role?: string
           subscription_type?: string | null
           subscription_expires_at?: string | null
+          status?: string
           created_at?: string
           updated_at?: string
         }
@@ -270,6 +273,53 @@ export interface Database {
           shipping_address?: Json | null
           tracking_number?: string | null
           logistics_provider?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      user_addresses: {
+        Row: {
+          id: string
+          user_id: string
+          label: string | null
+          recipient_name: string
+          phone: string
+          country: string
+          state: string | null
+          city: string | null
+          street_address: string
+          postal_code: string | null
+          is_default: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          label?: string | null
+          recipient_name: string
+          phone: string
+          country: string
+          state?: string | null
+          city?: string | null
+          street_address: string
+          postal_code?: string | null
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          label?: string | null
+          recipient_name?: string
+          phone?: string
+          country?: string
+          state?: string | null
+          city?: string | null
+          street_address?: string
+          postal_code?: string | null
+          is_default?: boolean
           created_at?: string
           updated_at?: string
         }

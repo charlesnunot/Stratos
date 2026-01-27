@@ -18,7 +18,7 @@ import {
   getWeChatQRCodeUrl,
   supportsNativeShare
 } from '@/lib/utils/share'
-import { showSuccess, showWarning } from '@/lib/utils/toast'
+import { showSuccess, showWarning, showError } from '@/lib/utils/toast'
 
 interface ShareDialogProps {
   open: boolean
@@ -27,7 +27,7 @@ interface ShareDialogProps {
   title: string
   description?: string
   image?: string
-  itemType: 'post' | 'product'
+  itemType: 'post' | 'product' | 'user'
   itemId: string
   onShareSuccess?: () => void
 }
@@ -68,6 +68,12 @@ export function ShareDialog({
   // 记录分享到数据库
   const recordShare = async () => {
     if (!user || !supabase) return
+
+    // 用户分享不需要记录到数据库（因为 profiles 表没有 share_count 字段）
+    if (itemType === 'user') {
+      onShareSuccess?.()
+      return
+    }
 
     try {
       const { error } = await supabase.from('shares').insert({
@@ -133,6 +139,8 @@ export function ShareDialog({
         if (copied) {
           showSuccess('链接已复制到剪贴板')
           shared = true
+        } else {
+          showError('复制失败，请稍后重试')
         }
         break
 
@@ -217,7 +225,7 @@ export function ShareDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md p-6">
         <DialogHeader>
-          <DialogTitle>{t('shareTo') || '分享到'}</DialogTitle>
+          <DialogTitle className="pr-8">{t('shareTo') || '分享到'}</DialogTitle>
         </DialogHeader>
 
         {showQRCode ? (

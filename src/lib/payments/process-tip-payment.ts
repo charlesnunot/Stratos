@@ -5,7 +5,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js'
 import { checkTipLimits, checkTipEnabled } from './check-tip-limits'
-import { logPaymentSuccess, logPaymentFailure } from './logger'
+import { logPaymentSuccess, logPaymentFailure, logPayment, LogLevel } from './logger'
 import { createPaymentError, logPaymentError } from './error-handler'
 
 interface ProcessTipPaymentParams {
@@ -26,12 +26,59 @@ export async function processTipPayment({
   supabaseAdmin,
 }: ProcessTipPaymentParams): Promise<{ success: boolean; error?: string }> {
   try {
+    // ✅ 修复 P1: 检查黑名单 - 如果被拉黑，不能打赏
+    const { data: blocked } = await supabaseAdmin
+      .from('blocked_users')
+      .select('id')
+      .eq('blocker_id', recipientId)
+      .eq('blocked_id', tipperId)
+      .limit(1)
+      .maybeSingle()
+
+    if (blocked) {
+      return {
+        success: false,
+        error: 'You have been blocked by this user',
+      }
+    }
+
     // Check if tipper has tip feature enabled
     const tipEnabled = await checkTipEnabled(tipperId, supabaseAdmin)
     if (!tipEnabled) {
       return {
         success: false,
         error: 'Tip feature subscription required. Please subscribe to enable tipping.',
+      }
+    }
+
+    // ✅ 修复 P2: 检查接收者是否开启打赏功能
+    const { data: recipientProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('tip_enabled')
+      .eq('id', recipientId)
+      .single()
+
+    if (!recipientProfile?.tip_enabled) {
+      return {
+        success: false,
+        error: 'This user has not enabled tipping',
+      }
+    }
+
+    // 检查接收者的打赏订阅是否有效
+    const { data: recipientTipSubscription } = await supabaseAdmin
+      .from('subscriptions')
+      .select('status, expires_at')
+      .eq('user_id', recipientId)
+      .eq('subscription_type', 'tip')
+      .eq('status', 'active')
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle()
+
+    if (!recipientTipSubscription) {
+      return {
+        success: false,
+        error: 'This user\'s tip subscription has expired',
       }
     }
 
@@ -117,12 +164,20 @@ export async function processTipPayment({
         })
 
         if (!transferResult.success) {
-          console.error('Failed to transfer tip to recipient:', transferResult.error)
-          // Don't fail the tip if transfer fails - it can be retried later
+          logPayment(LogLevel.ERROR, 'Failed to transfer tip to recipient', {
+            postId,
+            recipientId,
+            amount,
+            error: transferResult.error,
+          })
         }
-      } catch (error) {
-        console.error('Error transferring tip to recipient:', error)
-        // Don't fail the tip if transfer fails
+      } catch (error: any) {
+        logPayment(LogLevel.ERROR, 'Error transferring tip to recipient', {
+          postId,
+          recipientId,
+          amount,
+          error: error?.message || 'Unknown error',
+        })
       }
     }
 

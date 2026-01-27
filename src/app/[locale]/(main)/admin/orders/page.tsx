@@ -1,273 +1,64 @@
 /**
  * Admin order monitoring and dispute management page
  * Allows admins to view all orders, disputes, and manage refunds
+ * Server Component for authentication, Client Component for interactivity
  */
 
-'use client'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { AdminOrdersClient } from './AdminOrdersClient'
 
-import { useState, useEffect } from 'react'
-import { useAuth } from '@/lib/hooks/useAuth'
-import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { formatCurrency } from '@/lib/currency/format-currency'
-import type { Currency } from '@/lib/currency/detect-currency'
-import { Eye, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+export default async function AdminOrdersPage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-interface Order {
-  id: string
-  order_number: string
-  buyer_id: string
-  seller_id: string
-  total_amount: number
-  currency: string
-  payment_status: string
-  order_status: string
-  created_at: string
-  buyer?: { username: string; display_name: string }
-  seller?: { username: string; display_name: string }
-  disputes?: Array<{
-    id: string
-    dispute_type: string
-    status: string
-    reason: string
-  }>
-}
-
-interface Dispute {
-  id: string
-  order_id: string
-  dispute_type: string
-  status: string
-  reason: string
-  created_at: string
-  orders: {
-    order_number: string
-    total_amount: number
-    currency: string
-    buyer?: { username: string; display_name: string }
-    seller?: { username: string; display_name: string }
+  if (!user) {
+    redirect('/login')
   }
-}
 
-export default function AdminOrdersPage() {
-  const { user } = useAuth()
-  const supabase = createClient()
-  const [orders, setOrders] = useState<Order[]>([])
-  const [disputes, setDisputes] = useState<Dispute[]>([])
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('orders')
+  // Check if user is admin or support
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
 
-  useEffect(() => {
-    if (!user) return
+  if (!profile || !['admin', 'support'].includes(profile.role)) {
+    redirect('/')
+  }
 
-    // Check if user is admin
-    const checkAdmin = async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (!profile || !['admin', 'support'].includes(profile.role)) {
-        window.location.href = '/'
-        return
-      }
-
-      loadData()
-    }
-
-    checkAdmin()
-  }, [user, supabase])
-
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      // Load orders
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
+  // Load orders and disputes
+  const [ordersResult, disputesResult] = await Promise.all([
+    supabase
+      .from('orders')
+      .select(`
+        *,
+        buyer:profiles!orders_buyer_id_fkey(id, username, display_name),
+        seller:profiles!orders_seller_id_fkey(id, username, display_name),
+        disputes:order_disputes(id, dispute_type, status, reason)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100),
+    supabase
+      .from('order_disputes')
+      .select(`
+        *,
+        orders!inner(
+          order_number,
+          total_amount,
+          currency,
           buyer:profiles!orders_buyer_id_fkey(id, username, display_name),
-          seller:profiles!orders_seller_id_fkey(id, username, display_name),
-          disputes:order_disputes(id, dispute_type, status, reason)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100)
+          seller:profiles!orders_seller_id_fkey(id, username, display_name)
+        )
+      `)
+      .in('status', ['pending', 'reviewing'])
+      .order('created_at', { ascending: false }),
+  ])
 
-      if (ordersError) throw ordersError
-      setOrders((ordersData as any) || [])
+  const orders = (ordersResult.data as any) || []
+  const disputes = (disputesResult.data as any) || []
 
-      // Load disputes
-      const { data: disputesData, error: disputesError } = await supabase
-        .from('order_disputes')
-        .select(`
-          *,
-          orders!inner(
-            order_number,
-            total_amount,
-            currency,
-            buyer:profiles!orders_buyer_id_fkey(id, username, display_name),
-            seller:profiles!orders_seller_id_fkey(id, username, display_name)
-          )
-        `)
-        .in('status', ['pending', 'reviewing'])
-        .order('created_at', { ascending: false })
-
-      if (disputesError) throw disputesError
-      setDisputes((disputesData as any) || [])
-    } catch (error) {
-      console.error('Error loading data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      paid: 'default',
-      pending: 'secondary',
-      failed: 'destructive',
-      refunded: 'outline',
-    }
-    return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">加载中...</p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">订单监管</h1>
-        <p className="mt-2 text-muted-foreground">查看和管理所有订单及纠纷</p>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="orders">订单 ({orders.length})</TabsTrigger>
-          <TabsTrigger value="disputes">
-            待处理纠纷 ({disputes.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="orders" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>所有订单</CardTitle>
-              <CardDescription>查看平台所有订单状态</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {orders.map((order) => (
-                  <Card key={order.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{order.order_number}</span>
-                            {getStatusBadge(order.payment_status)}
-                            {getStatusBadge(order.order_status)}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            <p>
-                              买家: {order.buyer?.display_name || order.buyer?.username || 'Unknown'}
-                            </p>
-                            <p>
-                              卖家: {order.seller?.display_name || order.seller?.username || 'Unknown'}
-                            </p>
-                            <p>
-                              金额: {formatCurrency(order.total_amount, (order.currency as Currency) || 'USD')}
-                            </p>
-                            <p>创建时间: {new Date(order.created_at).toLocaleString('zh-CN')}</p>
-                          </div>
-                          {order.disputes && order.disputes.length > 0 && (
-                            <div className="mt-2">
-                              <Badge variant="destructive">
-                                {order.disputes.length} 个纠纷
-                              </Badge>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(`/orders/${order.id}`, '_blank')}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            查看详情
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="disputes" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>待处理纠纷</CardTitle>
-              <CardDescription>需要管理员处理的订单纠纷</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {disputes.map((dispute) => (
-                  <Card key={dispute.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">
-                              订单: {dispute.orders.order_number}
-                            </span>
-                            <Badge variant="destructive">{dispute.status}</Badge>
-                            <Badge variant="outline">{dispute.dispute_type}</Badge>
-                          </div>
-                          <p className="text-sm">{dispute.reason}</p>
-                          <div className="text-sm text-muted-foreground">
-                            <p>
-                              金额: {formatCurrency(dispute.orders.total_amount, (dispute.orders.currency as Currency) || 'USD')}
-                            </p>
-                            <p>创建时间: {new Date(dispute.created_at).toLocaleString('zh-CN')}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(`/admin/disputes/${dispute.id}`, '_blank')}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            处理纠纷
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {disputes.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">暂无待处理纠纷</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
+  return <AdminOrdersClient initialOrders={orders} initialDisputes={disputes} />
 }

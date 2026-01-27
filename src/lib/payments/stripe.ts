@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
+import { logPayment, LogLevel } from './logger'
 
 // Lazy initialization to avoid errors when module loads without STRIPE_SECRET_KEY
 let stripeInstance: Stripe | null = null
@@ -31,8 +32,11 @@ async function getPlatformStripeConfig(currency: string = 'USD'): Promise<{ secr
     }
 
     return null
-  } catch (error) {
-    console.error('Error getting platform Stripe config:', error)
+  } catch (error: any) {
+    logPayment(LogLevel.ERROR, 'Error getting platform Stripe config', {
+      provider: 'stripe',
+      error: error.message || 'Unknown error',
+    })
     return null
   }
 }
@@ -117,7 +121,8 @@ export async function createCheckoutSession(
   successUrl: string,
   cancelUrl: string,
   metadata?: Record<string, string>,
-  currency: string = 'usd'
+  currency: string = 'usd',
+  destinationAccountId?: string // Seller's Stripe Connect account ID for direct payment
 ) {
   // Normalize currency to uppercase for database lookup
   const normalizedCurrency = currency.toUpperCase()
@@ -154,7 +159,8 @@ export async function createCheckoutSession(
   const divisor = ['jpy', 'krw'].includes(stripeCurrency) ? 1 : 100
   const unitAmount = Math.round(amount * divisor)
 
-  return await stripe.checkout.sessions.create({
+  // Build checkout session parameters
+  const sessionParams: any = {
     payment_method_types: ['card'],
     line_items: [
       {
@@ -172,5 +178,20 @@ export async function createCheckoutSession(
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: metadata || {},
-  })
+  }
+
+  // If destination account is provided, use Stripe Connect destination charges
+  // Platform does not handle funds, buyer pays directly to seller
+  if (destinationAccountId) {
+    sessionParams.payment_intent_data = {
+      // Platform does not handle funds, no platform revenue
+      // application_fee_amount: 0 or not set (current mode: no commission)
+      on_behalf_of: destinationAccountId, // Seller account
+      transfer_data: {
+        destination: destinationAccountId, // Direct transfer to seller, funds do not pass through platform
+      },
+    }
+  }
+
+  return await stripe.checkout.sessions.create(sessionParams)
 }

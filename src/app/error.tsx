@@ -2,6 +2,19 @@
 
 import { useEffect } from 'react'
 
+// 检查是否是 AbortError（应该被静默处理）
+function isAbortError(error: Error): boolean {
+  const errorName = (error as any)?.name || ''
+  const errorMessage = error.message || ''
+  
+  return (
+    errorName === 'AbortError' ||
+    errorMessage.includes('aborted') ||
+    errorMessage.includes('cancelled') ||
+    errorMessage === 'signal is aborted without reason'
+  )
+}
+
 export default function Error({
   error,
   reset,
@@ -10,8 +23,17 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
+    // 如果是 AbortError，静默处理，不显示错误
+    if (isAbortError(error)) {
+      return
+    }
     console.error('Application error:', error)
   }, [error])
+
+  // 如果是 AbortError，不显示错误 UI
+  if (isAbortError(error)) {
+    return null
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">

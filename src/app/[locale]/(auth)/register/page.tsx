@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
@@ -14,18 +14,110 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const [passwordStrength, setPasswordStrength] = useState<'weak' | 'medium' | 'strong' | null>(null)
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+  const [checkingUsername, setCheckingUsername] = useState(false)
   const router = useRouter()
   const supabase = createClient()
   const t = useTranslations('auth')
+
+  // Password strength validation
+  const validatePasswordStrength = (pwd: string): 'weak' | 'medium' | 'strong' => {
+    if (pwd.length < 8) return 'weak'
+    const hasLower = /[a-z]/.test(pwd)
+    const hasUpper = /[A-Z]/.test(pwd)
+    const hasNumber = /[0-9]/.test(pwd)
+    const hasSpecial = /[^a-zA-Z0-9]/.test(pwd)
+    
+    const score = [hasLower, hasUpper, hasNumber, hasSpecial].filter(Boolean).length
+    if (score >= 3) return 'strong'
+    if (score >= 2) return 'medium'
+    return 'weak'
+  }
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const pwd = e.target.value
+    setPassword(pwd)
+    if (pwd.length > 0) {
+      setPasswordStrength(validatePasswordStrength(pwd))
+    } else {
+      setPasswordStrength(null)
+    }
+  }
+
+  // 用户名可用性检查（防抖）
+  useEffect(() => {
+    if (!username || username.length < 3) {
+      setUsernameAvailable(null)
+      return
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setCheckingUsername(true)
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .maybeSingle()
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Username check error:', error)
+          setUsernameAvailable(null)
+        } else {
+          setUsernameAvailable(!data)
+        }
+      } catch (error) {
+        console.error('Username check failed:', error)
+        setUsernameAvailable(null)
+      } finally {
+        setCheckingUsername(false)
+      }
+    }, 500) // 500ms 防抖
+
+    return () => clearTimeout(timeoutId)
+  }, [username, supabase])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    setSuccess(false)
+
+    // 客户端验证（用户体验）
+    if (password.length < 6) {
+      setError(t('passwordTooShort') || '密码至少需要6个字符')
+      setLoading(false)
+      return
+    }
+
+    if (passwordStrength === 'weak' && password.length >= 6) {
+      setError('密码强度较弱，建议包含大小写字母、数字和特殊字符')
+      setLoading(false)
+      return
+    }
 
     try {
-      console.log('开始注册用户...', { email, username })
-      
+      // 后端验证密码强度（防止绕过）
+      const passwordValidationResponse = await fetch('/api/auth/validate-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
+      })
+
+      const passwordValidation = await passwordValidationResponse.json()
+
+      if (!passwordValidation.valid) {
+        setError(
+          passwordValidation.errors?.join(' ') || 
+          '密码强度不足，请使用更强的密码'
+        )
+        setLoading(false)
+        return
+      }
       // Register user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -38,10 +130,7 @@ export default function RegisterPage() {
         },
       })
 
-      console.log('注册响应:', { authData, authError })
-
       if (authError) {
-        console.error('注册错误:', authError)
         throw authError
       }
 
@@ -49,23 +138,28 @@ export default function RegisterPage() {
         throw new Error(t('userCreationFailed'))
       }
 
-      console.log('用户已创建:', authData.user.id)
       // Profile 将由数据库触发器自动创建，无需手动处理
 
       // 检查是否需要邮箱验证
       if (authData.user && !authData.session) {
-        setError(t('registerSuccess'))
-        // 不立即跳转，让用户看到提示
+        setSuccess(true)
+        setError(null)
+        // 明确提示用户需要验证邮箱
+        // 不立即跳转，让用户看到提示（已在 success 消息中提示）
         setTimeout(() => {
           router.push('/login')
-        }, 3000)
+        }, 5000) // 延长到5秒，让用户有时间阅读提示
       } else {
-        router.push('/')
-        router.refresh()
+        setSuccess(true)
+        setError(null)
+        setTimeout(() => {
+          router.push('/')
+          router.refresh()
+        }, 1000)
       }
     } catch (error: any) {
-      console.error('注册过程错误:', error)
       setError(error.message || t('registerFailed'))
+      setSuccess(false)
     } finally {
       setLoading(false)
     }
@@ -85,19 +179,43 @@ export default function RegisterPage() {
                 {error}
               </div>
             )}
+            {success && (
+              <div className="rounded-md bg-green-50 dark:bg-green-900/20 p-3 text-sm text-green-900 dark:text-green-50 space-y-2">
+                <p className="font-semibold">{t('registerSuccess') || '注册成功！'}</p>
+                <p className="text-xs">
+                  如果系统要求邮箱验证，请检查您的邮箱（包括垃圾邮件文件夹）并点击验证链接。
+                  验证后即可登录。
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <label htmlFor="username" className="text-sm font-medium">
                 {t('username')}
               </label>
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="username"
-              />
+              <div className="space-y-1">
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  minLength={3}
+                  className={`w-full rounded-md border border-input bg-background px-3 py-2 text-sm ${
+                    usernameAvailable === false ? 'border-destructive' :
+                    usernameAvailable === true ? 'border-green-500' : ''
+                  }`}
+                  placeholder="username"
+                />
+                {checkingUsername && (
+                  <p className="text-xs text-muted-foreground">检查中...</p>
+                )}
+                {!checkingUsername && username && username.length >= 3 && usernameAvailable === false && (
+                  <p className="text-xs text-destructive">用户名已被使用</p>
+                )}
+                {!checkingUsername && username && username.length >= 3 && usernameAvailable === true && (
+                  <p className="text-xs text-green-600">用户名可用</p>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium">
@@ -114,19 +232,34 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                {t('password')}
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="text-sm font-medium">
+                  {t('password')}
+                </label>
+                {passwordStrength && (
+                  <span className={`text-xs ${
+                    passwordStrength === 'strong' ? 'text-green-600' :
+                    passwordStrength === 'medium' ? 'text-yellow-600' :
+                    'text-red-600'
+                  }`}>
+                    {passwordStrength === 'strong' ? '强' :
+                     passwordStrength === 'medium' ? '中' : '弱'}
+                  </span>
+                )}
+              </div>
               <input
                 id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 required
                 minLength={6}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 placeholder="••••••••"
               />
+              <p className="text-xs text-muted-foreground">
+                建议：至少8个字符，包含大小写字母、数字和特殊字符
+              </p>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">

@@ -86,9 +86,40 @@ export function useImageUpload({
         return
       }
 
-      setImages((prev) => [...prev, ...files])
+      // ✅ 修复 P1-6: 验证图片大小和类型
+      const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+      const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+      
+      const validFiles: File[] = []
+      for (const file of files) {
+        // 检查文件类型
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          toast({
+            variant: 'warning',
+            title: '警告',
+            description: `文件 ${file.name} 不是有效的图片格式（仅支持 JPG、PNG、GIF、WebP）`,
+          })
+          continue
+        }
+        
+        // 检查文件大小
+        if (file.size > MAX_FILE_SIZE) {
+          toast({
+            variant: 'warning',
+            title: '警告',
+            description: `文件 ${file.name} 超过 5MB 限制，请压缩后上传`,
+          })
+          continue
+        }
+        
+        validFiles.push(file)
+      }
+
+      if (validFiles.length > 0) {
+        setImages((prev) => [...prev, ...validFiles])
+      }
     },
-    [existingUrls.length, images.length, maxImages]
+    [existingUrls.length, images.length, maxImages, toast]
   )
 
   const removeImage = useCallback((index: number) => {
@@ -122,12 +153,39 @@ export function useImageUpload({
     if (!user) {
       throw new Error('User not authenticated')
     }
+    
+    // ✅ 修复 P1-6: 再次验证图片大小和类型（后端验证）
+    const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+    const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    
+    for (const file of images) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        throw new Error(`文件 ${file.name} 不是有效的图片格式`)
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(`文件 ${file.name} 超过 5MB 限制`)
+      }
+    }
 
     setUploading(true)
     const uploadedUrls: string[] = [...existingUrls]
 
     try {
+      // ✅ 修复 P1-6: 再次验证图片大小和类型（后端验证）
+      const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+      const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+      
       for (const image of images) {
+        // 验证文件类型
+        if (!ALLOWED_TYPES.includes(image.type)) {
+          throw new Error(`文件 ${image.name} 不是有效的图片格式`)
+        }
+        
+        // 验证文件大小
+        if (image.size > MAX_FILE_SIZE) {
+          throw new Error(`文件 ${image.name} 超过 5MB 限制`)
+        }
+        
         const fileExt = image.name.split('.').pop()
         const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
         const filePath = folder ? `${folder}/${fileName}` : fileName

@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, Loader2, XCircle } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { CheckCircle, Loader2, XCircle, CreditCard, AlertCircle, MessageSquare } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 export default function SubscriptionSuccessPage() {
@@ -18,10 +19,15 @@ export default function SubscriptionSuccessPage() {
   const [loading, setLoading] = useState(true)
   const [subscription, setSubscription] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showPaymentAccountDialog, setShowPaymentAccountDialog] = useState(false)
+  const [paymentAccountStatus, setPaymentAccountStatus] = useState<{
+    hasAccount: boolean
+    eligibility: 'eligible' | 'blocked' | 'pending_review' | null
+  } | null>(null)
   const t = useTranslations('subscription')
   const tCommon = useTranslations('common')
+  const tSupport = useTranslations('support')
 
-  const sessionId = searchParams.get('session_id')
   const type = searchParams.get('type')
 
   useEffect(() => {
@@ -30,46 +36,65 @@ export default function SubscriptionSuccessPage() {
       return
     }
 
-    if (!sessionId) {
-      setError('缺少会话ID')
-      setLoading(false)
-      return
-    }
-
-    // 检查订阅是否已创建（通过webhook）
     const checkSubscription = async () => {
-      try {
-        // 等待一下，让webhook有时间处理
-        await new Promise(resolve => setTimeout(resolve, 2000))
+      const maxRetries = 3
+      const delayMs = 2000
 
-        const { data, error: subError } = await supabase
-          .from('subscriptions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          await new Promise((r) => setTimeout(r, delayMs))
 
-        if (subError && subError.code !== 'PGRST116') {
-          console.error('Error fetching subscription:', subError)
+          let query = supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+
+          if (type) {
+            query = query.eq('subscription_type', type)
+          }
+
+          const { data, error: subError } = await query.single()
+
+          if (subError && subError.code !== 'PGRST116') {
+            console.error('Error fetching subscription:', subError)
+          }
+
+          if (data) {
+            setSubscription(data)
+            setError(null)
+
+            if (data.subscription_type === 'seller') {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('payment_provider, payment_account_id, seller_payout_eligibility')
+                .eq('id', user.id)
+                .single()
+
+              const hasAccount = !!(profile?.payment_provider && profile?.payment_account_id)
+              const eligibility = profile?.seller_payout_eligibility as 'eligible' | 'blocked' | 'pending_review' | null
+
+              setPaymentAccountStatus({ hasAccount, eligibility })
+              if (!hasAccount || eligibility !== 'eligible') {
+                setShowPaymentAccountDialog(true)
+              }
+            }
+            setLoading(false)
+            return
+          }
+        } catch (err: any) {
+          console.error('Error checking subscription:', err)
+          setError(err.message || '检查订阅状态时出错')
         }
-
-        if (data) {
-          setSubscription(data)
-        } else {
-          // 如果webhook还没处理，显示等待消息
-          setError(null)
-        }
-      } catch (err: any) {
-        console.error('Error checking subscription:', err)
-        setError(err.message || '检查订阅状态时出错')
-      } finally {
-        setLoading(false)
       }
+
+      setError('未找到订阅记录，请稍后到订阅管理查看')
+      setLoading(false)
     }
 
     checkSubscription()
-  }, [user, sessionId, supabase, router])
+  }, [user, type, supabase, router])
 
   if (loading) {
     return (
@@ -161,6 +186,82 @@ export default function SubscriptionSuccessPage() {
           ) : null}
         </div>
       </Card>
+
+      {/* 卖家订阅成功后的收款账户绑定引导弹窗 */}
+      {subscription?.subscription_type === 'seller' && (
+        <Dialog open={showPaymentAccountDialog} onOpenChange={setShowPaymentAccountDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100">
+                  <AlertCircle className="h-5 w-5 text-yellow-600" />
+                </div>
+                <DialogTitle>下一步：绑定收款账户</DialogTitle>
+              </div>
+              <DialogDescription className="text-left">
+                {!paymentAccountStatus?.hasAccount ? (
+                  <div className="space-y-3">
+                    <p className="text-base font-medium text-foreground">
+                      您还没有绑定收款账户
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      为了开始接收买家付款，您需要先绑定一个收款账户。完成后才能开始卖货。
+                    </p>
+                    <div className="bg-muted p-3 rounded-lg space-y-2">
+                      <p className="text-sm font-medium">支持的收款方式：</p>
+                      <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                        <li>Stripe（国际信用卡）</li>
+                        <li>PayPal</li>
+                        <li>支付宝</li>
+                        <li>微信支付</li>
+                        <li>银行转账</li>
+                      </ul>
+                    </div>
+                  </div>
+                ) : paymentAccountStatus?.eligibility === 'pending_review' ? (
+                  <div className="space-y-3">
+                    <p className="text-base font-medium text-foreground">
+                      收款账户审核中
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      您的收款账户正在审核中，审核完成后即可开始接收付款。
+                    </p>
+                  </div>
+                ) : paymentAccountStatus?.eligibility === 'blocked' ? (
+                  <div className="space-y-3">
+                    <p className="text-base font-medium text-foreground text-red-600">
+                      收款账户已禁用
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      您的收款账户当前不可用，请联系客服或检查账户状态。
+                    </p>
+                  </div>
+                ) : null}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPaymentAccountDialog(false)}
+              >
+                稍后设置
+              </Button>
+              <Link href="/support/tickets/create" className="flex-1 sm:flex-initial" onClick={() => setShowPaymentAccountDialog(false)}>
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  {tSupport('contactSupport')}
+                </Button>
+              </Link>
+              <Link href="/seller/payment-accounts" className="flex-1 sm:flex-initial">
+                <Button className="w-full sm:w-auto" onClick={() => setShowPaymentAccountDialog(false)}>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  立即绑定收款账户
+                </Button>
+              </Link>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

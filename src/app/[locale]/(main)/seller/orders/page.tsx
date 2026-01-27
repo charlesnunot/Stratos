@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthGuard } from '@/lib/hooks/useAuthGuard'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, Package } from 'lucide-react'
+import { Loader2, Package, Truck } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 
@@ -34,6 +34,27 @@ export default function SellerOrdersPage() {
     },
     enabled: !!user,
   })
+
+  // Helper function to calculate time remaining until ship_by_date
+  const getShippingTimeInfo = (order: any) => {
+    if (!order.ship_by_date || order.order_status === 'shipped' || order.order_status === 'completed' || order.order_status === 'cancelled') {
+      return null
+    }
+
+    const now = new Date()
+    const shipByDate = new Date(order.ship_by_date)
+    const diffMs = shipByDate.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60))
+
+    if (diffMs < 0) {
+      return { overdue: true, days: Math.abs(diffDays), hours: Math.abs(diffHours) }
+    } else if (diffDays <= 1) {
+      return { urgent: true, days: diffDays, hours: diffHours }
+    } else {
+      return { normal: true, days: diffDays, hours: diffHours }
+    }
+  }
 
   if (authLoading || isLoading) {
     return (
@@ -82,8 +103,11 @@ export default function SellerOrdersPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {(orders as any[]).map((order: any) => (
-            <Card key={order.id} className="p-6">
+          {(orders as any[]).map((order: any) => {
+            const timeInfo = getShippingTimeInfo(order)
+            const isOverdue = timeInfo?.overdue
+            return (
+            <Card key={order.id} className={`p-6 ${isOverdue ? 'border-red-500 border-2' : timeInfo?.urgent ? 'border-orange-500 border-2' : ''}`}>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-start">
                   {order.product?.images?.[0] && (
@@ -118,21 +142,58 @@ export default function SellerOrdersPage() {
                         <> | {t('buyer')}: {order.buyer.display_name ?? '-'}</>
                       )}
                     </p>
+                    {order.payment_status === 'paid' && order.order_status === 'paid' && (() => {
+                      const timeInfo = getShippingTimeInfo(order)
+                      if (timeInfo) {
+                        if (timeInfo.overdue) {
+                          return (
+                            <p className="mt-1 text-sm font-semibold text-red-600">
+                              已超时 {timeInfo.days} 天未发货
+                            </p>
+                          )
+                        } else if (timeInfo.urgent) {
+                          return (
+                            <p className="mt-1 text-sm font-semibold text-orange-600">
+                              需在 {timeInfo.hours} 小时内发货
+                            </p>
+                          )
+                        } else {
+                          return (
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              需在 {timeInfo.days} 天内发货
+                              {order.ship_by_date && (
+                                <> (截止: {new Date(order.ship_by_date).toLocaleDateString('zh-CN')})</>
+                              )}
+                            </p>
+                          )
+                        }
+                      }
+                      return null
+                    })()}
                     <p className="mt-2 text-lg font-bold">
                       ¥{Number(order.total_amount).toFixed(2)}
                     </p>
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col gap-2">
+                  {order.payment_status === 'paid' && order.order_status === 'paid' && (
+                    <Link href={`/orders/${order.id}`}>
+                      <Button size="sm" className="w-full">
+                        <Truck className="mr-2 h-4 w-4" />
+                        发货
+                      </Button>
+                    </Link>
+                  )}
                   <Link href={`/orders/${order.id}`}>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="w-full">
                       {t('viewDetails')}
                     </Button>
                   </Link>
                 </div>
               </div>
             </Card>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

@@ -4,47 +4,23 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/require-admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { retryTransfer, retryFailedTransfers } from '@/lib/payments/retry-transfer'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Unified admin check
+    const authResult = await requireAdmin(request)
+    if (!authResult.success) {
+      return authResult.response
     }
 
     const body = await request.json()
     const { transferId, batch } = body
 
-    // Use admin client
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    // Get admin client
+    const supabaseAdmin = await getSupabaseAdmin()
 
     if (batch) {
       // Batch retry failed transfers

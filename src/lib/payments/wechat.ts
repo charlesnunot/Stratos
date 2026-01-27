@@ -1,11 +1,15 @@
 // WeChat Pay payment helper functions
 // Using WeChat Pay Native Payment API
 
+import { logPayment, LogLevel } from './logger'
+
 const WECHAT_PAY_API_BASE = process.env.NODE_ENV === 'production'
   ? 'https://api.mch.weixin.qq.com'
   : 'https://api.mch.weixin.qq.com' // Sandbox API (if available)
 
 import crypto from 'crypto'
+import https from 'https'
+import fs from 'fs'
 
 interface WeChatPayConfig {
   appId: string
@@ -44,8 +48,11 @@ async function getPlatformWeChatConfig(currency: string = 'CNY'): Promise<{ appI
     }
 
     return null
-  } catch (error) {
-    console.error('Error getting platform WeChat Pay config:', error)
+  } catch (error: any) {
+    logPayment(LogLevel.ERROR, 'Error getting platform WeChat Pay config', {
+      provider: 'wechat',
+      error: error.message || 'Unknown error',
+    })
     return null
   }
 }
@@ -210,5 +217,114 @@ export async function verifyWeChatPayNotify(params: WeChatPayNotifyParams): Prom
   return verifyWeChatPaySign(params as Record<string, string>, config.apiKey)
 }
 
-// Note: For production, you'll need to handle XML response properly
-// and implement certificate-based signature verification for refunds
+function parseWeChatPayXML(xml: string): Record<string, string> {
+  const result: Record<string, string> = {}
+  const cdataMatches = xml.matchAll(/<(\w+)><!\[CDATA\[([^\]]*)\]\]><\/\1>/g)
+  for (const m of cdataMatches) result[m[1]] = m[2]
+  const plainMatches = xml.matchAll(/<(\w+)>([^<]*)<\/\1>/g)
+  for (const m of plainMatches) {
+    if (!result[m[1]]) result[m[1]] = m[2]
+  }
+  return result
+}
+
+export interface CreateWeChatPayRefundParams {
+  transactionId: string
+  outTradeNo: string
+  totalFeeFen: number
+  refundFeeFen: number
+  outRefundNo: string
+  refundDesc?: string
+}
+
+export interface WeChatPayRefundResponse {
+  return_code: string
+  return_msg?: string
+  result_code?: string
+  err_code?: string
+  err_code_des?: string
+  appid?: string
+  mch_id?: string
+  nonce_str?: string
+  sign?: string
+  transaction_id?: string
+  out_trade_no?: string
+  out_refund_no?: string
+  refund_id?: string
+  refund_fee?: string
+  total_fee?: string
+}
+
+/**
+ * WeChat Pay refund. Requires API certificate (WECHAT_PAY_CERT_PATH, WECHAT_PAY_KEY_PATH).
+ * Amounts in fen (1 CNY = 100 fen).
+ */
+export async function createWeChatPayRefund(
+  params: CreateWeChatPayRefundParams
+): Promise<WeChatPayRefundResponse> {
+  const currency = 'CNY'
+  const config = await getWeChatPayConfig(currency)
+
+  if (!config.certPath || !config.keyPath) {
+    throw new Error(
+      'WeChat Pay refund requires API certificate. Set WECHAT_PAY_CERT_PATH and WECHAT_PAY_KEY_PATH.'
+    )
+  }
+
+  const nonceStr = crypto.randomBytes(16).toString('hex')
+  const requestParams: Record<string, string> = {
+    appid: config.appId,
+    mch_id: config.mchId,
+    nonce_str: nonceStr,
+    transaction_id: params.transactionId,
+    out_trade_no: params.outTradeNo,
+    out_refund_no: params.outRefundNo,
+    total_fee: String(params.totalFeeFen),
+    refund_fee: String(params.refundFeeFen),
+  }
+  if (params.refundDesc) requestParams.refund_desc = params.refundDesc.substring(0, 80)
+
+  const sign = generateWeChatPaySign(requestParams, config.apiKey)
+  requestParams.sign = sign
+
+  const xml = `<xml>${Object.entries(requestParams)
+    .map(([k, v]) => `<${k}><![CDATA[${v}]]></${k}>`)
+    .join('')}</xml>`
+
+  const cert = fs.readFileSync(config.certPath)
+  const key = fs.readFileSync(config.keyPath)
+  const agent = new https.Agent({ cert, key })
+
+  const url = new URL(`${WECHAT_PAY_API_BASE}/secapi/pay/refund`)
+  const res = await new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
+    const req = https.request(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/xml' },
+        agent,
+      },
+      (res) => {
+        const chunks: Buffer[] = []
+        res.on('data', (c) => chunks.push(c))
+        res.on('end', () =>
+          resolve({ statusCode: res.statusCode || 0, body: Buffer.concat(chunks).toString('utf8') })
+        )
+      }
+    )
+    req.on('error', reject)
+    req.write(xml)
+    req.end()
+  })
+
+  const parsed = parseWeChatPayXML(res.body) as unknown as WeChatPayRefundResponse
+  if (parsed.return_code !== 'SUCCESS') {
+    throw new Error(`WeChat Pay refund return: ${parsed.return_msg || parsed.return_code}`)
+  }
+  if (parsed.result_code !== 'SUCCESS') {
+    throw new Error(
+      `WeChat Pay refund failed: ${parsed.err_code_des || parsed.err_code || 'unknown'}`
+    )
+  }
+  return parsed
+}

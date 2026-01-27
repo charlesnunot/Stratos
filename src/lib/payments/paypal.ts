@@ -1,5 +1,7 @@
 // PayPal REST API helper functions
 
+import { logPayment, LogLevel } from './logger'
+
 /**
  * Get platform PayPal configuration from database
  * Falls back to environment variables if not found
@@ -29,13 +31,26 @@ async function getPlatformPayPalConfig(currency: string = 'USD'): Promise<{ clie
     }
 
     return null
-  } catch (error) {
-    console.error('Error getting platform PayPal config:', error)
+  } catch (error: any) {
+    logPayment(LogLevel.ERROR, 'Error getting platform PayPal config', {
+      provider: 'paypal',
+      error: error.message || 'Unknown error',
+    })
     return null
   }
 }
 
-async function getPayPalAccessToken(currency: string = 'USD'): Promise<string> {
+export async function getPayPalBaseUrl(currency: string = 'USD'): Promise<string> {
+  const config = await getPayPalConfig(currency)
+  return config.baseUrl
+}
+
+interface PayPalConfig {
+  accessToken: string
+  baseUrl: string
+}
+
+async function getPayPalConfig(currency: string = 'USD'): Promise<PayPalConfig> {
   // Try to get config from database first
   let clientId: string | null = null
   let clientSecret: string | null = null
@@ -57,13 +72,13 @@ async function getPayPalAccessToken(currency: string = 'USD'): Promise<string> {
     throw new Error('PayPal credentials not configured. Please set up a platform PayPal account or set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET environment variables.')
   }
 
-  const PAYPAL_BASE_URL = sandbox
+  const baseUrl = sandbox
     ? 'https://api-m.sandbox.paypal.com'
     : 'https://api-m.paypal.com'
 
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
 
-  const response = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
+  const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -78,7 +93,12 @@ async function getPayPalAccessToken(currency: string = 'USD'): Promise<string> {
   }
 
   const data = await response.json()
-  return data.access_token
+  return { accessToken: data.access_token, baseUrl }
+}
+
+async function getPayPalAccessToken(currency: string = 'USD'): Promise<string> {
+  const config = await getPayPalConfig(currency)
+  return config.accessToken
 }
 
 export async function createPayPalOrder(
@@ -86,7 +106,7 @@ export async function createPayPalOrder(
   currency: string = 'USD',
   metadata?: Record<string, string>
 ) {
-  const accessToken = await getPayPalAccessToken(currency)
+  const { accessToken, baseUrl } = await getPayPalConfig(currency)
 
   const orderData: any = {
     intent: 'CAPTURE',
@@ -114,7 +134,7 @@ export async function createPayPalOrder(
     }
   }
 
-  const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+  const response = await fetch(`${baseUrl}/v2/checkout/orders`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -133,10 +153,10 @@ export async function createPayPalOrder(
 }
 
 export async function capturePayPalOrder(orderId: string, currency: string = 'USD') {
-  const accessToken = await getPayPalAccessToken(currency)
+  const { accessToken, baseUrl } = await getPayPalConfig(currency)
 
   const response = await fetch(
-    `${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}/capture`,
+    `${baseUrl}/v2/checkout/orders/${orderId}/capture`,
     {
       method: 'POST',
       headers: {
@@ -156,10 +176,10 @@ export async function capturePayPalOrder(orderId: string, currency: string = 'US
 }
 
 export async function getPayPalOrder(orderId: string, currency: string = 'USD') {
-  const accessToken = await getPayPalAccessToken(currency)
+  const { accessToken, baseUrl } = await getPayPalConfig(currency)
 
   const response = await fetch(
-    `${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}`,
+    `${baseUrl}/v2/checkout/orders/${orderId}`,
     {
       method: 'GET',
       headers: {
@@ -171,6 +191,54 @@ export async function getPayPalOrder(orderId: string, currency: string = 'USD') 
   if (!response.ok) {
     const error = await response.json()
     throw new Error(`PayPal get order failed: ${JSON.stringify(error)}`)
+  }
+
+  return await response.json()
+}
+
+export interface RefundPayPalPaymentResult {
+  id: string
+  status: string
+  amount?: { currency_code: string; value: string }
+}
+
+/**
+ * Refund a captured PayPal payment (full or partial).
+ * Uses capture ID from order.payment_intent_id or payment_transaction_id.
+ */
+export async function refundPayPalPayment(
+  captureId: string,
+  amount: number | undefined,
+  currency: string = 'USD',
+  noteToPayer?: string
+): Promise<RefundPayPalPaymentResult> {
+  const { accessToken, baseUrl } = await getPayPalConfig(currency)
+
+  const body: { amount?: { currency_code: string; value: string }; note_to_payer?: string } = {}
+  if (amount != null && amount > 0) {
+    body.amount = { currency_code: currency, value: amount.toFixed(2) }
+  }
+  if (noteToPayer) body.note_to_payer = noteToPayer
+
+  const requestId = `refund-${captureId}-${Date.now()}`
+
+  const response = await fetch(
+    `${baseUrl}/v2/payments/captures/${captureId}/refund`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        'PayPal-Request-Id': requestId,
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(body),
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(`PayPal refund failed: ${JSON.stringify(error)}`)
   }
 
   return await response.json()

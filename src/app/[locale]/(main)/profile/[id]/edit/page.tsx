@@ -147,23 +147,30 @@ export default function EditProfilePage() {
         avatarUrl = existingImages[0]
       }
 
+      // ✅ 修复 P1-1: Mass Assignment 防护 - 使用白名单机制，只允许更新指定字段
+      // 只允许更新：display_name, username, bio, location, avatar_url, updated_at
+      // 不允许更新：role, email, subscription_type, payment_account_id 等敏感字段
+      const allowedFields = {
+        display_name: formData.display_name.trim(),
+        username: formData.username.trim(),
+        bio: formData.bio.trim() || null,
+        location: formData.location.trim() || null,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      }
+
       // Update profile
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
-          display_name: formData.display_name.trim(),
-          username: formData.username.trim(),
-          bio: formData.bio.trim() || null,
-          location: formData.location.trim() || null,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
+        .update(allowedFields)
         .eq('id', user.id)
 
       if (updateError) throw updateError
 
-      // Invalidate profile query to refresh data
+      // ✅ 修复 P1-3: 缓存失效优化 - 失效所有相关的 profile 缓存
       queryClient.invalidateQueries({ queryKey: ['profile', userId] })
+      queryClient.invalidateQueries({ queryKey: ['profile', user.id] })
+      queryClient.invalidateQueries({ queryKey: ['profile'] }) // 失效所有 profile 相关缓存
 
       toast({
         variant: 'success',

@@ -5,6 +5,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { QueryProvider } from "@/lib/providers/QueryProvider"
 import { defaultLocale } from "@/i18n/config"
+import { ErrorSuppressor } from "@/components/ErrorSuppressor"
 
 const Toaster = dynamic(
   () =>
@@ -35,6 +36,7 @@ export default function RootLayout({
   return (
     <html lang={defaultLocale} dir="ltr">
       <body className={inter.className}>
+        <ErrorSuppressor />
         <QueryProvider>
           {children}
           <Toaster />

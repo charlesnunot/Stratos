@@ -215,6 +215,10 @@ export function NotificationList({ onClose, isFullPage = false }: NotificationLi
       if (notification.title.includes('订阅')) {
         return tNotifications('linkText.viewSubscription')
       }
+      // 保证金通知
+      if (notification.title.includes('保证金')) {
+        return tNotifications('linkText.payDeposit')
+      }
     }
     
     if (notification.type === 'commission') {

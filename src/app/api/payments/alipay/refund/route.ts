@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get order
+    // Get order (need payment_intent_id for Alipay trade_no)
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*')
+      .select('*, payment_intent_id, order_number')
       .eq('id', orderId)
       .single()
 
@@ -81,12 +81,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create refund
+    // Create refund (use payment_intent_id as trade_no if available)
     const refund = await createAlipayRefund({
       outTradeNo: order.order_number || order.id,
+      tradeNo: order.payment_intent_id || undefined,
       refundAmount: numericAmount,
       refundReason: refundReason || 'User requested refund',
-      outRequestNo: `refund_${order.id}_${Date.now()}`,
+      outRequestNo: `refund_${order.id}_${Date.now()}`.slice(0, 64),
     })
 
     // Update order status

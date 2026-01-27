@@ -66,64 +66,30 @@ export async function POST(request: NextRequest) {
       const paymentType = metadata.type
 
       if (paymentType === 'subscription' && metadata.subscriptionType) {
-        // Handle subscription
+        // Handle subscription using unified process-subscription-payment
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
 
         // Get subscription tier from metadata
         const subscriptionTier = metadata.subscriptionTier ? parseFloat(metadata.subscriptionTier) : null
-        const depositCredit = subscriptionTier || null
 
-        await supabaseAdmin.from('subscriptions').insert({
-          user_id: user.id,
-          subscription_type: metadata.subscriptionType,
-          subscription_tier: subscriptionTier,
-          deposit_credit: depositCredit,
-          payment_method: 'paypal',
-          payment_account_id: captureDetails?.id,
+        // Use unified subscription payment processing
+        const { processSubscriptionPayment } = await import('@/lib/payments/process-subscription-payment')
+        const result = await processSubscriptionPayment({
+          userId: user.id,
+          subscriptionType: metadata.subscriptionType as 'seller' | 'affiliate' | 'tip',
           amount: amount,
+          expiresAt: expiresAt,
+          subscriptionTier: subscriptionTier || undefined,
           currency: captureDetails?.amount?.currency_code?.toUpperCase() || 'USD',
-          status: 'active',
-          starts_at: new Date().toISOString(),
-          expires_at: expiresAt.toISOString(),
+          paymentMethod: 'paypal',
+          supabaseAdmin,
         })
 
-        const profileUpdate: any = {
-          subscription_type: metadata.subscriptionType,
-          subscription_expires_at: expiresAt.toISOString(),
+        if (!result.success) {
+          console.error('[paypal/capture-order] Subscription payment processing failed:', result.error)
+          // Continue - subscription record may have been created, but profile sync failed
+          // This is logged but doesn't fail the PayPal capture
         }
-
-        // For seller subscriptions, update seller_subscription_tier
-        if (metadata.subscriptionType === 'seller' && subscriptionTier) {
-          profileUpdate.seller_subscription_tier = subscriptionTier
-          profileUpdate.role = 'seller'
-        }
-
-        // For tip subscriptions, update tip_enabled
-        if (metadata.subscriptionType === 'tip') {
-          profileUpdate.tip_enabled = true
-        }
-
-        await supabaseAdmin.from('profiles').update(profileUpdate).eq('id', user.id)
-
-        // Create notification with appropriate message
-        const tierText = subscriptionTier ? ` (${subscriptionTier} USD档位)` : ''
-        let subscriptionName = '订阅'
-        if (metadata.subscriptionType === 'seller') {
-          subscriptionName = '卖家订阅'
-        } else if (metadata.subscriptionType === 'affiliate') {
-          subscriptionName = '带货者订阅'
-        } else if (metadata.subscriptionType === 'tip') {
-          subscriptionName = '打赏功能订阅'
-        }
-        
-        await supabaseAdmin.from('notifications').insert({
-          user_id: user.id,
-          type: 'system',
-          title: '订阅激活成功',
-          content: `您的${subscriptionName}已成功激活${tierText}`,
-          related_type: 'user',
-          link: '/subscription/manage',
-        })
       } else if (paymentType === 'order' && metadata.orderId) {
         // Handle order
         const orderId = metadata.orderId
@@ -184,13 +150,28 @@ export async function POST(request: NextRequest) {
           console.error('Failed to process order payment:', result.error)
         }
 
-        // Update order with payment method
+        // Update order with payment method and capture ID (for refunds)
         await supabaseAdmin
           .from('orders')
           .update({
             payment_method: 'paypal',
+            payment_intent_id: captureId,
           })
           .eq('id', orderId)
+      } else if (paymentType === 'user_tip' && metadata.targetUserId) {
+        // Use unified service layer to process user tip payment
+        const { processUserTipPayment } = await import('@/lib/payments/process-user-tip-payment')
+        const tipResult = await processUserTipPayment({
+          tipperId: user.id,
+          recipientId: metadata.targetUserId,
+          amount: amount,
+          currency: currency || 'CNY',
+          supabaseAdmin,
+        })
+
+        if (!tipResult.success) {
+          console.error('Failed to process user tip payment:', tipResult.error)
+        }
       } else if (paymentType === 'tip' && metadata.postId && metadata.postAuthorId) {
         // Use unified service layer to process tip payment
         const { processTipPayment } = await import('@/lib/payments/process-tip-payment')
@@ -205,6 +186,86 @@ export async function POST(request: NextRequest) {
 
         if (!tipResult.success) {
           console.error('Failed to process tip payment:', tipResult.error)
+        }
+      } else if (paymentType === 'platform_fee' && metadata.userId && metadata.transactionId) {
+        // Handle platform fee payment
+        const userId = metadata.userId
+        const transactionId = metadata.transactionId
+        const captureId = captureDetails?.id || orderId
+
+        // Update payment transaction status
+        const { error: txError } = await supabaseAdmin
+          .from('payment_transactions')
+          .update({
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            provider_ref: captureId,
+          })
+          .eq('id', transactionId)
+
+        if (txError) {
+          console.error('Failed to update platform fee transaction:', txError)
+        } else {
+          // Create notification
+          const reason = metadata.reason || '平台服务费'
+          await supabaseAdmin.from('notifications').insert({
+            user_id: userId,
+            type: 'system',
+            title: '平台服务费支付成功',
+            content: `您已成功支付平台服务费 ${amount.toFixed(2)} ${currency}。原因：${reason}`,
+            related_type: 'order',
+            related_id: transactionId,
+            link: '/orders',
+          })
+        }
+      } else if (paymentType === 'deposit' && metadata.depositLotId && metadata.userId) {
+        // Handle deposit payment
+        const depositLotId = metadata.depositLotId
+        const userId = metadata.userId
+        const captureId = captureDetails?.id || orderId
+        const curr = captureDetails?.amount?.currency_code?.toUpperCase() || 'USD'
+
+        const { data: existingTx } = await supabaseAdmin
+          .from('payment_transactions')
+          .select('id, status')
+          .eq('provider', 'paypal')
+          .eq('provider_ref', captureId)
+          .eq('type', 'deposit')
+          .eq('related_id', depositLotId)
+          .maybeSingle()
+
+        if (existingTx?.status === 'paid') {
+          // Idempotent
+        } else if (!existingTx) {
+          await supabaseAdmin.from('payment_transactions').insert({
+            type: 'deposit',
+            provider: 'paypal',
+            provider_ref: captureId,
+            amount,
+            currency: curr,
+            status: 'paid',
+            related_id: depositLotId,
+            paid_at: new Date().toISOString(),
+            metadata,
+          })
+        } else {
+          await supabaseAdmin
+            .from('payment_transactions')
+            .update({ status: 'paid', paid_at: new Date().toISOString() })
+            .eq('id', existingTx.id)
+        }
+
+        const { error: lotErr } = await supabaseAdmin
+          .from('seller_deposit_lots')
+          .update({ status: 'held', held_at: new Date().toISOString() })
+          .eq('id', depositLotId)
+          .eq('seller_id', userId)
+
+        if (!lotErr) {
+          const { enableSellerPayment } = await import('@/lib/deposits/payment-control')
+          await enableSellerPayment(userId, supabaseAdmin)
+        } else {
+          console.error('[paypal/capture-order] Deposit lot update failed:', lotErr)
         }
       }
     }

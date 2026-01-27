@@ -4,6 +4,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
+import { logPayment, LogLevel } from './logger'
 
 /**
  * Execute payment processing in a transaction-like manner
@@ -30,9 +31,9 @@ export async function processPaymentTransaction(
     // 2. Update stock
     const stockResult = await operations.updateStock()
     if (stockResult.error) {
-      // Rollback order update
-      // Note: In production, this should be done in a database transaction
-      console.error('Stock update failed, order already updated. Manual rollback needed.')
+      logPayment(LogLevel.ERROR, 'Stock update failed, order already updated. Manual rollback needed.', {
+        error: stockResult.error.message,
+      })
       return { success: false, error: `Failed to update stock: ${stockResult.error.message}` }
     }
 
@@ -40,14 +41,17 @@ export async function processPaymentTransaction(
     if (operations.createCommissions) {
       const commissionResult = await operations.createCommissions()
       if (commissionResult.error) {
-        // Commissions are non-critical, log but don't fail
-        console.error('Commission creation failed:', commissionResult.error)
+        logPayment(LogLevel.WARN, 'Commission creation failed', {
+          error: commissionResult.error?.message || 'Unknown error',
+        })
       }
     }
 
     return { success: true }
   } catch (error: any) {
-    console.error('Transaction helper error:', error)
+    logPayment(LogLevel.ERROR, 'Transaction helper error', {
+      error: error.message || 'Unknown error',
+    })
     return { success: false, error: error.message || 'Transaction failed' }
   }
 }

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useIsFavorite, useToggleFavorite } from '@/lib/hooks/useFavorites'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { showInfo } from '@/lib/utils/toast'
 
 interface FavoriteButtonProps {
   postId: string
@@ -58,7 +59,10 @@ export function FavoriteButton({ postId, initialFavorites = 0 }: FavoriteButtonP
   const toggleFavorite = useToggleFavorite()
 
   const handleFavorite = () => {
-    if (!user) return
+    if (!user) {
+      showInfo('请先登录后再收藏')
+      return
+    }
     
     const currentIsFavorite = isFavorite || false
     
@@ -150,7 +154,7 @@ export function FavoriteButton({ postId, initialFavorites = 0 }: FavoriteButtonP
       size="sm"
       className="gap-1 sm:gap-2 shrink-0"
       onClick={handleFavorite}
-      disabled={!user || toggleFavorite.isPending}
+      disabled={toggleFavorite.isPending}
     >
       <Star
         className={`h-4 w-4 shrink-0 ${isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`}

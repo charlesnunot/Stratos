@@ -9,15 +9,18 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/lib/hooks/useToast'
 import { Card } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Info } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { getCurrencyFromBrowser } from '@/lib/currency/detect-currency'
 import { getSubscriptionPrice } from '@/lib/subscriptions/pricing'
+import { getWeChatQRCodeUrl } from '@/lib/utils/share'
+import Link from 'next/link'
 import type { Currency } from '@/lib/currency/detect-currency'
 
 export default function TipSubscriptionPage() {
   const [loading, setLoading] = useState(false)
   const [currency, setCurrency] = useState<Currency>('USD')
+  const [wechatCodeUrl, setWechatCodeUrl] = useState<string | null>(null)
+  const [wechatSubscriptionId, setWechatSubscriptionId] = useState<string | null>(null)
   const { user } = useAuth()
   const router = useRouter()
   const supabase = createClient()
@@ -63,35 +66,68 @@ export default function TipSubscriptionPage() {
         window.location.href = url
       } else if (paymentMethod === 'paypal') {
         return
-      } else {
-        const { error } = await supabase.from('subscriptions').insert({
-          user_id: user.id,
-          subscription_type: 'tip',
-          payment_method: paymentMethod,
-          amount,
-          currency: payCurrency,
-          starts_at: new Date().toISOString(),
-          expires_at: expiresAt.toISOString(),
-          status: 'pending',
+      } else if (paymentMethod === 'alipay' || paymentMethod === 'wechat') {
+        const pendingRes = await fetch('/api/subscriptions/create-pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscriptionType: 'tip',
+            paymentMethod,
+            currency: payCurrency,
+          }),
         })
-
-        if (error) throw error
-
-        // Update profile
-        await supabase
-          .from('profiles')
-          .update({
-            subscription_type: 'tip',
-            subscription_expires_at: expiresAt.toISOString(),
-            tip_enabled: true, // Will be set by trigger, but update here for consistency
+        if (!pendingRes.ok) {
+          const err = await pendingRes.json()
+          throw new Error(err.error || 'Failed to create pending subscription')
+        }
+        const { subscriptionId } = await pendingRes.json()
+        const payRes = await fetch('/api/subscriptions/create-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscriptionId, paymentMethod }),
+        })
+        if (!payRes.ok) {
+          const err = await payRes.json()
+          throw new Error(err.error || 'Failed to create payment')
+        }
+        const result = await payRes.json()
+        if (paymentMethod === 'alipay' && result.formAction && result.formData) {
+          const form = document.createElement('form')
+          form.method = 'POST'
+          form.action = result.formAction
+          Object.entries(result.formData).forEach(([k, v]) => {
+            const input = document.createElement('input')
+            input.type = 'hidden'
+            input.name = k
+            input.value = v
+            form.appendChild(input)
           })
-          .eq('id', user.id)
-
-        toast({
-          variant: 'success',
-          title: '成功',
-          description: '订阅已创建，请完成支付',
+          document.body.appendChild(form)
+          form.submit()
+          return
+        }
+        if (paymentMethod === 'wechat' && result.codeUrl) {
+          setWechatCodeUrl(result.codeUrl)
+          setWechatSubscriptionId(result.subscriptionId || subscriptionId)
+          toast({ variant: 'default', title: '请使用微信扫码支付', description: '支付成功后请刷新订阅管理页' })
+          return
+        }
+        throw new Error('Unexpected payment response')
+      } else {
+        const response = await fetch('/api/subscriptions/create-pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscriptionType: 'tip',
+            paymentMethod,
+            currency: payCurrency,
+          }),
         })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to create pending subscription')
+        }
+        toast({ variant: 'success', title: '成功', description: '订阅已创建，请完成支付' })
         router.push('/subscription/manage')
       }
     } catch (error: any) {
@@ -99,7 +135,7 @@ export default function TipSubscriptionPage() {
       toast({
         variant: 'destructive',
         title: '错误',
-        description: error.message || '订阅失败，请重试',
+        description: error?.message || '订阅失败，请重试',
       })
     } finally {
       setLoading(false)
@@ -108,25 +144,8 @@ export default function TipSubscriptionPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">打赏功能订阅</h1>
-        <p className="mt-2 text-muted-foreground">
-          订阅后即可使用打赏功能，向您喜欢的创作者表达支持
-        </p>
-      </div>
-
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          订阅打赏功能后，您可以：
-          <ul className="mt-2 list-disc list-inside space-y-1">
-            <li>向任意创作者打赏（每次最多35 CNY）</li>
-            <li>每天最多向同一创作者打赏3次</li>
-            <li>支持多种支付方式（Stripe、PayPal、支付宝、微信支付等）</li>
-          </ul>
-        </AlertDescription>
-      </Alert>
-
+      <h1 className="text-3xl font-bold">开通打赏功能</h1>
+      
       <SubscriptionCard
         type="tip"
         price={amount}
@@ -136,10 +155,10 @@ export default function TipSubscriptionPage() {
           '每次最多打赏35 CNY',
           '每天最多向同一创作者打赏3次',
           '支持多种支付方式',
-          '实时到账通知',
+          '30天有效期',
         ]}
         onSubscribe={handleSubscribe}
-        loading={loading}
+        loading={loading || !!wechatCodeUrl}
       />
 
       <Card className="p-6">
@@ -149,6 +168,34 @@ export default function TipSubscriptionPage() {
           onSelect={setPaymentMethod}
         />
       </Card>
+
+      {wechatCodeUrl && (
+        <Card className="p-6">
+          <h3 className="mb-4 text-sm font-semibold">微信扫码支付</h3>
+          <div className="flex flex-col items-center gap-4">
+            <img
+              src={getWeChatQRCodeUrl(wechatCodeUrl)}
+              alt="微信支付二维码"
+              className="h-48 w-48"
+            />
+            <p className="text-sm text-muted-foreground">支付成功后请刷新订阅管理页</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setWechatCodeUrl(null)
+                  setWechatSubscriptionId(null)
+                }}
+              >
+                返回重选
+              </Button>
+              <Button asChild>
+                <Link href="/subscription/manage">前往订阅管理</Link>
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {paymentMethod === 'paypal' && (
         <Card className="p-6">

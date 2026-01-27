@@ -8,7 +8,7 @@ import { ReportDialog } from '@/components/social/ReportDialog'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { showInfo } from '@/lib/utils/toast'
 import { Flag, MoreVertical } from 'lucide-react'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,7 +89,7 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
   return (
     <>
       <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-        <div className={`flex max-w-[70%] gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+        <div className={`flex max-w-[85%] sm:max-w-[70%] gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
           {!isOwn && (
             <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
               {message.sender?.avatar_url ? (
@@ -103,11 +103,11 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
               )}
             </div>
           )}
-          <div className="flex flex-col gap-1">
-            <Card className={`p-3 min-w-0 ${isOwn ? 'bg-primary text-primary-foreground' : ''}`}>
+          <div className="flex flex-col gap-1 min-w-0 flex-1">
+            <Card className={`p-3 min-w-0 w-full ${isOwn ? 'bg-primary text-primary-foreground' : ''}`}>
               {cardPayload ? (
-                <Link href={cardPayload.url} className="block">
-                  <div className="flex gap-3 min-w-0">
+                <Link href={cardPayload.url} className="block w-full">
+                  <div className="flex gap-3 min-w-0 w-full">
                     {cardPayload.image ? (
                       <img
                         src={cardPayload.image}
@@ -117,8 +117,8 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
                     ) : (
                       <div className={`h-12 w-12 rounded shrink-0 ${isOwn ? 'bg-primary-foreground/20' : 'bg-muted'}`} />
                     )}
-                    <div className="min-w-0">
-                      <p className={`text-sm font-semibold truncate ${isOwn ? 'text-primary-foreground' : ''}`}>
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p className={`text-sm font-semibold break-words line-clamp-2 ${isOwn ? 'text-primary-foreground' : ''}`}>
                         {cardPayload.type === 'product'
                           ? (cardPayload.name || cardPayload.title || '商品')
                           : (cardPayload.title || '帖子')}
@@ -128,7 +128,7 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
                           ¥{cardPayload.price.toFixed(2)}
                         </p>
                       )}
-                      <p className={`text-xs mt-1 truncate ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                      <p className={`text-xs mt-1 break-all ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'} hidden sm:block`}>
                         {cardPayload.url}
                       </p>
                     </div>

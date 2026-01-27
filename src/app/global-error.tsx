@@ -1,5 +1,18 @@
 'use client'
 
+// 检查是否是 AbortError（应该被静默处理）
+function isAbortError(error: Error): boolean {
+  const errorName = (error as any)?.name || ''
+  const errorMessage = error.message || ''
+  
+  return (
+    errorName === 'AbortError' ||
+    errorMessage.includes('aborted') ||
+    errorMessage.includes('cancelled') ||
+    errorMessage === 'signal is aborted without reason'
+  )
+}
+
 export default function GlobalError({
   error,
   reset,
@@ -7,6 +20,10 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  // 如果是 AbortError，静默处理，不显示错误 UI
+  if (isAbortError(error)) {
+    return null
+  }
   return (
     <html>
       <body>

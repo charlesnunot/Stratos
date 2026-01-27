@@ -18,6 +18,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useRepost } from '@/lib/hooks/useRepost'
 import { showSuccess, showError, showInfo, showWarning } from '@/lib/utils/toast'
 import { createClient } from '@/lib/supabase/client'
+import { buildProductUrlWithAffiliate, getAffiliatePostId } from '@/lib/utils/affiliate-attribution'
 
 interface ProductCardProps {
   product: {
@@ -27,6 +28,8 @@ interface ProductCardProps {
     price: number
     images: string[]
     seller_id: string
+    stock?: number | null
+    status?: string
     like_count?: number
     want_count?: number
     share_count?: number
@@ -112,23 +115,74 @@ export function ProductCard({ product }: ProductCardProps) {
     }
   }, [isMenuOpen])
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     
     // 如果商品已在购物车中，不执行操作
     if (isInCart) return
 
+    // 检查商品状态
+    if (product.status && product.status !== 'active') {
+      showError(`商品已下架，无法加入购物车`)
+      return
+    }
+
+    // 检查库存
+    if (product.stock !== null && product.stock !== undefined && product.stock <= 0) {
+      showError('商品库存不足，无法加入购物车')
+      return
+    }
+
+    // 实时验证商品信息（包括价格）
     setAdding(true)
-    addItem({
-      product_id: product.id,
-      quantity: 1,
-      price: product.price,
-      name: product.name,
-      image: product.images[0] || '',
-    })
-    // 短暂显示"已添加"反馈，然后状态会通过 isInCart 自动更新
-    setTimeout(() => setAdding(false), 1500)
+    try {
+      const { data: currentProduct, error } = await supabase
+        .from('products')
+        .select('id, status, stock, price')
+        .eq('id', product.id)
+        .single()
+
+      if (error || !currentProduct) {
+        showError('商品不存在或已被删除')
+        setAdding(false)
+        return
+      }
+
+      if (currentProduct.status !== 'active') {
+        showError('商品已下架，无法加入购物车')
+        setAdding(false)
+        return
+      }
+
+      if (currentProduct.stock !== null && currentProduct.stock !== undefined && currentProduct.stock <= 0) {
+        showError('商品库存不足，无法加入购物车')
+        setAdding(false)
+        return
+      }
+
+      // 验证价格是否变化（允许0.01的误差）
+      const priceDiff = Math.abs(currentProduct.price - product.price)
+      if (priceDiff > 0.01) {
+        showWarning(`商品价格已更新为 ¥${currentProduct.price.toFixed(2)}，请刷新页面后重试`)
+        setAdding(false)
+        return
+      }
+
+      addItem({
+        product_id: product.id,
+        quantity: 1,
+        price: currentProduct.price, // 使用最新价格
+        name: product.name,
+        image: product.images[0] || '',
+      })
+      // 短暂显示"已添加"反馈，然后状态会通过 isInCart 自动更新
+      setTimeout(() => setAdding(false), 1500)
+    } catch (error) {
+      console.error('Error validating product before adding to cart:', error)
+      showError('验证商品信息失败，请重试')
+      setAdding(false)
+    }
   }
 
   // 处理举报
@@ -144,7 +198,7 @@ export function ProductCard({ product }: ProductCardProps) {
   // 处理打开商品
   const handleOpenProduct = () => {
     setIsMenuOpen(false)
-    router.push(`/product/${product.id}`)
+    router.push(productUrl)
   }
 
   // 处理分享到
@@ -157,7 +211,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const handleCopyLink = async () => {
     setIsMenuOpen(false)
     try {
-      const url = `${window.location.origin}/product/${product.id}`
+      const url = `${window.location.origin}${productUrl}`
       await navigator.clipboard.writeText(url)
       showSuccess('链接已复制到剪贴板')
 
@@ -223,8 +277,14 @@ export function ProductCard({ product }: ProductCardProps) {
     )
   }
 
+  // Get affiliate_post_id for attribution
+  const affiliatePostId = useMemo(() => getAffiliatePostId(), [])
+  
+  // Build product URL with affiliate attribution
+  const productUrl = useMemo(() => buildProductUrlWithAffiliate(product.id, affiliatePostId), [product.id, affiliatePostId])
+
   const handleCardClick = () => {
-    router.push(`/product/${product.id}`)
+    router.push(productUrl)
   }
 
   return (
@@ -238,7 +298,7 @@ export function ProductCard({ product }: ProductCardProps) {
       <ShareDialog
         open={showShareDialog}
         onClose={() => setShowShareDialog(false)}
-        url={`${typeof window !== 'undefined' ? window.location.origin : ''}/product/${product.id}`}
+        url={`${typeof window !== 'undefined' ? window.location.origin : ''}${productUrl}`}
         title={product.name || '查看这个商品'}
         description={product.description || undefined}
         image={product.images?.[0]}
@@ -249,7 +309,7 @@ export function ProductCard({ product }: ProductCardProps) {
         className="group overflow-hidden transition-shadow hover:shadow-lg w-full min-w-0 cursor-pointer"
         onClick={handleCardClick}
       >
-      <Link href={`/product/${product.id}`}>
+      <Link href={productUrl}>
         <div className="relative aspect-square w-full overflow-hidden">
           {product.images && product.images.length > 0 ? (
             <Image
@@ -268,7 +328,7 @@ export function ProductCard({ product }: ProductCardProps) {
       </Link>
 
       <div className="p-3 md:p-4 min-w-0">
-        <Link href={`/product/${product.id}`}>
+        <Link href={productUrl}>
           <h3 className="mb-2 font-semibold line-clamp-2 break-words">{product.name}</h3>
         </Link>
         {product.description && (
@@ -396,7 +456,12 @@ export function ProductCard({ product }: ProductCardProps) {
           <Button 
             size="sm" 
             onClick={handleAddToCart} 
-            disabled={adding || isInCart}
+            disabled={
+              adding || 
+              isInCart || 
+              (product.status && product.status !== 'active') ||
+              (product.stock !== null && product.stock !== undefined && product.stock <= 0)
+            }
             variant={isInCart ? 'secondary' : 'default'}
             className="flex-shrink-0"
           >

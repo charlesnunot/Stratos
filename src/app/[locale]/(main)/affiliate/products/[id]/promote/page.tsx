@@ -56,44 +56,71 @@ export default function PromoteProductPage() {
     enabled: !!productId,
   })
 
+  // Check user's affiliate subscription status
+  const { data: profile } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user) return null
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('subscription_type, subscription_expires_at')
+        .eq('id', user.id)
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!user,
+  })
+
+  // Check if user has active affiliate subscription
+  const hasActiveAffiliateSubscription = profile?.subscription_type === 'affiliate' &&
+    profile?.subscription_expires_at &&
+    new Date(profile.subscription_expires_at) > new Date()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user || !product) return
 
+    // Frontend check: verify subscription status
+    if (!hasActiveAffiliateSubscription) {
+      toast({
+        variant: 'destructive',
+        title: '错误',
+        description: '您需要有效的带货订阅才能创建推广帖子。请先订阅带货功能。',
+      })
+      router.push('/subscription/affiliate')
+      return
+    }
+
     setLoading(true)
     try {
-      // Create post with affiliate link
-      const { data: post, error: postError } = await supabase
-        .from('posts')
-        .insert({
-          user_id: user.id,
-          content: formData.content,
-          image_urls: formData.images,
-          location: formData.location || null,
-          status: 'pending', // Needs approval
-        })
-        .select()
-        .single()
-
-      if (postError) throw postError
-
-      // Link post to product as affiliate post
-      const { error: affiliateError } = await supabase
-        .from('affiliate_posts')
-        .insert({
-          post_id: post.id,
+      // Call API to create affiliate post (backend will also verify subscription)
+      const response = await fetch('/api/affiliate/posts/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           product_id: productId,
-          affiliate_id: user.id,
-        })
+          content: formData.content,
+          images: formData.images,
+          location: formData.location || null,
+        }),
+      })
 
-      if (affiliateError) throw affiliateError
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '创建推广帖子失败')
+      }
 
       toast({
         variant: 'success',
         title: '成功',
         description: t('affiliatePostCreated'),
       })
-      router.push(`/post/${post.id}`)
+      router.push(`/post/${result.post_id}`)
     } catch (error: any) {
       console.error('Create affiliate post error:', error)
       toast({

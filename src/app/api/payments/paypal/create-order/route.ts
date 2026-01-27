@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createPayPalOrder } from '@/lib/payments/paypal'
+import { validateSellerPaymentReady } from '@/lib/payments/validate-seller-payment-ready'
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,6 +40,143 @@ export async function POST(request: NextRequest) {
 
     if (type === 'order' && orderId) {
       metadata.orderId = orderId
+
+      // Get order details for validation
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select('payment_status, seller_id, total_amount, currency, shipping_address, buyer_id')
+        .eq('id', orderId)
+        .single()
+
+      if (orderError || !order) {
+        return NextResponse.json(
+          { error: 'Order not found' },
+          { status: 404 }
+        )
+      }
+
+      // Verify order belongs to user
+      if (order.buyer_id !== user.id) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 403 }
+        )
+      }
+
+      // Check if order is already paid
+      if (order.payment_status === 'paid') {
+        return NextResponse.json(
+          { error: 'Order already paid' },
+          { status: 400 }
+        )
+      }
+
+      // Validate shipping address
+      if (!order.shipping_address) {
+        return NextResponse.json(
+          { error: 'Shipping address is required. Please fill in the shipping information before payment.' },
+          { status: 400 }
+        )
+      }
+
+      // Validate shipping address completeness
+      const shippingAddress = order.shipping_address as any
+      if (!shippingAddress.recipientName || !shippingAddress.phone || !shippingAddress.address || !shippingAddress.country) {
+        return NextResponse.json(
+          { error: 'Shipping address is incomplete. Please fill in all required fields (name, phone, address, country).' },
+          { status: 400 }
+        )
+      }
+
+      // Get Supabase admin client
+      const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+      const supabaseAdmin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      )
+
+      // ============================================
+      // SECOND CHECK: Validate seller payment readiness before creating payment session
+      // This is the final defense line - more critical than first check
+      // ============================================
+      if (order.seller_id) {
+      const validationResult = await validateSellerPaymentReady({
+        sellerId: order.seller_id,
+        supabaseAdmin,
+        paymentMethod: 'paypal', // Validate that seller supports PayPal payment
+      })
+
+        if (!validationResult.canAcceptPayment) {
+          // UX Boundary: Second check failure = order exists but cannot pay
+          console.warn('[paypal/create-order] Second check failed:', {
+            orderId,
+            sellerId: order.seller_id,
+            reason: validationResult.reason,
+            eligibility: validationResult.eligibility,
+          })
+
+          return NextResponse.json(
+            {
+              error: 'Payment cannot be processed at this time',
+              reason: validationResult.reason || 'Seller payment account is not ready',
+              eligibility: validationResult.eligibility,
+              canRetry: true, // Allow retry (temporary state issue)
+              message: 'This is a temporary state issue. Please try again later or contact support if the problem persists.',
+            },
+            { status: 403 }
+          )
+        }
+      }
+
+      // Create PayPal order FIRST (before deposit check)
+      const paypalOrder = await createPayPalOrder(numericAmount, currency, metadata)
+
+      // NOW check deposit requirement AFTER payment session creation
+      if (order.seller_id && order.total_amount) {
+        // Call database function that handles deposit check + side-effects atomically
+        const { data: depositResult, error: depositError } = await supabaseAdmin.rpc(
+          'check_deposit_and_execute_side_effects',
+          {
+            p_seller_id: order.seller_id,
+            p_order_id: orderId,
+            p_order_amount: order.total_amount,
+            p_payment_provider: 'paypal',
+            p_payment_session_id: paypalOrder.id, // Use PayPal order ID as session ID
+          }
+        )
+
+        if (depositError) {
+          console.error('Error checking deposit requirement:', depositError)
+          // Continue with payment even if deposit check fails (fail open)
+        } else if (depositResult && depositResult.length > 0 && depositResult[0].requires_deposit) {
+          const depositCheck = depositResult[0]
+
+          // DO NOT return orderId - "create but not expose" strategy
+          return NextResponse.json(
+            {
+              error: '订单暂时无法支付，请联系卖家',
+              requiresDeposit: true,
+              sellerId: order.seller_id,
+              requiredAmount: parseFloat(depositCheck.required_amount?.toString() || '0'),
+              currentTier: parseFloat(depositCheck.current_tier?.toString() || '0'),
+              suggestedTier: parseFloat(depositCheck.suggested_tier?.toString() || '0'),
+              reason: depositCheck.reason || 'Deposit required',
+            },
+            { status: 403 }
+          )
+        }
+      }
+
+      return NextResponse.json({
+        orderId: paypalOrder.id,
+        status: paypalOrder.status,
+      })
     } else if (type === 'subscription' && subscriptionType) {
       metadata.subscriptionType = subscriptionType
       if (subscriptionTier != null) metadata.subscriptionTier = String(subscriptionTier)
@@ -50,7 +188,7 @@ export async function POST(request: NextRequest) {
     if (returnUrl) metadata.returnUrl = returnUrl
     if (cancelUrl) metadata.cancelUrl = cancelUrl
 
-    // Create PayPal order
+    // Create PayPal order (for non-order types)
     const order = await createPayPalOrder(numericAmount, currency, metadata)
 
     return NextResponse.json({

@@ -26,17 +26,38 @@ export async function GET(request: NextRequest) {
     )
 
     // Call database function to auto-create shipping disputes
-    const { error } = await supabaseAdmin.rpc('auto_create_shipping_dispute')
+    const startTime = Date.now()
+    console.log('[Cron] Starting shipping timeout check at', new Date().toISOString())
+    
+    const { error, data } = await supabaseAdmin.rpc('auto_create_shipping_dispute')
 
     if (error) {
-      console.error('Error auto-creating shipping disputes:', error)
+      console.error('[Cron] Error auto-creating shipping disputes:', error)
       return NextResponse.json(
         { error: error.message || 'Failed to check shipping timeouts' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ success: true, message: 'Shipping timeouts checked' })
+    const duration = Date.now() - startTime
+    console.log('[Cron] Shipping timeout check completed in', duration, 'ms')
+
+    // Log execution result
+    await supabaseAdmin.from('cron_logs').insert({
+      job_name: 'check_shipping_timeout',
+      status: 'success',
+      execution_time_ms: duration,
+      executed_at: new Date().toISOString(),
+    }).catch((logError) => {
+      // Ignore log errors - cron_logs table might not exist
+      console.warn('[Cron] Failed to log execution:', logError)
+    })
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Shipping timeouts checked',
+      executionTime: duration 
+    })
   } catch (error: any) {
     console.error('Cron job error:', error)
     return NextResponse.json(

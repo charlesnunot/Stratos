@@ -1,12 +1,18 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { Heart } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { showError, showSuccess, showWarning } from '@/lib/utils/toast'
+import { showError, showSuccess, showWarning, showInfo } from '@/lib/utils/toast'
+
+const BURST_COUNT = 10
+const BURST_RADIUS = 28
+const BURST_DURATION = 0.6
+const HEART_POP_DURATION = 0.35
 
 interface LikeButtonProps {
   postId: string
@@ -18,6 +24,8 @@ export function LikeButton({ postId, initialLikes }: LikeButtonProps) {
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
   const [optimisticLikes, setOptimisticLikes] = useState(initialLikes)
+  const [burst, setBurst] = useState(false)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Check if user has liked this post
   const { data: userLike } = useQuery({
@@ -94,7 +102,10 @@ export function LikeButton({ postId, initialLikes }: LikeButtonProps) {
 
   const likeMutation = useMutation({
     mutationFn: async (shouldLike: boolean) => {
-      if (!user) throw new Error('Not authenticated')
+      if (!user) {
+        showInfo('请先登录后再点赞')
+        throw new Error('Not authenticated')
+      }
 
       if (shouldLike) {
         const { error } = await supabase
@@ -165,9 +176,40 @@ export function LikeButton({ postId, initialLikes }: LikeButtonProps) {
   })
 
   const handleLike = () => {
-    if (!user) return
-    likeMutation.mutate(!isLiked)
+    if (!user) {
+      showInfo('请先登录后再点赞')
+      return
+    }
+    
+    // 如果正在处理中，忽略点击
+    if (likeMutation.isPending) {
+      return
+    }
+    
+    // 清除之前的防抖定时器
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    
+    // 防抖：300ms内只执行一次
+    debounceTimerRef.current = setTimeout(() => {
+      const willLike = !isLiked
+      if (willLike) {
+        setBurst(true)
+        setTimeout(() => setBurst(false), BURST_DURATION * 1000 + 50)
+      }
+      likeMutation.mutate(willLike)
+    }, 300)
   }
+  
+  // 清理防抖定时器
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [])
 
   // Display logic: prioritize query result, fallback to optimistic update, then initialLikes
   // This ensures we always show the most accurate count
@@ -179,13 +221,71 @@ export function LikeButton({ postId, initialLikes }: LikeButtonProps) {
     <Button
       variant="ghost"
       size="sm"
-      className="gap-1 sm:gap-2 shrink-0"
+      className="gap-1 sm:gap-2 shrink-0 overflow-visible"
       onClick={handleLike}
-      disabled={!user || likeMutation.isPending}
+      disabled={likeMutation.isPending}
     >
-      <Heart
-        className={`h-4 w-4 shrink-0 ${isLiked ? 'fill-red-500 text-red-500' : ''}`}
-      />
+      <span className="relative inline-flex shrink-0">
+        <motion.span
+          className="inline-flex"
+          initial={false}
+          animate={{
+            scale:
+              burst && isLiked
+                ? [1, 1.45, 1.08]
+                : isLiked
+                  ? 1.08
+                  : 1,
+          }}
+          transition={
+            burst && isLiked
+              ? {
+                  duration: HEART_POP_DURATION,
+                  ease: [0.34, 1.56, 0.64, 1],
+                }
+              : {
+                  type: 'spring',
+                  stiffness: 480,
+                  damping: 14,
+                }
+          }
+        >
+          <Heart
+            className={`h-4 w-4 shrink-0 transition-colors duration-200 ${
+              isLiked ? 'fill-red-500 text-red-500' : ''
+            }`}
+          />
+        </motion.span>
+        {burst && (
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+            aria-hidden
+          >
+            {Array.from({ length: BURST_COUNT }).map((_, i) => {
+              const angle = (i / BURST_COUNT) * 2 * Math.PI
+              const x = Math.cos(angle) * BURST_RADIUS
+              const y = Math.sin(angle) * BURST_RADIUS
+              return (
+                <motion.div
+                  key={i}
+                  className="absolute left-0 top-0 w-1.5 h-1.5 rounded-full bg-red-500"
+                  initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                  animate={{
+                    x,
+                    y,
+                    opacity: 0,
+                    scale: 0,
+                  }}
+                  transition={{
+                    duration: BURST_DURATION,
+                    ease: [0.25, 0.46, 0.45, 0.94],
+                  }}
+                />
+              )
+            })}
+          </div>
+        )}
+      </span>
       <span className="text-xs sm:text-sm whitespace-nowrap">{displayLikes}</span>
     </Button>
   )

@@ -16,16 +16,28 @@ export interface Profile {
   role: string
   subscription_type: string | null
   created_at: string
+  status?: string | null // ✅ 修复 P0: 添加 status 字段用于检查用户状态
+  email?: string | null // ✅ 修复 P0-3: 自己的页面可以查看 email
 }
 
 export function useProfile(userId: string) {
+  const { user } = useAuth()
+  const isOwnProfile = user?.id === userId
+
   return useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
       const supabase = createClient()
+      
+      // ✅ 修复 P0-3: 如果是自己的页面，查询完整数据（包括 email 等）
+      // 如果是他人页面，只查询公开字段
+      const selectFields = isOwnProfile
+        ? 'id, username, display_name, avatar_url, bio, location, follower_count, following_count, created_at, status, email, subscription_type, role'
+        : 'id, username, display_name, avatar_url, bio, location, follower_count, following_count, created_at, status'
+      
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(selectFields)
         .eq('id', userId)
         .single()
 
@@ -83,6 +95,32 @@ export function useFollow() {
     }) => {
       if (!user) throw new Error('Not authenticated')
       if (user.id === followingId) throw new Error('Cannot follow yourself')
+
+      // ✅ 修复 P1: 检查目标用户状态 - 不能关注被封禁/暂停的用户
+      if (shouldFollow) {
+        const { data: targetProfile } = await supabase
+          .from('profiles')
+          .select('status')
+          .eq('id', followingId)
+          .single()
+
+        if (targetProfile?.status === 'banned' || targetProfile?.status === 'suspended') {
+          throw new Error('Cannot follow banned or suspended user')
+        }
+
+        // ✅ 修复 P1: 检查黑名单 - 如果被拉黑，不能关注
+        const { data: blocked } = await supabase
+          .from('blocked_users')
+          .select('id')
+          .eq('blocker_id', followingId)
+          .eq('blocked_id', user.id)
+          .limit(1)
+          .maybeSingle()
+
+        if (blocked) {
+          throw new Error('You have been blocked by this user')
+        }
+      }
 
       if (shouldFollow) {
         const { error } = await supabase

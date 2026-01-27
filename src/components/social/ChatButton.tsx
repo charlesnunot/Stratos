@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useConversation } from '@/lib/hooks/useConversation'
@@ -61,6 +61,8 @@ export function ChatButton({
   const [loading, setLoading] = useState(false)
 
   const handleClick = async () => {
+    console.log('ChatButton clicked', { targetUserId, user: user?.id })
+    
     if (!user) {
       toast({
         variant: 'warning',
@@ -70,38 +72,101 @@ export function ChatButton({
       return
     }
 
-    if (!targetUserId || targetUserId === user.id) return
-
-    setLoading(true)
-    try {
-      const conversationId = await getOrCreateConversation(targetUserId)
-
-      // 可选：先发送卡片（不依赖 chat 页面解析参数）
-      if (shareCard) {
-        const messageType = shareCard.type
-        await supabase.from('messages').insert({
-          conversation_id: conversationId,
-          sender_id: user.id,
-          content: JSON.stringify(shareCard),
-          message_type: messageType,
-        })
-
-        await supabase
-          .from('conversations')
-          .update({
-            last_message_at: new Date().toISOString(),
-          })
-          .eq('id', conversationId)
-      }
-
-      onSuccess?.(conversationId)
-      router.push(`/messages/${conversationId}`)
-    } catch (error: any) {
-      console.error('Open chat error:', error)
+    if (!targetUserId) {
+      console.warn('ChatButton: targetUserId is missing')
       toast({
         variant: 'destructive',
         title: '错误',
-        description: targetUserName ? `无法与 ${targetUserName} 私聊，请重试` : '无法发起私聊，请重试',
+        description: '无法获取目标用户信息',
+      })
+      return
+    }
+
+    if (targetUserId === user.id) {
+      toast({
+        variant: 'info',
+        title: '提示',
+        description: '不能与自己私聊',
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      console.log('ChatButton: Getting or creating conversation', { targetUserId })
+      const conversationId = await getOrCreateConversation(targetUserId)
+      console.log('ChatButton: Conversation ID', conversationId)
+
+      // 可选：先发送卡片（不依赖 chat 页面解析参数）
+      if (shareCard) {
+        console.log('ChatButton: Sending share card', shareCard)
+        const messageType = shareCard.type
+        
+        try {
+          const { error: insertError } = await supabase.from('messages').insert({
+            conversation_id: conversationId,
+            sender_id: user.id,
+            content: JSON.stringify(shareCard),
+            message_type: messageType,
+          })
+
+          if (insertError) {
+            console.error('ChatButton: Failed to insert message', insertError)
+            // 不阻止导航，只记录错误
+          } else {
+            // 更新会话时间戳
+            const { error: updateError } = await supabase
+              .from('conversations')
+              .update({
+                last_message_at: new Date().toISOString(),
+              })
+              .eq('id', conversationId)
+
+            if (updateError) {
+              console.error('ChatButton: Failed to update conversation', updateError)
+              // 不阻止导航
+            }
+          }
+        } catch (shareError: any) {
+          // 静默处理 AbortError，不阻止导航
+          const isAbortError = 
+            shareError?.name === 'AbortError' ||
+            shareError?.message?.includes('aborted') ||
+            shareError?.message?.includes('cancelled') ||
+            shareError?.message === 'signal is aborted without reason'
+          
+          if (!isAbortError) {
+            console.error('ChatButton: Error sending share card', shareError)
+          }
+          // 即使发送卡片失败，也继续导航
+        }
+      }
+
+      onSuccess?.(conversationId)
+      console.log('ChatButton: Navigating to', `/messages/${conversationId}`)
+      router.push(`/messages/${conversationId}`)
+    } catch (error: any) {
+      // 检查是否是 AbortError
+      const isAbortError = 
+        error?.name === 'AbortError' ||
+        error?.message?.includes('aborted') ||
+        error?.message?.includes('cancelled') ||
+        error?.message === 'signal is aborted without reason'
+      
+      if (isAbortError) {
+        // 静默处理 AbortError，不显示错误提示
+        console.log('ChatButton: Request was aborted (this is normal)')
+        return
+      }
+      
+      console.error('ChatButton: Open chat error:', error)
+      const errorMessage = error?.message || '未知错误'
+      toast({
+        variant: 'destructive',
+        title: '错误',
+        description: targetUserName 
+          ? `无法与 ${targetUserName} 私聊: ${errorMessage}` 
+          : `无法发起私聊: ${errorMessage}`,
       })
     } finally {
       setLoading(false)
@@ -117,7 +182,14 @@ export function ChatButton({
       disabled={loading}
       onClick={handleClick}
     >
-      {children ?? t('chatWithAuthor')}
+      {loading ? (
+        <>
+          <span className="mr-2">...</span>
+          {children ?? t('chatWithAuthor')}
+        </>
+      ) : (
+        children ?? t('chatWithAuthor')
+      )}
     </Button>
   )
 }

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getConnectAccountStatus } from '@/lib/payments/stripe-connect'
+import { updateSellerPayoutEligibility } from '@/lib/payments/update-seller-payout-eligibility'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,10 +40,46 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    // Get account status
+    // Get account status from Stripe
     const accountStatus = await getConnectAccountStatus(accountId)
 
-    // Update payment account
+    // Update profiles table with payment account information (new model)
+    // Save provider status (read-only cache)
+    const providerAccountStatus = accountStatus.chargesEnabled && accountStatus.payoutsEnabled
+      ? 'enabled'
+      : accountStatus.detailsSubmitted
+      ? 'pending'
+      : 'disabled'
+
+    const { error: profileUpdateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        payment_provider: 'stripe',
+        payment_account_id: accountId,
+        // Provider status (read-only cache from Stripe)
+        provider_charges_enabled: accountStatus.chargesEnabled,
+        provider_payouts_enabled: accountStatus.payoutsEnabled,
+        provider_account_status: providerAccountStatus,
+      })
+      .eq('id', user.id)
+
+    if (profileUpdateError) {
+      console.error('Error updating profile with payment account:', profileUpdateError)
+      return NextResponse.redirect(new URL('/seller/payment-accounts?error=update_failed', request.url))
+    }
+
+    // Trigger eligibility recalculation (must use updateSellerPayoutEligibility service)
+    const eligibilityResult = await updateSellerPayoutEligibility({
+      sellerId: user.id,
+      supabaseAdmin,
+    })
+
+    if (!eligibilityResult.success) {
+      console.error('Error updating seller payout eligibility:', eligibilityResult.error)
+      // Don't fail the callback, but log the error
+    }
+
+    // Also update payment_accounts table for backward compatibility
     const { data: paymentAccount } = await supabaseAdmin
       .from('payment_accounts')
       .select('id')

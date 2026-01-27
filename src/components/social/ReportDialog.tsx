@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { showSuccess, showError } from '@/lib/utils/toast'
+import { Link } from '@/i18n/navigation'
 
 interface ReportDialogProps {
   open: boolean
@@ -38,6 +39,7 @@ export function ReportDialog({
   }, [])
   const t = useTranslations('posts')
   const tCommon = useTranslations('common')
+  const tSupport = useTranslations('support')
   const [reason, setReason] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
@@ -145,13 +147,22 @@ export function ReportDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
-            {tCommon('cancel')}
-          </Button>
-          <Button onClick={handleSubmit} disabled={loading || !reason}>
-            {loading ? tCommon('loading') : t('report')}
-          </Button>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <div className="w-full sm:w-auto sm:mr-auto">
+            <Link href="/support/tickets/create" onClick={handleClose}>
+              <Button variant="ghost" size="sm" className="text-muted-foreground">
+                {tSupport('createTicketForHelp')}
+              </Button>
+            </Link>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={handleClose} disabled={loading}>
+              {tCommon('cancel')}
+            </Button>
+            <Button onClick={handleSubmit} disabled={loading || !reason}>
+              {loading ? tCommon('loading') : t('report')}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Verify order belongs to user
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, buyer_id, payment_method')
+      .select('id, buyer_id, payment_method, payment_status, seller_id, total_amount, shipping_address')
       .eq('id', orderId)
       .single()
 
@@ -52,6 +52,31 @@ export async function POST(request: NextRequest) {
     if (order.payment_method !== 'bank') {
       return NextResponse.json(
         { error: 'Order is not using bank transfer payment' },
+        { status: 400 }
+      )
+    }
+
+    // Check if order is already paid
+    if (order.payment_status === 'paid') {
+      return NextResponse.json(
+        { error: 'Order already paid' },
+        { status: 400 }
+      )
+    }
+
+    // Validate shipping address
+    if (!order.shipping_address) {
+      return NextResponse.json(
+        { error: 'Shipping address is required. Please fill in the shipping information before payment.' },
+        { status: 400 }
+      )
+    }
+
+    // Validate shipping address completeness
+    const shippingAddress = order.shipping_address as any
+    if (!shippingAddress.recipientName || !shippingAddress.phone || !shippingAddress.address || !shippingAddress.country) {
+      return NextResponse.json(
+        { error: 'Shipping address is incomplete. Please fill in all required fields (name, phone, address, country).' },
         { status: 400 }
       )
     }
@@ -153,6 +178,36 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to save proof record' },
         { status: 500 }
       )
+    }
+
+    // For bank transfer, check deposit requirement when proof is uploaded
+    // This is when the buyer commits to payment
+    if (order.seller_id && order.total_amount) {
+      // Call database function that handles deposit check + side-effects atomically
+      const { data: depositResult, error: depositError } = await supabaseAdmin.rpc(
+        'check_deposit_and_execute_side_effects',
+        {
+          p_seller_id: order.seller_id,
+          p_order_id: orderId,
+          p_order_amount: order.total_amount,
+          p_payment_provider: 'bank',
+          p_payment_session_id: paymentTransactionId || `bank_${orderId}_${Date.now()}`, // Use transaction ID as session ID
+        }
+      )
+
+      if (depositError) {
+        console.error('Error checking deposit requirement:', depositError)
+        // Continue with proof upload even if deposit check fails (fail open)
+      } else if (depositResult && depositResult.length > 0 && depositResult[0].requires_deposit) {
+        // For bank transfer, we still allow proof upload
+        // But we can notify the seller that deposit is required
+        // The proof will be reviewed, and if payment is confirmed, seller needs to pay deposit
+        console.warn('Deposit required for bank transfer order:', {
+          orderId,
+          sellerId: order.seller_id,
+          requiredAmount: depositResult[0].required_amount,
+        })
+      }
     }
 
     return NextResponse.json({
