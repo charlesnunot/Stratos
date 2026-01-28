@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useParams } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
 import { useRepost } from '@/lib/hooks/useRepost'
+import { useTrackView } from '@/lib/hooks/useTrackView'
 import { RepostDialog } from '@/components/social/RepostDialog'
 import { ShareDialog } from '@/components/social/ShareDialog'
 import { showSuccess, showInfo, showError, showWarning } from '@/lib/utils/toast'
@@ -38,6 +39,12 @@ export default function PostPage() {
   
   // 转发相关
   const repostMutation = useRepost()
+
+  // PV/UV 统计（含匿名）：仅在 ready 且帖子已审核时上报
+  useTrackView(
+    state.status === 'ready' && state.post?.status === 'approved' ? 'post' : null,
+    state.status === 'ready' && state.post?.status === 'approved' ? postId : null
+  )
 
   if (state.status === 'loading') {
     return <LoadingState />

@@ -13,7 +13,7 @@ import { ProductCard } from '@/components/ecommerce/ProductCard'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MasonryGrid } from '@/components/layout/MasonryGrid'
-import { Loader2, Plus, Pencil, Star, Tag, TrendingUp, Gift, Shield, ShoppingCart, Package, BookOpen, EyeOff, Users, History } from 'lucide-react'
+import { Loader2, Plus, Pencil, Star, Tag, TrendingUp, Gift, Shield, ShoppingCart, Package, BookOpen, EyeOff, Users, History, BarChart3 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
 import { useTranslations, useLocale } from 'next-intl'
@@ -24,12 +24,16 @@ import { FavoriteItem } from '@/components/favorites/FavoriteItem'
 import { useCartStore } from '@/store/cartStore'
 import { useUserProducts } from '@/lib/hooks/useProducts'
 import { SuggestedUsers } from '@/components/social/SuggestedUsers'
+import { useTrackView } from '@/lib/hooks/useTrackView'
 
 export default function ProfilePage() {
   const params = useParams()
   const router = useRouter()
   const userId = params.id as string
   const { user } = useAuth()
+
+  // PV/UV 统计（含匿名）：个人主页访客量（在 useUserPage 之前调用，仅依赖 userId）
+  useTrackView(userId ? 'profile' : null, userId || null)
 
   // 如果访问自己的页面但 URL 参数无效，重定向到自己的页面
   useEffect(() => {
@@ -335,6 +339,13 @@ export default function ProfilePage() {
                 >
                   <History className="h-4 w-4" />
                   <span>{t('historyEntrance')}</span>
+                </Link>
+                <Link
+                  href="/insights"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  <span>{t('insightsEntrance')}</span>
                 </Link>
               </div>
             )}

@@ -36,7 +36,11 @@ export function useAuth() {
             errorMessage.includes('cancelled') ||
             errorMessage === 'signal is aborted without reason'
           ) {
-            // 请求被取消，这是正常的，不需要处理
+            // 请求被取消（例如组件卸载/切页导致），直接结束 loading，避免页面卡死
+            if (mounted) {
+              setUser(session?.user ?? null)
+              setLoading(false)
+            }
             return
           }
           

@@ -17,6 +17,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useIsFavorite, useToggleFavorite } from '@/lib/hooks/useFavorites'
 import { useRepost } from '@/lib/hooks/useRepost'
 import { useRecordView } from '@/lib/hooks/useViewHistory'
+import { useTrackView } from '@/lib/hooks/useTrackView'
 import { showInfo, showSuccess, showError, showWarning } from '@/lib/utils/toast'
 import { ChatButton } from '@/components/social/ChatButton'
 import { SellerFeedback } from '@/components/ecommerce/SellerFeedback'
@@ -80,6 +81,9 @@ export function ProductPageClient({ product, user: initialUser, translations }: 
       })
     }
   }, [user, product, productId, recordViewMutation])
+
+  // PV/UV 统计（含匿名）
+  useTrackView(product?.status === 'active' ? 'product' : null, product?.status === 'active' ? productId : null)
 
   const handleAddToCart = async () => {
     // 验证商品状态

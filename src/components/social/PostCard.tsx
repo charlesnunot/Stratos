@@ -348,12 +348,10 @@ export function PostCard({ post }: PostCardProps) {
             <p className="mb-3 line-clamp-3 text-sm break-words">{post.content}</p>
           )}
 
-          {/* Topics */}
+          {/* Topics: 卡片上只显示 1 个标签 */}
           {post.topics && post.topics.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
-              {post.topics.map((topic) => (
-                <TopicTag key={topic.id} topic={topic} />
-              ))}
+              <TopicTag key={post.topics[0].id} topic={post.topics[0]} />
             </div>
           )}
 
