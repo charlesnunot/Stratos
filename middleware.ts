@@ -46,9 +46,13 @@ export async function middleware(request: NextRequest) {
     )
   }
 
-  // 先更新 Supabase 会话
-  const response = await updateSession(request)
-  
+  // 先更新 Supabase 会话（降级容错：任何异常都不应阻断 i18n 与页面访问）
+  try {
+    await updateSession(request)
+  } catch (error: any) {
+    console.error('[middleware] updateSession failed:', error?.message || error)
+  }
+
   // 然后应用国际化中间件
   return intlMiddleware(request)
 }

@@ -20,6 +20,7 @@ import { Link } from '@/i18n/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useRepost } from '@/lib/hooks/useRepost'
 import { useRecordView } from '@/lib/hooks/useViewHistory'
+import { useTrackView } from '@/lib/hooks/useTrackView'
 import { RepostDialog } from '@/components/social/RepostDialog'
 import { ShareDialog } from '@/components/social/ShareDialog'
 import { showSuccess, showInfo, showError, showWarning } from '@/lib/utils/toast'
@@ -63,6 +64,9 @@ export default function PostPage() {
       })
     }
   }, [user, post, postId, recordViewMutation])
+
+  // PV/UV 统计（含匿名）
+  useTrackView(post?.status === 'approved' ? 'post' : null, post?.status === 'approved' ? postId : null)
 
   if (isLoading) {
     return <LoadingState />

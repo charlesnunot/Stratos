@@ -14,7 +14,7 @@ import { ProductCard } from '@/components/ecommerce/ProductCard'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MasonryGrid } from '@/components/layout/MasonryGrid'
-import { Loader2, Plus, Pencil, Flag, Star, Tag, TrendingUp, Coins, Shield, ShoppingCart, Package, BookOpen, Heart, EyeOff, Users, History } from 'lucide-react'
+import { Loader2, Plus, Pencil, Flag, Star, Tag, TrendingUp, Coins, Shield, ShoppingCart, Package, BookOpen, Heart, EyeOff, Users, History, BarChart3 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
 import { useTranslations, useLocale } from 'next-intl'
@@ -27,6 +27,7 @@ import { useCartStore } from '@/store/cartStore'
 import { useUserProducts } from '@/lib/hooks/useProducts'
 import { useIsRestricted } from '@/lib/hooks/useRestrictView'
 import { SuggestedUsers } from '@/components/social/SuggestedUsers'
+import { useTrackView } from '@/lib/hooks/useTrackView'
 
 export default function ProfilePage() {
   const params = useParams()
@@ -38,6 +39,9 @@ export default function ProfilePage() {
   // ✅ 修复 P0-1: 如果是自己的页面，使用 user.id 确保数据安全
   // 如果是他人页面，使用 userId（URL 参数）
   const effectiveUserId = isOwnProfile && user ? user.id : userId
+
+  // PV/UV 统计（含匿名）：个人主页访客量
+  useTrackView(effectiveUserId ? 'profile' : null, effectiveUserId || null)
   
   // ✅ 修复 P0-1: 如果访问自己的页面但 URL 参数不一致，重定向到正确的 URL
   // 注意：isOwnProfile = user?.id === userId，所以如果 isOwnProfile 为 true，userId 一定等于 user.id
@@ -388,6 +392,13 @@ export default function ProfilePage() {
                 >
                   <History className="h-4 w-4" />
                   <span>{t('historyEntrance')}</span>
+                </Link>
+                <Link
+                  href="/insights"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  <span>{t('insightsEntrance')}</span>
                 </Link>
               </div>
             )}
