@@ -6,10 +6,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-12-15.clover',
-})
-
 export interface ProcessDepositRefundParams {
   lotId: string
   supabaseAdmin: SupabaseClient
@@ -54,6 +50,14 @@ export async function processDepositRefund({
         .single()
 
       if (paymentTx?.stripe_payment_intent_id) {
+        const secretKey = process.env.STRIPE_SECRET_KEY
+        if (!secretKey) {
+          return { success: false, error: 'STRIPE_SECRET_KEY is not configured' }
+        }
+        const stripe = new Stripe(secretKey, {
+          apiVersion: '2025-12-15.clover',
+        })
+
         // Calculate refund amount (deduct Stripe fee)
         // Stripe fee is typically 2.9% + $0.30
         const stripeFee = lot.required_amount * 0.029 + 0.30
