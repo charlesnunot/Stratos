@@ -23,6 +23,8 @@ export interface TransferResult {
   transferId?: string
   transferRef?: string
   error?: string
+  retryable?: boolean
+  retryCount?: number
 }
 
 /**

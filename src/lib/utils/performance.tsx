@@ -2,7 +2,7 @@
  * Performance optimization utilities
  */
 
-import React from 'react'
+import React, { Suspense } from 'react'
 
 /**
  * Debounce function to limit function calls
@@ -54,9 +54,9 @@ export function lazyLoadComponent<T extends React.ComponentType<any>>(
   const LazyComponent = React.lazy(importFn)
 
   return (props: React.ComponentProps<T>) => (
-    <React.Suspense fallback={fallback || <div>Loading...</div>}>
+    <Suspense fallback={fallback || <div>Loading...</div>}>
       <LazyComponent {...props} />
-    </React.Suspense>
+    </Suspense>
   )
 }
 

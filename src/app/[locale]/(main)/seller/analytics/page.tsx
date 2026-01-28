@@ -69,7 +69,13 @@ export default function SellerAnalyticsPage() {
       ])
 
       if (ordersInPeriodRes.error) throw ordersInPeriodRes.error
-      const orders = (ordersInPeriodRes.data || []) as OrderRow[]
+      const raw = ordersInPeriodRes.data || []
+      const orders: OrderRow[] = raw.map((row: Record<string, unknown>) => ({
+        ...row,
+        product: Array.isArray(row.product)
+          ? (row.product[0] as OrderRow['product']) ?? null
+          : (row.product as OrderRow['product']) ?? null,
+      })) as OrderRow[]
       const priorBuyerIds = new Set(
         (priorBuyersRes.data || []).map((r: { buyer_id: string }) => r.buyer_id)
       )

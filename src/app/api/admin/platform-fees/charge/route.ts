@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     if (!authResult.success) {
       return authResult.response
     }
+    const { user } = authResult.data
 
     const body = await request.json()
     const {
@@ -134,23 +135,33 @@ export async function POST(request: NextRequest) {
         }
 
         case 'alipay': {
-          const result = await createAlipayOrder(
-            `platform_fee_${transaction.id}_${Date.now()}`,
-            finalAmount,
-            paymentCurrency,
-            {
+          const result = await createAlipayOrder({
+            outTradeNo: `platform_fee_${transaction.id}_${Date.now()}`,
+            totalAmount: finalAmount,
+            subject: `平台服务费: ${reason}`,
+            returnUrl: finalSuccessUrl,
+            notifyUrl: `${baseUrl}/api/payments/alipay/callback`,
+            metadata: {
               type: 'platform_fee',
               userId,
               reason,
-              transactionId: transaction.id,
-            }
-          )
-          if (result.formAction && result.formData) {
-            formAction = result.formAction
-            formData = result.formData
-          } else {
-            paymentUrl = result.paymentUrl || null
+              transactionId: String(transaction.id),
+            },
+          })
+          const alipayFormData: Record<string, string> = {}
+          const pairs = (result.orderString || '').split('&')
+          for (const p of pairs) {
+            const eq = p.indexOf('=')
+            if (eq < 0) continue
+            const k = p.slice(0, eq)
+            const v = p.slice(eq + 1)
+            if (k) alipayFormData[k] = decodeURIComponent(v || '')
           }
+          formAction =
+            process.env.NODE_ENV === 'production'
+              ? 'https://openapi.alipay.com/gateway.do'
+              : 'https://openapi.alipaydev.com/gateway.do'
+          formData = alipayFormData
           break
         }
 

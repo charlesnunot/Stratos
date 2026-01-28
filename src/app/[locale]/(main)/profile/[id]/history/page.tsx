@@ -152,9 +152,13 @@ export default function ProfileHistoryPage() {
                     user_id: item.post.user_id,
                     like_count: item.post.like_count,
                     comment_count: item.post.comment_count,
+                    share_count: (item.post as { share_count?: number }).share_count ?? 0,
+                    tip_amount: (item.post as { tip_amount?: number }).tip_amount ?? 0,
                     created_at: item.post.created_at,
                     status: 'approved' as const,
                     post_type: 'normal' as const,
+                    user: (item.post as { user?: { username: string; display_name: string; avatar_url: string | null } }).user,
+                    topics: (item.post as { topics?: Array<{ id: string; name: string; slug: string }> }).topics,
                   }
                   return <PostCard key={item.id} post={post} />
                 })}
@@ -169,11 +173,13 @@ export default function ProfileHistoryPage() {
                 {products.map((item) => {
                   if (!item.product) return null
                   // Convert ViewHistoryItem to Product format for ProductCard
+                  const p = item.product as { description?: string | null; images?: string[]; [k: string]: unknown }
                   const product = {
                     id: item.product.id,
                     name: item.product.name,
-                    images: item.product.images,
+                    description: p.description ?? null,
                     price: item.product.price,
+                    images: p.images ?? [],
                     seller_id: item.product.seller_id,
                     status: item.product.status,
                   }

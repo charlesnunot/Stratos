@@ -32,12 +32,13 @@ export function ContentReview() {
     let cancelled = false
     setRoleCheck('loading')
     const client = createClient()
-    client
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await client
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
         if (cancelled) return
         const role = data?.role ?? 'user'
         if (role === 'admin' || role === 'support') {
@@ -45,10 +46,10 @@ export function ContentReview() {
         } else {
           setRoleCheck('denied')
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setRoleCheck('denied')
-      })
+      }
+    })()
     return () => {
       cancelled = true
     }

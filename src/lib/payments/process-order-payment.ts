@@ -22,7 +22,7 @@ export async function processOrderPayment({
     // Get order details first (for validation and commission calculation)
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('buyer_id, seller_id, affiliate_id, product_id, quantity, total_amount, commission_amount, order_items(product_id, quantity, price)')
+      .select('id, buyer_id, seller_id, affiliate_id, affiliate_post_id, product_id, quantity, total_amount, commission_amount, order_items(product_id, quantity, price)')
       .eq('id', orderId)
       .single()
 

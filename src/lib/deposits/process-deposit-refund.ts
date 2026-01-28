@@ -7,7 +7,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
+  apiVersion: '2025-12-15.clover',
 })
 
 export interface ProcessDepositRefundParams {
@@ -118,7 +118,7 @@ export async function processDepositRefund({
     }
 
     // Send notification
-    await supabaseAdmin.from('notifications').insert({
+    const { error: notifError } = await supabaseAdmin.from('notifications').insert({
       user_id: lot.seller_id,
       type: 'deposit',
       title: '保证金退款已完成',
@@ -126,9 +126,10 @@ export async function processDepositRefund({
       related_id: lot.id,
       related_type: 'deposit_lot',
       link: `/seller/deposit`,
-    }).catch((err) => {
-      console.error('Failed to send notification:', err)
     })
+    if (notifError) {
+      console.error('Failed to send notification:', notifError)
+    }
 
     return {
       success: true,

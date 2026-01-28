@@ -9,9 +9,35 @@ import { useRouter } from 'next/navigation'
 import { ExternalLink, Trash2, Eye } from 'lucide-react'
 import { showSuccess, showError } from '@/lib/utils/toast'
 
-interface ReportWithContent extends any {
-  content?: any
-  reported_user?: any
+/** Joined content shape for comment/post/tip/message links */
+interface ReportContentShape {
+  post_id?: string
+  conversation_id?: string
+  content?: string
+  name?: string
+  order_number?: string
+  amount?: number
+  post?: { content?: string }
+  [key: string]: unknown
+}
+/** Reported user shape for preview */
+interface ReportedUserShape {
+  display_name?: string
+  username?: string
+  [key: string]: unknown
+}
+interface ReportWithContent {
+  id?: string
+  reported_type?: string
+  reported_id?: string
+  reporter_id?: string
+  created_at?: string
+  reason?: string
+  description?: string
+  status?: string
+  content?: ReportContentShape
+  reported_user?: ReportedUserShape
+  [key: string]: unknown
 }
 
 interface ReportManagementProps {
@@ -205,7 +231,11 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
       showError('客户端未初始化')
       return
     }
-    if (!confirm(`确定要删除这个${REPORT_TYPE_LABELS[report.reported_type] || report.reported_type}吗？此操作不可撤销。`)) {
+    if (!report.id) {
+      showError('举报记录无效')
+      return
+    }
+    if (!confirm(`确定要删除这个${REPORT_TYPE_LABELS[report.reported_type ?? ''] ?? report.reported_type ?? '未知'}吗？此操作不可撤销。`)) {
       return
     }
 
@@ -452,7 +482,7 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
             user_id: notifiedUserId,
             type: 'report',
             title: '内容被处理',
-            content: `您的${REPORT_TYPE_LABELS[report.reported_type] || report.reported_type}因举报被处理`,
+            content: `您的${REPORT_TYPE_LABELS[report.reported_type ?? ''] ?? report.reported_type ?? '未知'}因举报被处理`,
             related_id: report.reported_id,
             related_type: report.reported_type,
           })
@@ -482,7 +512,7 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
       case 'user':
         return report.reported_user?.display_name || report.reported_user?.username || '无用户名'
       case 'order':
-        return `订单 ${report.content.order_number || report.reported_id.substring(0, 8)}...` || '订单信息'
+        return `订单 ${report.content.order_number || (report.reported_id ?? '').substring(0, 8)}...` || '订单信息'
       case 'affiliate_post':
         return report.content.post?.content || '带货帖子' || '无内容'
       case 'tip':
@@ -518,7 +548,7 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
                         举报类型: {report.reported_type === 'post' ? '帖子' : report.reported_type === 'product' ? '商品' : report.reported_type === 'comment' ? '评论' : report.reported_type === 'user' ? '用户' : report.reported_type === 'order' ? '订单' : report.reported_type === 'affiliate_post' ? '带货帖子' : report.reported_type === 'tip' ? '打赏' : report.reported_type === 'message' ? '聊天内容' : report.reported_type}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(report.created_at).toLocaleString('zh-CN')}
+                        {new Date(report.created_at ?? 0).toLocaleString('zh-CN')}
                       </span>
                     </div>
                     <p className="font-semibold">原因: {report.reason}</p>
@@ -564,7 +594,7 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => handleResolve(report.id, 'resolved')}
+                          onClick={() => report.id && handleResolve(report.id, 'resolved')}
                           disabled={loading[resolveKey]}
                         >
                           {loading[resolveKey] ? '处理中...' : '已处理'}
@@ -572,7 +602,7 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleResolve(report.id, 'rejected')}
+                          onClick={() => report.id && handleResolve(report.id, 'rejected')}
                           disabled={loading[rejectKey]}
                         >
                           {loading[rejectKey] ? '处理中...' : '驳回'}

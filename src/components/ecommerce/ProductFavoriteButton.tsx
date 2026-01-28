@@ -55,9 +55,26 @@ export function ProductFavoriteButton({ productId, initialFavorites = 0 }: Produ
 
   const handleFavorite = () => {
     if (!user) return
-    
+
     const currentIsFavorite = isFavorite || false
-    
+    const previousCount = favoriteCount
+    const newCount = currentIsFavorite ? Math.max(0, previousCount - 1) : previousCount + 1
+
+    // 乐观更新：在调用 mutate 之前同步执行
+    setOptimisticFavorites(newCount)
+    queryClient.setQueryData(['product', productId], (old: unknown) => {
+      if (old && typeof old === 'object' && 'favorite_count' in old) {
+        return { ...(old as Record<string, unknown>), favorite_count: newCount }
+      }
+      return old
+    })
+    queryClient.setQueriesData({ queryKey: ['products'] }, (old: unknown) => {
+      if (!old || !Array.isArray(old)) return old
+      return old.map((p: { id?: string; favorite_count?: number }) =>
+        p.id === productId ? { ...p, favorite_count: newCount } : p
+      )
+    })
+
     toggleFavorite.mutate(
       {
         itemType: 'product',
@@ -65,51 +82,23 @@ export function ProductFavoriteButton({ productId, initialFavorites = 0 }: Produ
         isFavorite: currentIsFavorite,
       },
       {
-        onMutate: async () => {
-          // 获取当前值
-          const previousCount = favoriteCount
-          
-          // 计算新值
-          const newCount = currentIsFavorite ? Math.max(0, previousCount - 1) : previousCount + 1
-          
-          // 更新 optimistic state
-          setOptimisticFavorites(newCount)
-          
-          // 更新 product cache 中的 favorite_count
-          queryClient.setQueryData(['product', productId], (old: any) => {
-            if (old) {
-              return { ...old, favorite_count: newCount }
+        onError: () => {
+          // 失败时回滚
+          setOptimisticFavorites(previousCount)
+          queryClient.setQueryData(['product', productId], (old: unknown) => {
+            if (old && typeof old === 'object' && 'favorite_count' in old) {
+              return { ...(old as Record<string, unknown>), favorite_count: previousCount }
             }
             return old
           })
-          
-          // 更新 products list cache (if exists)
-          queryClient.setQueriesData({ queryKey: ['products'] }, (old: any) => {
-            if (!old) return old
-            if (Array.isArray(old)) {
-              return old.map((p: any) =>
-                p.id === productId ? { ...p, favorite_count: newCount } : p
-              )
-            }
-            return old
+          queryClient.setQueriesData({ queryKey: ['products'] }, (old: unknown) => {
+            if (!old || !Array.isArray(old)) return old
+            return old.map((p: { id?: string; favorite_count?: number }) =>
+              p.id === productId ? { ...p, favorite_count: previousCount } : p
+            )
           })
-          
-          return { previousCount }
-        },
-        onError: (err, variables, context) => {
-          // Rollback on error
-          if (context?.previousCount !== undefined) {
-            setOptimisticFavorites(context.previousCount)
-            queryClient.setQueryData(['product', productId], (old: any) => {
-              if (old) {
-                return { ...old, favorite_count: context.previousCount }
-              }
-              return old
-            })
-          }
         },
         onSettled: () => {
-          // Invalidate product and products queries to refetch with updated favorite_count
           queryClient.invalidateQueries({ queryKey: ['product', productId] })
           queryClient.invalidateQueries({ queryKey: ['products'] })
           queryClient.invalidateQueries({ queryKey: ['isFavorite', user?.id, 'product', productId] })

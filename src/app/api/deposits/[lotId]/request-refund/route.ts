@@ -88,18 +88,23 @@ export async function POST(
       )
     }
 
-    // Send notification
-    await supabaseAdmin.from('notifications').insert({
-      user_id: user.id,
-      type: 'deposit',
-      title: '保证金退款申请已提交',
-      content: `您的保证金退款申请已提交，金额为 ${lot.required_amount} ${lot.currency}。我们将在3-5个工作日内处理。`,
-      related_id: lot.id,
-      related_type: 'deposit_lot',
-      link: `/seller/deposit`,
-    }).catch((err) => {
+    // Send notification (non-blocking; log errors only)
+    try {
+      const { error: notifError } = await supabaseAdmin.from('notifications').insert({
+        user_id: user.id,
+        type: 'deposit',
+        title: '保证金退款申请已提交',
+        content: `您的保证金退款申请已提交，金额为 ${lot.required_amount} ${lot.currency}。我们将在3-5个工作日内处理。`,
+        related_id: lot.id,
+        related_type: 'deposit_lot',
+        link: `/seller/deposit`,
+      })
+      if (notifError) {
+        console.error('[request-refund] Failed to send notification:', notifError)
+      }
+    } catch (err) {
       console.error('[request-refund] Failed to send notification:', err)
-    })
+    }
 
     return NextResponse.json({
       success: true,

@@ -176,50 +176,17 @@ export function ShareDialog({
     name: string
     icon: React.ReactNode
     enabled: boolean
-  }> = [
-    {
-      id: 'wechat',
-      name: '微信',
-      icon: <MessageCircle className="h-6 w-6" />,
-      enabled: true,
-    },
-    {
-      id: 'weibo',
-      name: '微博',
-      icon: <Share2 className="h-6 w-6" />,
-      enabled: true,
-    },
-    {
-      id: 'qq',
-      name: 'QQ',
-      icon: <MessageCircle className="h-6 w-6" />,
-      enabled: true,
-    },
-    {
-      id: 'twitter',
-      name: 'Twitter',
-      icon: <Twitter className="h-6 w-6" />,
-      enabled: true,
-    },
-    {
-      id: 'facebook',
-      name: 'Facebook',
-      icon: <Facebook className="h-6 w-6" />,
-      enabled: true,
-    },
-    {
-      id: 'copy',
-      name: '复制链接',
-      icon: <Copy className="h-6 w-6" />,
-      enabled: true,
-    },
-    {
-      id: 'native',
-      name: '更多',
-      icon: <Share2 className="h-6 w-6" />,
-      enabled: nativeShareSupported,
-    },
-  ].filter((platform) => platform.enabled)
+  }> = (
+    [
+      { id: 'wechat' as SharePlatform, name: '微信', icon: <MessageCircle className="h-6 w-6" />, enabled: true },
+      { id: 'weibo' as SharePlatform, name: '微博', icon: <Share2 className="h-6 w-6" />, enabled: true },
+      { id: 'qq' as SharePlatform, name: 'QQ', icon: <MessageCircle className="h-6 w-6" />, enabled: true },
+      { id: 'twitter' as SharePlatform, name: 'Twitter', icon: <Twitter className="h-6 w-6" />, enabled: true },
+      { id: 'facebook' as SharePlatform, name: 'Facebook', icon: <Facebook className="h-6 w-6" />, enabled: true },
+      { id: 'copy' as SharePlatform, name: '复制链接', icon: <Copy className="h-6 w-6" />, enabled: true },
+      { id: 'native' as SharePlatform, name: '更多', icon: <Share2 className="h-6 w-6" />, enabled: nativeShareSupported },
+    ].filter((platform) => platform.enabled) as Array<{ id: SharePlatform; name: string; icon: React.ReactNode; enabled: boolean }>
+  )
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>

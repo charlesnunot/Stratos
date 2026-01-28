@@ -959,6 +959,9 @@ export function CommentSection({ postId }: CommentSectionProps) {
               onRemoveEditImage={handleRemoveEditImage}
               replyFileInputRef={replyFileInputRef}
               replyInputRef={replyInputRef}
+              editingTextareaRefs={editingTextareaRefs}
+              onEditEmoji={handleEditEmoji}
+              onReplyEmoji={handleReplyEmoji}
             />
           ))}
           {/* ✅ 修复 P0-1: 加载更多按钮 */}
@@ -1045,6 +1048,9 @@ interface CommentItemProps {
   onRemoveEditImage?: (commentId: string, index: number, isExisting: boolean) => void
   replyFileInputRef?: React.RefObject<HTMLInputElement>
   replyInputRef?: React.RefObject<HTMLInputElement>
+  editingTextareaRefs?: React.MutableRefObject<Record<string, HTMLTextAreaElement>>
+  onEditEmoji?: (commentId: string, emoji: string) => void
+  onReplyEmoji?: (emoji: string) => void
 }
 
 function CommentItem({
@@ -1077,6 +1083,9 @@ function CommentItem({
   onRemoveEditImage,
   replyFileInputRef,
   replyInputRef,
+  editingTextareaRefs,
+  onEditEmoji,
+  onReplyEmoji,
 }: CommentItemProps) {
   const t = useTranslations('posts')
   const tCommon = useTranslations('common')
@@ -1151,7 +1160,7 @@ function CommentItem({
             <div className="mt-2 space-y-2">
               <textarea
                 ref={(el) => {
-                  if (el) editingTextareaRefs.current[comment.id] = el
+                  if (el && editingTextareaRefs) editingTextareaRefs.current[comment.id] = el
                 }}
                 value={editingContent}
                 onChange={(e) => setEditingContent(e.target.value)}
@@ -1160,7 +1169,7 @@ function CommentItem({
               />
               {/* Image upload for editing */}
               <div className="flex items-center gap-2">
-                <EmojiPicker onEmojiSelect={(emoji) => handleEditEmoji(comment.id, emoji)} />
+                <EmojiPicker onEmojiSelect={(emoji) => onEditEmoji?.(comment.id, emoji)} />
                 <Button
                   type="button"
                   variant="ghost"
@@ -1319,7 +1328,7 @@ function CommentItem({
                   placeholder={t('writeReply')}
                   className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm min-w-0"
                 />
-                <EmojiPicker onEmojiSelect={handleReplyEmoji} />
+                <EmojiPicker onEmojiSelect={(emoji) => onReplyEmoji?.(emoji)} />
                 <Button
                   type="button"
                   variant="ghost"
@@ -1422,6 +1431,9 @@ function CommentItem({
                       comments={comments}
                       postId={postId}
                       depth={depth + 1}
+                      editingTextareaRefs={editingTextareaRefs}
+                      onEditEmoji={onEditEmoji}
+                      onReplyEmoji={onReplyEmoji}
                     />
                   ))}
                 </div>

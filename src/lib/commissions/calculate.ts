@@ -7,6 +7,7 @@ interface OrderDetails {
   affiliate_id?: string | null
   affiliate_post_id?: string | null
   total_amount: number
+  commission_amount?: number
   product_id?: string | null
   order_items?: Array<{
     product_id: string

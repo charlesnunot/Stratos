@@ -54,7 +54,7 @@ export default function DepositPaySuccessPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId: token }),
     })
-      .then((r) => (r.ok ? refetch() : Promise.resolve()))
+      .then((r) => (r.ok ? refetch().then(() => {}) : Promise.resolve()))
       .catch(() => {})
   }, [token, user, refetch])
 

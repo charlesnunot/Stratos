@@ -71,7 +71,7 @@ async function getStripeClientForWebhook(
   }
 
   return new Stripe(secretKey, {
-    apiVersion: '2024-11-20.acacia',
+    apiVersion: '2025-12-15.clover',
   })
 }
 
@@ -685,8 +685,8 @@ export async function POST(request: NextRequest) {
         break
 
       case 'account.application.deauthorized':
-        // Handle account deauthorization
-        const deauthorizedAccount = event.data.object as Stripe.Account
+        // Handle account deauthorization (object is Stripe.Application, we only need id)
+        const deauthorizedAccount = event.data.object as { id: string }
         const deauthorizedAccountId = deauthorizedAccount.id
 
         const { data: deauthorizedSeller } = await supabaseAdmin

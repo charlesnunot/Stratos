@@ -193,6 +193,27 @@ export async function createWeChatPayOrder(params: CreateWeChatPayOrderParams): 
   return parsed as unknown as WeChatPayOrderResponse
 }
 
+/**
+ * Create WeChat Pay order with (outTradeNo, amount, currency, metadata) signature.
+ * Used by platform-fees charge and other callers that use the unified payment API shape.
+ */
+export async function createWeChatOrder(
+  outTradeNo: string,
+  amount: number,
+  _currency: string,
+  metadata: { type?: string; userId?: string; reason?: string; transactionId?: string }
+): Promise<{ codeUrl?: string | null }> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  const notifyUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/api/webhooks/wechat-pay` : ''
+  const res = await createWeChatPayOrder({
+    outTradeNo,
+    totalAmount: amount,
+    description: metadata.reason || '平台服务费',
+    notifyUrl: notifyUrl || 'https://example.com/api/webhooks/wechat-pay',
+  })
+  return { codeUrl: res.codeUrl ?? null }
+}
+
 export interface WeChatPayNotifyParams {
   return_code: string
   return_msg?: string
@@ -201,6 +222,8 @@ export interface WeChatPayNotifyParams {
   nonce_str?: string
   sign?: string
   result_code?: string
+  err_code?: string
+  err_code_des?: string
   openid?: string
   trade_type?: string
   bank_type?: string
@@ -214,7 +237,7 @@ export interface WeChatPayNotifyParams {
 export async function verifyWeChatPayNotify(params: WeChatPayNotifyParams): Promise<boolean> {
   const currency = 'CNY' // WeChat Pay typically uses CNY
   const config = await getWeChatPayConfig(currency)
-  return verifyWeChatPaySign(params as Record<string, string>, config.apiKey)
+  return verifyWeChatPaySign(params as unknown as Record<string, string>, config.apiKey)
 }
 
 function parseWeChatPayXML(xml: string): Record<string, string> {

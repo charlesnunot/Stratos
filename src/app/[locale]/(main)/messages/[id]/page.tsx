@@ -15,8 +15,9 @@ export default async function ChatPage({
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect(`/login?redirect=${encodeURIComponent(`/messages/${id}`)}`)
+    redirect({ href: `/login?redirect=${encodeURIComponent(`/messages/${id}`)}`, locale })
   }
+  const currentUser = user!
 
   const { data: conversation, error } = await supabase
     .from('conversations')
@@ -35,17 +36,17 @@ export default async function ChatPage({
   }
 
   const isParticipant =
-    conversation.participant1_id === user.id ||
-    conversation.participant2_id === user.id
+    conversation.participant1_id === currentUser.id ||
+    conversation.participant2_id === currentUser.id
 
   if (!isParticipant) {
-    redirect('/messages')
+    redirect({ href: '/messages', locale })
   }
 
-  const otherParticipant =
-    conversation.participant1_id === user.id
-      ? (conversation.participant2 as { id: string; username: string | null; display_name: string | null; avatar_url: string | null })
-      : (conversation.participant1 as { id: string; username: string | null; display_name: string | null; avatar_url: string | null })
+  type ParticipantProfile = { id: string; username: string | null; display_name: string | null; avatar_url: string | null }
+  const p1 = conversation.participant1 as unknown as ParticipantProfile
+  const p2 = conversation.participant2 as unknown as ParticipantProfile
+  const otherParticipant = conversation.participant1_id === currentUser.id ? p2 : p1
 
   return (
     <ChatPageClient

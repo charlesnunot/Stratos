@@ -220,20 +220,20 @@ export function sanitizeErrorForLogging(error: unknown): Record<string, unknown>
     if (obj === null || obj === undefined) return obj
     if (typeof obj !== 'object') return obj
 
-    const sanitized: Record<string, unknown> = Array.isArray(obj) ? [] : {}
+    const sanitized: Record<string, unknown> | unknown[] = Array.isArray(obj) ? [] : {}
 
     for (const key in obj as Record<string, unknown>) {
       const lowerKey = key.toLowerCase()
       const isSensitive = sensitiveFields.some((field) => lowerKey.includes(field))
-
+      const target = sanitized as Record<string, unknown>
       if (isSensitive) {
-        sanitized[key] = '[REDACTED]'
+        target[key] = '[REDACTED]'
       } else {
         const value = (obj as Record<string, unknown>)[key]
         if (typeof value === 'object') {
-          sanitized[key] = sanitizeObject(value, depth + 1)
+          target[key] = sanitizeObject(value, depth + 1)
         } else {
-          sanitized[key] = value
+          target[key] = value
         }
       }
     }
@@ -289,7 +289,9 @@ export function logApiError(
     userMessage: error.userMessage,
     statusCode: error.statusCode,
     context: {
-      ...error.details?.context,
+      ...(error.details?.context && typeof error.details.context === 'object'
+        ? error.details.context
+        : {}),
       ...additionalContext,
     },
     timestamp: error.timestamp,

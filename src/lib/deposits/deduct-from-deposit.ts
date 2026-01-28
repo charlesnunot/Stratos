@@ -13,7 +13,7 @@ export interface DeductFromDepositParams {
   currency: Currency
   reason: string
   relatedId: string
-  relatedType: 'debt' | 'commission' | 'other'
+  relatedType: 'debt' | 'commission' | 'other' | 'violation'
   supabaseAdmin: SupabaseClient
 }
 
@@ -78,7 +78,7 @@ export async function deductFromDeposit({
         type: 'system',
         title: '保证金已扣除',
         content: `您的保证金中已扣除 ${result.deducted_amount.toFixed(2)} ${result.deducted_amount_currency}。原因：${reason}。`,
-        related_type: relatedType === 'debt' ? 'order' : 'commission',
+        related_type: relatedType === 'debt' ? 'order' : relatedType === 'violation' ? 'violation' : 'commission',
         related_id: relatedId,
         link: '/seller/deposit',
       })

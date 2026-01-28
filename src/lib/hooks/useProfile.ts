@@ -18,6 +18,7 @@ export interface Profile {
   created_at: string
   status?: string | null // ✅ 修复 P0: 添加 status 字段用于检查用户状态
   email?: string | null // ✅ 修复 P0-3: 自己的页面可以查看 email
+  tip_enabled?: boolean | null
 }
 
 export function useProfile(userId: string) {
@@ -32,7 +33,7 @@ export function useProfile(userId: string) {
       // ✅ 修复 P0-3: 如果是自己的页面，查询完整数据（包括 email 等）
       // 如果是他人页面，只查询公开字段
       const selectFields = isOwnProfile
-        ? 'id, username, display_name, avatar_url, bio, location, follower_count, following_count, created_at, status, email, subscription_type, role'
+        ? 'id, username, display_name, avatar_url, bio, location, follower_count, following_count, created_at, status, email, subscription_type, role, tip_enabled'
         : 'id, username, display_name, avatar_url, bio, location, follower_count, following_count, created_at, status'
       
       const { data, error } = await supabase
@@ -50,8 +51,8 @@ export function useProfile(userId: string) {
         console.error('Profile not found for userId:', userId)
         throw new Error('Profile not found')
       }
-      
-      return data as Profile
+
+      return data as unknown as Profile
     },
     enabled: !!userId,
     retry: 1,

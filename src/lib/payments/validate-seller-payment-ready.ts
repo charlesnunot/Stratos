@@ -45,6 +45,7 @@ export interface ValidateParams {
 export async function validateSellerPaymentReady({
   sellerId,
   supabaseAdmin,
+  paymentMethod,
 }: ValidateParams): Promise<ValidationResult> {
   try {
     // Check 1: Seller exists
@@ -84,7 +85,7 @@ export async function validateSellerPaymentReady({
       return {
         canAcceptPayment: false,
         reason: 'Seller subscription is invalid or expired',
-        eligibility: profile.seller_payout_eligibility as 'eligible' | 'blocked' | 'pending_review' | null,
+        eligibility: profile.seller_payout_eligibility ?? undefined,
       }
     }
 
@@ -93,7 +94,7 @@ export async function validateSellerPaymentReady({
       return {
         canAcceptPayment: false,
         reason: 'Payment account not bound',
-        eligibility: profile.seller_payout_eligibility as 'eligible' | 'blocked' | 'pending_review' | null,
+        eligibility: profile.seller_payout_eligibility ?? undefined,
       }
     }
 
@@ -105,7 +106,7 @@ export async function validateSellerPaymentReady({
         reason: `SELLER_PAYMENT_METHOD_MISMATCH: Seller uses ${profile.payment_provider}, but ${paymentMethod} was requested`,
         paymentProvider: profile.payment_provider,
         accountId: profile.payment_account_id,
-        eligibility: profile.seller_payout_eligibility as 'eligible' | 'blocked' | 'pending_review' | null,
+        eligibility: profile.seller_payout_eligibility ?? undefined,
       }
     }
 

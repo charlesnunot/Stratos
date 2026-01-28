@@ -165,7 +165,16 @@ export async function createAlipayOrder(params: CreateAlipayOrderParams) {
     ...(metadata && { passback_params: JSON.stringify(metadata) }),
   }
 
-  const requestParams = {
+  const requestParams: {
+    app_id: string
+    method: string
+    charset: string
+    sign_type: string
+    timestamp: string
+    version: string
+    biz_content: string
+    sign?: string
+  } = {
     app_id: config.appId,
     method: 'alipay.trade.app.pay',
     charset: 'utf-8',
@@ -182,7 +191,7 @@ export async function createAlipayOrder(params: CreateAlipayOrderParams) {
     .join('&')
 
   const signature = sign(sortedParams, config.privateKey)
-  requestParams['sign'] = signature
+  requestParams.sign = signature
 
   // In production, this would return a payment URL or order string
   // For now, return the order information

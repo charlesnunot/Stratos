@@ -15,6 +15,10 @@ export interface Post {
   favorite_count?: number
   tip_amount: number
   created_at: string
+  status?: string
+  affiliatePost?: {
+    product?: { images?: string[] } & Record<string, unknown>
+  }
   user?: {
     username: string
     display_name: string
@@ -130,7 +134,13 @@ async function fetchUserPosts(userId: string, page: number = 0, status: string |
   return posts
 }
 
-export function usePosts(status: string = 'approved', options?: { enabled?: boolean }) {
+export function usePosts(
+  status: string = 'approved',
+  options?: {
+    enabled?: boolean
+    initialData?: { pages: Post[][]; pageParams: number[] }
+  }
+) {
   return useInfiniteQuery({
     queryKey: ['posts', status],
     queryFn: ({ pageParam = 0 }) => fetchPosts(pageParam, status),
@@ -140,6 +150,7 @@ export function usePosts(status: string = 'approved', options?: { enabled?: bool
     },
     initialPageParam: 0,
     enabled: options?.enabled !== false, // 默认启用
+    initialData: options?.initialData,
     staleTime: 30_000, // 增加到30秒，减少不必要的重新获取
     refetchOnWindowFocus: false,
     refetchOnMount: false, // 如果数据仍然新鲜，不重新获取

@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       related_id: orderId,
       metadata: {
         prepayId: wechatOrder.prepayId,
-        outTradeNo: order.order_number || order.id,
+        outTradeNo: order.order_number || orderId,
       },
     })
 

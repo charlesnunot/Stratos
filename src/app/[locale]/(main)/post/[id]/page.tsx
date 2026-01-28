@@ -340,27 +340,35 @@ export default function PostPage() {
             </div>
 
             {/* Affiliate Product */}
-            {post.affiliatePost?.product && (
-              <div className="pt-4 border-t min-w-0">
-                <div className="flex items-center gap-2 mb-3">
-                  <ShoppingBag className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-semibold">{t('promotedProduct')}</h3>
+            {post.affiliatePost?.product && (() => {
+              const p = post.affiliatePost.product as Record<string, unknown>
+              return (
+                <div className="pt-4 border-t min-w-0">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ShoppingBag className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">{t('promotedProduct')}</h3>
+                  </div>
+                  <ProductCard
+                    product={{
+                      id: String(p.id ?? ''),
+                      name: String(p.name ?? ''),
+                      description: p.description != null ? String(p.description) : null,
+                      price: Number(p.price ?? 0),
+                      images: Array.isArray(p.images) ? (p.images as string[]) : [],
+                      seller_id: String(p.seller_id ?? ''),
+                      stock: 0,
+                      status: 'active',
+                      like_count: 0,
+                      want_count: 0,
+                      share_count: 0,
+                      repost_count: 0,
+                      favorite_count: 0,
+                      ...(p.seller ? { seller: p.seller as { username: string; display_name: string; avatar_url: string | null } } : {}),
+                    }}
+                  />
                 </div>
-                <ProductCard 
-                  product={{
-                    ...post.affiliatePost.product,
-                    images: post.affiliatePost.product.images || [],
-                    stock: 0,
-                    status: 'active',
-                    like_count: 0,
-                    want_count: 0,
-                    share_count: 0,
-                    repost_count: 0,
-                    favorite_count: 0,
-                  }} 
-                />
-              </div>
-            )}
+              )
+            })()}
 
             {/* Comments Section */}
             <div className="pt-4 border-t min-w-0 overflow-visible">

@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -40,13 +42,20 @@ export async function GET(request: NextRequest) {
     const reminders3d = row?.reminders_3d_sent ?? 0
     const reminders1d = row?.reminders_1d_sent ?? 0
 
-    await supabaseAdmin.from('cron_logs').insert({
-      job_name: 'subscription_expiry_reminders',
-      status: 'success',
-      execution_time_ms: duration,
-      executed_at: new Date().toISOString(),
-      metadata: { reminders_3d: reminders3d, reminders_1d: reminders1d },
-    }).catch(() => {})
+    try {
+      const { error: logError } = await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'subscription_expiry_reminders',
+        status: 'success',
+        execution_time_ms: duration,
+        executed_at: new Date().toISOString(),
+        metadata: { reminders_3d: reminders3d, reminders_1d: reminders1d },
+      })
+      if (logError) {
+        console.warn('[Cron] Failed to log execution:', logError)
+      }
+    } catch {
+      // Ignore - cron_logs table might not exist
+    }
 
     return NextResponse.json({
       success: true,

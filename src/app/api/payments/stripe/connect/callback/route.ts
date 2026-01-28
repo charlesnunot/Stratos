@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getConnectAccountStatus } from '@/lib/payments/stripe-connect'
 import { updateSellerPayoutEligibility } from '@/lib/payments/update-seller-payout-eligibility'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()

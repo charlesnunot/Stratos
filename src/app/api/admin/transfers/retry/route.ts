@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
       const result = await retryFailedTransfers(supabaseAdmin, limit)
 
       return NextResponse.json({
-        success: true,
         ...result,
+        success: true,
       })
     } else if (transferId) {
       // Retry specific transfer

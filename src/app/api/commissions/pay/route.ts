@@ -161,7 +161,8 @@ export async function POST(request: NextRequest) {
       
       for (const commission of commissions) {
         const affiliateId = commission.affiliate_id
-        const currency = commission.currency || commission.orders?.currency || 'USD'
+        const orders = Array.isArray(commission.orders) ? commission.orders : [commission.orders]
+        const currency = commission.currency || orders[0]?.currency || 'USD'
         const existing = commissionsByAffiliate.get(affiliateId)
         
         if (existing) {

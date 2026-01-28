@@ -186,7 +186,7 @@ export default function DepositPayPage() {
           const input = document.createElement('input')
           input.type = 'hidden'
           input.name = k
-          input.value = v
+          input.value = typeof v === 'string' ? v : String(v ?? '')
           form.appendChild(input)
         })
         document.body.appendChild(form)

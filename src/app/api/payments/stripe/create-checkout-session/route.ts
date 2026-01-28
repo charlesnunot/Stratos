@@ -5,6 +5,9 @@ import { createPaymentError, logPaymentError } from '@/lib/payments/error-handle
 import { logPaymentCreation } from '@/lib/payments/logger'
 
 export async function POST(request: NextRequest) {
+  let requestUserId: string | undefined
+  let requestAmount: number | undefined
+  let requestCurrency: string | undefined
   try {
     // Payment library will check platform account first, then fallback to env vars
     // No need to check env vars here as library handles it
@@ -19,9 +22,12 @@ export async function POST(request: NextRequest) {
       console.error('Authentication error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    requestUserId = user.id
 
     const { amount, subscriptionType, subscriptionTier, userId, successUrl, cancelUrl, currency = 'usd' } =
       await request.json()
+    requestAmount = parseFloat(amount)
+    requestCurrency = currency
 
     // Validate required fields
     if (!amount || !subscriptionType || !successUrl || !cancelUrl) {
@@ -111,9 +117,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url })
   } catch (error: any) {
     const paymentError = createPaymentError(error, {
-      userId: user?.id,
-      amount: parseFloat(amount) || undefined,
-      currency: currency?.toUpperCase(),
+      userId: requestUserId,
+      amount: requestAmount ?? undefined,
+      currency: requestCurrency?.toUpperCase(),
       paymentMethod: 'stripe',
     })
     logPaymentError(paymentError)

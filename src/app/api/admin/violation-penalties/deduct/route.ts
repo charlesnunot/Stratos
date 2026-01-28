@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     if (!authResult.success) {
       return authResult.response
     }
+    const { user } = authResult.data
 
     const body = await request.json()
     const {
@@ -96,13 +97,13 @@ export async function POST(request: NextRequest) {
       console.warn('Violation record table may not exist, continuing without it:', error.message)
     }
 
-    // Deduct from deposit
+    // Deduct from deposit (use fallback relatedId when violation record wasn't created)
     const deductionResult = await deductFromDeposit({
       sellerId,
       amount: numericAmount,
       currency: currency || 'CNY',
       reason: `违规扣款: ${violationReason}`,
-      relatedId: violation?.id || null,
+      relatedId: violationId ?? `violation-deduct-${sellerId}-${Date.now()}`,
       relatedType: 'violation',
       supabaseAdmin,
     })

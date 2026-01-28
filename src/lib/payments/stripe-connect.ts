@@ -73,7 +73,7 @@ async function getStripeClient(currency: string = 'USD'): Promise<Stripe> {
 
   try {
     const stripe = new Stripe(secretKey, {
-      apiVersion: '2024-11-20.acacia',
+      apiVersion: '2025-12-15.clover',
     })
     stripeInstances.set(currency, stripe)
     return stripe

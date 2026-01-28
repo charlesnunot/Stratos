@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminOrSupport } from '@/lib/auth/require-admin'
+import { requireAdmin, requireAdminOrSupport } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { processRefund } from '@/lib/payments/process-refund'
 

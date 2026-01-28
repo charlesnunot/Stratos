@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     // Verify cron secret (if using Vercel Cron)
@@ -135,24 +137,27 @@ export async function GET(request: NextRequest) {
     console.log('[Cron] Subscription downgrade check completed in', duration, 'ms')
     console.log('[Cron] Checked:', checkedCount, 'Notified:', notifiedCount)
 
-    // Log execution result
-    await supabaseAdmin
-      .from('cron_logs')
-      .insert({
-        job_name: 'check_subscription_downgrade',
-        status: 'success',
-        execution_time_ms: duration,
-        executed_at: new Date().toISOString(),
-        metadata: {
-          checked_count: checkedCount,
-          notified_count: notifiedCount,
-          errors: errors.length > 0 ? errors : undefined,
-        },
-      })
-      .catch((logError) => {
-        // Ignore log errors - cron_logs table might not exist
+    // Log execution result (ignore errors - cron_logs table might not exist)
+    try {
+      const { error: logError } = await supabaseAdmin
+        .from('cron_logs')
+        .insert({
+          job_name: 'check_subscription_downgrade',
+          status: 'success',
+          execution_time_ms: duration,
+          executed_at: new Date().toISOString(),
+          metadata: {
+            checked_count: checkedCount,
+            notified_count: notifiedCount,
+            errors: errors.length > 0 ? errors : undefined,
+          },
+        })
+      if (logError) {
         console.warn('[Cron] Failed to log execution:', logError)
-      })
+      }
+    } catch (logError) {
+      console.warn('[Cron] Failed to log execution:', logError)
+    }
 
     return NextResponse.json({
       success: true,

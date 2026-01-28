@@ -437,7 +437,9 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
               newCommentImageUpload={newCommentImageUpload}
               replyImageUpload={replyImageUpload}
               replyFileInputRef={replyFileInputRef}
+              replyInputRef={replyInputRef}
               onEditEmoji={handleEditEmoji}
+              onReplyEmoji={handleReplyEmoji}
             />
           ))}
         </div>
@@ -481,7 +483,9 @@ interface CommentItemProps {
   newCommentImageUpload?: ReturnType<typeof useImageUpload>
   replyImageUpload?: ReturnType<typeof useImageUpload>
   replyFileInputRef?: React.RefObject<HTMLInputElement>
+  replyInputRef?: React.RefObject<HTMLInputElement>
   onEditEmoji?: (commentId: string, emoji: string) => void
+  onReplyEmoji?: (emoji: string) => void
 }
 
 function CommentItem({
@@ -506,7 +510,9 @@ function CommentItem({
   depth = 0,
   replyImageUpload,
   replyFileInputRef,
+  replyInputRef,
   onEditEmoji,
+  onReplyEmoji,
 }: CommentItemProps) {
   const isEditing = editingCommentId === comment.id
   const isReplying = replyingToId === comment.id
@@ -612,7 +618,7 @@ function CommentItem({
                   placeholder={t('replyPlaceholder') || 'Write a reply...'}
                   className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm min-w-0"
                 />
-                <EmojiPicker onEmojiSelect={handleReplyEmoji} />
+                <EmojiPicker onEmojiSelect={(emoji) => onReplyEmoji?.(emoji)} />
                 <Button
                   type="button"
                   variant="ghost"
@@ -672,7 +678,9 @@ function CommentItem({
                   depth={1}
                   replyImageUpload={replyImageUpload}
                   replyFileInputRef={replyFileInputRef}
+                  replyInputRef={replyInputRef}
                   onEditEmoji={onEditEmoji}
+                  onReplyEmoji={onReplyEmoji}
                 />
               ))}
 

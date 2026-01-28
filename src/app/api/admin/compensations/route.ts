@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { detectCompensationNeeded, processCompensation } from '@/lib/payments/compensation'
 
 export async function GET(request: NextRequest) {

@@ -55,11 +55,15 @@ export async function POST(request: NextRequest) {
 
     // Check result code
     if (params.result_code !== 'SUCCESS') {
-      console.error('WeChat Pay result code not SUCCESS:', params.errCodeDes || params.errCode)
-      return NextResponse.json({ error: params.errCodeDes || 'Payment failed' }, { status: 400 })
+      console.error('WeChat Pay result code not SUCCESS:', params.err_code_des || params.err_code)
+      return NextResponse.json({ error: params.err_code_des || 'Payment failed' }, { status: 400 })
     }
 
     const { out_trade_no, transaction_id, total_fee } = params
+    if (!out_trade_no) {
+      console.error('WeChat Pay notify missing out_trade_no')
+      return NextResponse.json({ error: 'Missing out_trade_no' }, { status: 400 })
+    }
     const successXml =
       '<xml><return_code><![CDATA[SUCCESS]]></return_code><return_msg><![CDATA[OK]]></return_msg></xml>'
 
@@ -69,6 +73,10 @@ export async function POST(request: NextRequest) {
       const subscriptionId = parts[1]
       if (!subscriptionId) {
         return new NextResponse(successXml, { headers: { 'Content-Type': 'application/xml' } })
+      }
+      if (!transaction_id) {
+        console.error('WeChat Pay notify subscription missing transaction_id')
+        return NextResponse.json({ error: 'Missing transaction_id' }, { status: 400 })
       }
       const paidAmount = parseFloat(total_fee || '0') / 100
       const { activatePendingSubscription } = await import('@/lib/payments/process-subscription-payment')

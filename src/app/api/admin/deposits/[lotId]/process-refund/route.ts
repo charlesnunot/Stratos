@@ -8,6 +8,8 @@ import { requireAdmin } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { processDepositRefund } from '@/lib/deposits/process-deposit-refund'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { lotId: string } }

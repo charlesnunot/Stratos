@@ -80,22 +80,6 @@ export function useSuggestedUsers(profileUserId: string, limit: number = 6) {
         }
       }
 
-      if (!mutualError && mutualFriends) {
-        mutualFriends.forEach((item: any) => {
-          if (item.followee && item.followee.id !== user.id && item.followee.id !== profileUserId) {
-            suggestions.push({
-              id: item.followee.id,
-              username: item.followee.username,
-              display_name: item.followee.display_name,
-              avatar_url: item.followee.avatar_url,
-              follower_count: item.followee.follower_count || 0,
-              following_count: item.followee.following_count || 0,
-              isMutualFriend: true,
-            })
-          }
-        })
-      }
-
       // 2. 查找可能认识的人 - 页面主人的关注者，但当前用户还没有关注
       // 如果共同朋友数量不足，补充可能认识的人
       const remainingSlots = limit - suggestions.length

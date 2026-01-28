@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     // Get order from database
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('payment_status, seller_id, total_amount, currency, shipping_address, buyer_id')
+      .select('payment_status, seller_id, total_amount, currency, shipping_address, buyer_id, order_number')
       .eq('id', orderId)
       .single()
 

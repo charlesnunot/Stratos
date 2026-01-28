@@ -86,32 +86,22 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Unified admin check
+    const authResult = await requireAdmin(request)
+    if (!authResult.success) {
+      return authResult.response
     }
 
-    // Check if user is admin
-    // Get admin client
     const supabaseAdmin = await getSupabaseAdmin()
 
-    // Use admin client
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const body = await request.json().catch(() => ({}))
+    const { action, sellerId, amount, reason, debtId } = body as {
+      action?: string
+      sellerId?: string
+      amount?: number | string
+      reason?: string
+      debtId?: string
+    }
 
     switch (action) {
       case 'collect_from_deposit':
@@ -160,7 +150,7 @@ export async function POST(request: NextRequest) {
 
         const deductResult = await deductFromDeposit({
           sellerId,
-          amount: parseFloat(amount),
+          amount: parseFloat(String(amount)),
           currency: debt.currency as any,
           reason,
           relatedId: debtId,

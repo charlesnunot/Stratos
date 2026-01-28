@@ -87,7 +87,7 @@ export function logPaymentCreation(
  * Log payment success
  */
 export function logPaymentSuccess(
-  type: 'order' | 'subscription' | 'tip',
+  type: 'order' | 'subscription' | 'tip' | 'user_tip',
   context: PaymentLogContext
 ): void {
   logPayment(LogLevel.INFO, `Payment ${type} succeeded`, {

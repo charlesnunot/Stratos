@@ -26,7 +26,7 @@
     },
     {
       "path": "/api/cron/auto-escalate-disputes",
-      "schedule": "0 * * * *"
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/cron/deduct-overdue-commissions",
@@ -38,11 +38,11 @@
     },
     {
       "path": "/api/cron/send-order-expiry-reminders",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/cancel-expired-orders",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }

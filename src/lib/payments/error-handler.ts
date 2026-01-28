@@ -178,7 +178,12 @@ export function createPaymentError(
     userId?: string
     orderId?: string
     amount?: number
+    currency?: string
     paymentMethod?: string
+    subscriptionType?: string
+    postId?: string
+    recipientId?: string
+    sellerId?: string
   }
 ): PaymentError {
   const errorType = classifyError(error)

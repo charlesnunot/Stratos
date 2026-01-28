@@ -52,7 +52,7 @@ export function ChatList() {
         `)
         .eq('user_id', user.id)
 
-      const groups = groupConvs?.data?.map((item: any) => item.group).filter(Boolean) || []
+      const groups = groupConvs?.map((item: any) => item.group).filter(Boolean) || []
       
       // Combine and sort
       const allConvs = [...(privateConvs || []), ...groups].sort((a, b) => {
@@ -68,7 +68,11 @@ export function ChatList() {
   })
 
   // Get unread counts and last messages for each conversation
-  const { data: conversationDetails = {} } = useQuery({
+  type LastMessageRecord = { created_at?: string; content?: string }
+  const { data: conversationDetails } = useQuery<{
+    unreadCounts: Record<string, number>
+    lastMessages: Record<string, LastMessageRecord | null>
+  }>({
     queryKey: ['conversationDetails', user?.id, conversations.length],
     queryFn: async () => {
       if (!user || conversations.length === 0) return { unreadCounts: {}, lastMessages: {} }
@@ -109,8 +113,8 @@ export function ChatList() {
     enabled: !!user && conversations.length > 0,
   })
 
-  const unreadCounts = conversationDetails?.unreadCounts || {}
-  const lastMessages = conversationDetails?.lastMessages || {}
+  const unreadCounts = conversationDetails?.unreadCounts ?? {}
+  const lastMessages = conversationDetails?.lastMessages ?? {}
 
   const getOtherParticipant = (conversation: any) => {
     if (conversation.participant1_id === user?.id) {
@@ -215,14 +219,14 @@ export function ChatList() {
                           ? conversation.name || '未命名群组'
                           : other?.display_name || other?.username || t('unknownUser')}
                       </p>
-                      {lastMessage && (
+                      {lastMessage ? (
                         <p className="text-xs text-muted-foreground flex-shrink-0 ml-2">
-                          {new Date(lastMessage.created_at).toLocaleDateString('zh-CN', {
+                          {new Date(lastMessage.created_at ?? 0).toLocaleDateString('zh-CN', {
                             month: 'short',
                             day: 'numeric',
                           })}
                         </p>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-sm text-muted-foreground truncate">
                       {formatLastMessage(lastMessage)}

@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     // Verify cron secret (if using Vercel Cron)
@@ -46,20 +48,24 @@ export async function GET(request: NextRequest) {
     console.log('[Cron] Deposit lots status update completed in', duration, 'ms')
     console.log('[Cron] Updated lots:', result.updated_count)
 
-    // Log execution result
-    await supabaseAdmin.from('cron_logs').insert({
-      job_name: 'update_deposit_lots_status',
-      status: 'success',
-      execution_time_ms: duration,
-      executed_at: new Date().toISOString(),
-      metadata: {
-        updated_count: result.updated_count,
-        updated_lot_ids: result.updated_lot_ids,
-      },
-    }).catch((logError) => {
-      // Ignore log errors - cron_logs table might not exist
+    // Log execution result (ignore errors - cron_logs table might not exist)
+    try {
+      const { error: logError } = await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'update_deposit_lots_status',
+        status: 'success',
+        execution_time_ms: duration,
+        executed_at: new Date().toISOString(),
+        metadata: {
+          updated_count: result.updated_count,
+          updated_lot_ids: result.updated_lot_ids,
+        },
+      })
+      if (logError) {
+        console.warn('[Cron] Failed to log execution:', logError)
+      }
+    } catch (logError) {
       console.warn('[Cron] Failed to log execution:', logError)
-    })
+    }
 
     return NextResponse.json({
       success: true,

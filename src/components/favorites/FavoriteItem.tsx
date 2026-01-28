@@ -205,89 +205,108 @@ export function FavoriteItem({ favorite, selected = false, onSelect }: FavoriteI
           )}
           {/* Content Preview */}
           <Link href={getItemLink()} className="flex-1">
-            {content.type === 'post' && (
-              <div className="flex gap-4">
-                {content.data.image_urls?.[0] && (
-                  <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded">
-                    <Image
-                      src={content.data.image_urls[0]}
-                      alt=""
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="mb-1 flex items-center gap-2">
-                    {getItemIcon()}
-                    <Badge variant="secondary">{t('filterPosts')}</Badge>
-                  </div>
-                  <p className="line-clamp-2 text-sm">
-                    {content.data.content || '无内容'}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {content.data.user?.display_name || content.data.user?.username}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {content.type === 'product' && (
-              <div className="flex gap-4">
-                {content.data.images?.[0] && (
-                  <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded">
-                    <Image
-                      src={content.data.images[0]}
-                      alt={content.data.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="mb-1 flex items-center gap-2">
-                    {getItemIcon()}
-                    <Badge variant="secondary">{t('filterProducts')}</Badge>
-                  </div>
-                  <p className="font-medium">{content.data.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    ¥{content.data.price?.toFixed(2)}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {content.data.seller?.display_name || content.data.seller?.username}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {content.type === 'user' && (
-              <div className="flex gap-4">
-                {content.data.avatar_url && (
-                  <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full">
-                    <Image
-                      src={content.data.avatar_url}
-                      alt={content.data.display_name || content.data.username}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="mb-1 flex items-center gap-2">
-                    {getItemIcon()}
-                    <Badge variant="secondary">{t('filterUsers')}</Badge>
-                  </div>
-                  <p className="font-medium">
-                    {content.data.display_name || content.data.username}
-                  </p>
-                  {content.data.bio && (
-                    <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
-                      {content.data.bio}
-                    </p>
+            {content.type === 'post' && (() => {
+              const postData = content.data as { content?: string; image_urls?: string[]; user?: { display_name?: string; username?: string } }
+              return (
+                <div className="flex gap-4">
+                  {postData.image_urls?.[0] && (
+                    <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded">
+                      <Image
+                        src={postData.image_urls[0]}
+                        alt=""
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
                   )}
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-1 flex items-center gap-2">
+                      {getItemIcon()}
+                      <Badge variant="secondary">{t('filterPosts')}</Badge>
+                    </div>
+                    <p className="line-clamp-2 text-sm">
+                      {postData.content || '无内容'}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {postData.user?.display_name || postData.user?.username}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
+
+            {content.type === 'product' && (() => {
+              const productData = content.data as {
+                images?: string[]
+                name?: string
+                price?: number
+                seller?: { display_name?: string; username?: string }
+              }
+              return (
+                <div className="flex gap-4">
+                  {productData.images?.[0] && (
+                    <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded">
+                      <Image
+                        src={productData.images[0]}
+                        alt={productData.name ?? ''}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-1 flex items-center gap-2">
+                      {getItemIcon()}
+                      <Badge variant="secondary">{t('filterProducts')}</Badge>
+                    </div>
+                    <p className="font-medium">{productData.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      ¥{productData.price?.toFixed(2)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {productData.seller?.display_name || productData.seller?.username}
+                    </p>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {content.type === 'user' && (() => {
+              const userData = content.data as {
+                avatar_url?: string
+                display_name?: string
+                username?: string
+                bio?: string
+              }
+              return (
+                <div className="flex gap-4">
+                  {userData.avatar_url && (
+                    <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full">
+                      <Image
+                        src={userData.avatar_url}
+                        alt={(userData.display_name || userData.username) ?? ''}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-1 flex items-center gap-2">
+                      {getItemIcon()}
+                      <Badge variant="secondary">{t('filterUsers')}</Badge>
+                    </div>
+                    <p className="font-medium">
+                      {userData.display_name || userData.username}
+                    </p>
+                    {userData.bio && (
+                      <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+                        {userData.bio}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
           </Link>
 
           {/* Actions */}

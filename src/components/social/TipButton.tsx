@@ -215,7 +215,9 @@ export function TipButton({
               <label className="mb-2 block text-sm font-medium">{t('paymentMethod')}</label>
               <PaymentMethodSelector
                 selectedMethod={paymentMethod}
-                onSelect={setPaymentMethod}
+                onSelect={(method) => {
+                  if (method === 'stripe' || method === 'paypal') setPaymentMethod(method)
+                }}
                 availableMethods={['stripe', 'paypal']}
               />
             </div>
