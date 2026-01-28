@@ -24,8 +24,14 @@ export default function EditProfilePage() {
   const queryClient = useQueryClient()
   const t = useTranslations('profile')
   const tCommon = useTranslations('common')
-
-  const { data: profile, isLoading: profileLoading, error: profileError } = useProfile(userId)
+  
+  const {
+    data: profileResult,
+    isLoading: profileLoading,
+    error: profileError,
+  } = useProfile(userId)
+  const profile = profileResult?.profile
+  const profileErrorKind = profileResult?.errorKind
 
   const [formData, setFormData] = useState({
     display_name: '',
@@ -95,15 +101,15 @@ export default function EditProfilePage() {
   }
 
   if (!user || !profile || user.id !== profile.id) {
+    // 没有可编辑的资料时直接不渲染（例如权限受限）
+    if (profileError && !profileErrorKind) {
+      return (
+        <div className="py-12 text-center">
+          <p className="text-destructive">{t('loadFailed')}</p>
+        </div>
+      )
+    }
     return null
-  }
-
-  if (profileError) {
-    return (
-      <div className="py-12 text-center">
-        <p className="text-destructive">{t('loadFailed')}</p>
-      </div>
-    )
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

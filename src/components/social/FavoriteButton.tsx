@@ -12,9 +12,10 @@ import { showInfo } from '@/lib/utils/toast'
 interface FavoriteButtonProps {
   postId: string
   initialFavorites?: number
+  enabled?: boolean
 }
 
-export function FavoriteButton({ postId, initialFavorites = 0 }: FavoriteButtonProps) {
+export function FavoriteButton({ postId, initialFavorites = 0, enabled = true }: FavoriteButtonProps) {
   const { user } = useAuth()
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -59,6 +60,9 @@ export function FavoriteButton({ postId, initialFavorites = 0 }: FavoriteButtonP
   const toggleFavorite = useToggleFavorite()
 
   const handleFavorite = () => {
+    if (!enabled) {
+      return
+    }
     if (!user) {
       showInfo('请先登录后再收藏')
       return
@@ -154,7 +158,7 @@ export function FavoriteButton({ postId, initialFavorites = 0 }: FavoriteButtonP
       size="sm"
       className="gap-1 sm:gap-2 shrink-0"
       onClick={handleFavorite}
-      disabled={toggleFavorite.isPending}
+      disabled={!enabled || toggleFavorite.isPending}
     >
       <Star
         className={`h-4 w-4 shrink-0 ${isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`}

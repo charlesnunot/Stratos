@@ -74,7 +74,8 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   const tMenu = useTranslations('menu')
   
   // 获取用户资料
-  const { data: profile } = useProfile(user?.id || '')
+  const { data: profileResult } = useProfile(user?.id || '')
+  const profile = profileResult?.profile
 
   // 卖家身份以 subscriptions 为准（与首页、useSellerGuard 一致），不依赖 profile.subscription_type
   const { data: sellerSubscription } = useQuery({

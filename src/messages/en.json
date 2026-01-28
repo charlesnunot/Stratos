@@ -396,7 +396,9 @@
     "noPermissionToViewDescription": "You do not have permission to view this post",
     "networkError": "Network error",
     "networkErrorDescription": "Please check your network connection and try again",
-    "viewImage": "View image {index}"
+    "viewImage": "View image {index}",
+    "accountSuspended": "Your account is suspended. You cannot comment for now.",
+    "uploadImagesMax5": "Upload images (max 5)"
   },
   "orders": {
     "orders": "Orders",

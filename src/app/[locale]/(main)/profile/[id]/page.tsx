@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { useProfile } from '@/lib/hooks/useProfile'
-import { usePosts, useUserPosts } from '@/lib/hooks/usePosts'
+import { useUserPosts } from '@/lib/hooks/usePosts'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useUserPage } from '@/lib/hooks/useUserPage'
 import { FollowButton } from '@/components/social/FollowButton'
 import { PostCard } from '@/components/social/PostCard'
-import { ReportDialog } from '@/components/social/ReportDialog'
 import { ChatButton } from '@/components/social/ChatButton'
 import { UserTipButton } from '@/components/social/UserTipButton'
 import { ProfileMoreMenu } from '@/components/social/ProfileMoreMenu'
@@ -14,18 +13,16 @@ import { ProductCard } from '@/components/ecommerce/ProductCard'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MasonryGrid } from '@/components/layout/MasonryGrid'
-import { Loader2, Plus, Pencil, Flag, Star, Tag, TrendingUp, Coins, Shield, ShoppingCart, Package, BookOpen, Heart, EyeOff, Users, History } from 'lucide-react'
+import { Loader2, Plus, Pencil, Star, Tag, TrendingUp, Gift, Shield, ShoppingCart, Package, BookOpen, EyeOff, Users, History } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
 import { useTranslations, useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
-import { showInfo } from '@/lib/utils/toast'
 import { useFavorites } from '@/lib/hooks/useFavorites'
 import { FavoriteItem } from '@/components/favorites/FavoriteItem'
 import { useCartStore } from '@/store/cartStore'
 import { useUserProducts } from '@/lib/hooks/useProducts'
-import { useIsRestricted } from '@/lib/hooks/useRestrictView'
 import { SuggestedUsers } from '@/components/social/SuggestedUsers'
 
 export default function ProfilePage() {
@@ -33,26 +30,21 @@ export default function ProfilePage() {
   const router = useRouter()
   const userId = params.id as string
   const { user } = useAuth()
-  const isOwnProfile = user?.id === userId
-  
-  // ✅ 修复 P0-1: 如果是自己的页面，使用 user.id 确保数据安全
-  // 如果是他人页面，使用 userId（URL 参数）
-  const effectiveUserId = isOwnProfile && user ? user.id : userId
-  
-  // ✅ 修复 P0-1: 如果访问自己的页面但 URL 参数不一致，重定向到正确的 URL
-  // 注意：isOwnProfile = user?.id === userId，所以如果 isOwnProfile 为 true，userId 一定等于 user.id
-  // 这个 useEffect 主要用于处理 URL 参数无效的情况
+
+  // 如果访问自己的页面但 URL 参数无效，重定向到自己的页面
   useEffect(() => {
-    // 如果用户已登录，且 URL 参数无效（空字符串或 undefined），重定向到自己的页面
     if (user && (!userId || userId.trim() === '')) {
       router.replace(`/profile/${user.id}`)
     }
   }, [user, userId, router])
-  
-  const { data: profile, isLoading: profileLoading, error: profileError } = useProfile(effectiveUserId)
-  // ✅ 修复 P2: 使用优化的 useUserPosts 直接查询指定用户的帖子，避免性能问题
-  // ✅ 修复 P0-2: 如果是自己的页面，查询所有状态的帖子（包括草稿）；如果是他人页面，只查询已审核的
-  const { data: postsData, isLoading: postsLoading } = useUserPosts(effectiveUserId, isOwnProfile ? undefined : 'approved')
+
+  // 页面级 orchestrator：身份 / 关系 / 能力 统一由 useUserPage 提供
+  const userPage = useUserPage(userId)
+  const profile = userPage.targetUser
+  const profileErrorKind = userPage.profileErrorKind
+  const isOwnProfile = userPage.relationship === 'self'
+
+  const { data: postsData, isLoading: postsLoading } = useUserPosts(userId, isOwnProfile ? undefined : 'approved')
   const supabase = createClient()
   const t = useTranslations('profile')
   const tPosts = useTranslations('posts')
@@ -76,24 +68,20 @@ export default function ProfilePage() {
     ? userPosts.filter((post: any) => post.status === 'draft' || post.status === 'pending')
     : []
 
-  // ✅ 修复 P0-1: 使用 effectiveUserId 确保数据安全
-  // ✅ 新增：获取用户商品
-  const { data: productsData, isLoading: productsLoading } = useUserProducts(effectiveUserId)
+  const { data: productsData, isLoading: productsLoading } = useUserProducts(userId)
   const userProducts = productsData?.pages.flatMap((page) => page) || []
 
-  // ✅ 修复 P0-1: 使用 effectiveUserId 确保数据安全
-  // ✅ 新增：获取商品数量
   const { data: productsCount = 0 } = useQuery({
-    queryKey: ['userProductsCount', effectiveUserId],
+    queryKey: ['userProductsCount', userId],
     queryFn: async () => {
       const { count } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true })
-        .eq('seller_id', effectiveUserId)
+        .eq('seller_id', userId)
         .eq('status', 'active')
       return count || 0
     },
-    enabled: !!effectiveUserId,
+    enabled: !!userId,
   })
 
   // ✅ 新增：处理连载帖子 - 按 series_id 分组（只处理已审核的帖子）
@@ -122,51 +110,45 @@ export default function ProfilePage() {
 
   const seriesCount = seriesPosts.seriesMap.size
 
-  // ✅ 修复 P0-1: 使用 effectiveUserId 确保数据安全
-  // Get posts count for tab display
   const { data: postsCount = 0 } = useQuery({
-    queryKey: ['userPostsCount', effectiveUserId],
+    queryKey: ['userPostsCount', userId],
     queryFn: async () => {
       const { count } = await supabase
         .from('posts')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', effectiveUserId)
+        .eq('user_id', userId)
         .eq('status', 'approved')
       return count || 0
     },
-    enabled: !!effectiveUserId,
+    enabled: !!userId,
   })
 
-  // ✅ 修复 P0-1: 使用 effectiveUserId 确保数据安全
-  // ✅ 新增：获取草稿数量（只对自己的页面）
   const { data: draftCount = 0 } = useQuery({
-    queryKey: ['userDraftCount', effectiveUserId],
+    queryKey: ['userDraftCount', userId],
     queryFn: async () => {
       const { count } = await supabase
         .from('posts')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', effectiveUserId)
+        .eq('user_id', userId)
         .in('status', ['draft', 'pending'])
       return count || 0
     },
-    enabled: !!effectiveUserId && isOwnProfile,
+    enabled: !!userId && isOwnProfile,
   })
 
-  // ✅ 修复 P0-1: 使用 effectiveUserId 确保数据安全
-  // ✅ 新增：获取用户总获赞数（所有帖子的 like_count 总和）
   const { data: totalLikes = 0 } = useQuery({
-    queryKey: ['userTotalLikes', effectiveUserId],
+    queryKey: ['userTotalLikes', userId],
     queryFn: async () => {
       const { data: posts } = await supabase
         .from('posts')
         .select('like_count')
-        .eq('user_id', effectiveUserId)
+        .eq('user_id', userId)
         .eq('status', 'approved')
       
       if (!posts) return 0
       return posts.reduce((sum, post) => sum + (post.like_count || 0), 0)
     },
-    enabled: !!effectiveUserId,
+    enabled: !!userId,
   })
 
   // Get favorites count and data (only for own profile)
@@ -183,32 +165,10 @@ export default function ProfilePage() {
     return new Intl.NumberFormat(l).format(num)
   }
 
-  // isOwnProfile 已在上面定义
   const isAdmin = isOwnProfile && (profile?.role === 'admin' || profile?.role === 'support')
-  
-  // ✅ 修复 P0-1: 使用 effectiveUserId 确保数据安全
-  // ✅ 修复 P0: 检查是否被限制查看（只对他人页面检查）
-  const { data: isRestricted } = useIsRestricted(effectiveUserId)
 
-  // ✅ 修复 P0-1: 使用 effectiveUserId 确保数据安全
-  // ✅ 修复 P0: 检查是否被拉黑（只对他人页面检查）
-  const { data: isBlocked } = useQuery({
-    queryKey: ['isBlocked', user?.id, effectiveUserId],
-    queryFn: async () => {
-      if (!user || !effectiveUserId || user.id === effectiveUserId) return false
-      const { data } = await supabase
-        .from('blocked_users')
-        .select('id')
-        .eq('blocker_id', effectiveUserId)
-        .eq('blocked_id', user.id)
-        .limit(1)
-        .maybeSingle()
-      return !!data
-    },
-    enabled: !!user && !!effectiveUserId && user.id !== effectiveUserId,
-  })
-
-  if (profileLoading) {
+  // 页面级状态机：loading / unavailable / ready
+  if (userPage.status === 'loading') {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -216,78 +176,65 @@ export default function ProfilePage() {
     )
   }
 
-  if (profileError) {
-    console.error('Profile error:', profileError)
-    return (
-      <div className="py-12 text-center">
-        <p className="text-destructive">{t('loadFailed')}</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {profileError instanceof Error ? profileError.message : t('unknownError')}
-        </p>
-      </div>
-    )
-  }
-
-  if (!profile) {
+  if (userPage.status === 'unavailable') {
+    if (userPage.unavailableReason === 'suspended' && profile) {
+      return (
+        <div className="py-12 text-center">
+          <Card className="p-8 max-w-md mx-auto">
+            <EyeOff className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mb-2">
+              {profile.status === 'banned' ? t('userBanned') || '该用户已被封禁' : t('userSuspended') || '该用户已被暂停'}
+            </h2>
+            <p className="text-muted-foreground">
+              {profile.status === 'banned'
+                ? t('userBannedMessage') || '此用户已被永久封禁，无法查看其内容。'
+                : t('userSuspendedMessage') || '此用户已被暂时暂停，无法查看其内容。'}
+            </p>
+          </Card>
+        </div>
+      )
+    }
+    if (userPage.unavailableReason === 'permission') {
+      return (
+        <div className="py-12 text-center">
+          <Card className="p-8 max-w-md mx-auto">
+            <EyeOff className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mb-2">{t('blockedViewTitle') || '您已被限制访问'}</h2>
+            <p className="text-muted-foreground">
+              {t('blockedViewMessage') || '您无法查看该用户的主页内容。'}
+            </p>
+          </Card>
+        </div>
+      )
+    }
+    if (userPage.unavailableReason === 'network') {
+      return (
+        <div className="py-12 text-center">
+          <p className="text-destructive">{t('loadFailed')}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('unknownError')}</p>
+        </div>
+      )
+    }
     return (
       <div className="py-12 text-center">
         <p className="text-destructive">{t('userNotFound')}</p>
-        {/* ✅ 修复 P2: 移除 userId 显示，避免信息泄露 */}
       </div>
     )
   }
 
-  // ✅ 修复 P0: 检查目标用户状态（封禁/暂停）
-  if (profile?.status === 'banned' || profile?.status === 'suspended') {
-    return (
-      <div className="py-12 text-center">
-        <Card className="p-8 max-w-md mx-auto">
-          <EyeOff className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-xl font-semibold mb-2">
-            {profile.status === 'banned' ? t('userBanned') || '该用户已被封禁' : t('userSuspended') || '该用户已被暂停'}
-          </h2>
-          <p className="text-muted-foreground">
-            {profile.status === 'banned' 
-              ? t('userBannedMessage') || '此用户已被永久封禁，无法查看其内容。'
-              : t('userSuspendedMessage') || '此用户已被暂时暂停，无法查看其内容。'}
-          </p>
-        </Card>
-      </div>
-    )
-  }
-
-  // ✅ 修复 P0: 检查是否被拉黑
-  if (isBlocked && !isOwnProfile) {
-    return (
-      <div className="py-12 text-center">
-        <Card className="p-8 max-w-md mx-auto">
-          <EyeOff className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-xl font-semibold mb-2">{t('blockedViewTitle') || '您已被拉黑'}</h2>
-          <p className="text-muted-foreground">
-            {t('blockedViewMessage') || '您已被该用户拉黑，无法查看其主页内容。'}
-          </p>
-        </Card>
-      </div>
-    )
-  }
-
-  // ✅ 新增：如果被限制查看，显示提示
-  if (isRestricted && !isOwnProfile) {
-    return (
-      <div className="py-12 text-center">
-        <Card className="p-8 max-w-md mx-auto">
-          <EyeOff className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-xl font-semibold mb-2">{t('restrictedViewTitle')}</h2>
-          <p className="text-muted-foreground">
-            {t('restrictedViewMessage')}
-          </p>
-        </Card>
-      </div>
-    )
-  }
+  if (!profile) return null
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-2 sm:px-4 py-6">
+      {/* 数据降级提示：仅在 schema_mismatch / permission_limited 时显示，避免页面直接崩溃 */}
+      {(profileErrorKind === 'schema_mismatch' || profileErrorKind === 'permission_limited') && (
+        <Card className="mb-4 border-dashed border-yellow-400 bg-yellow-50">
+          <div className="p-4 text-sm text-muted-foreground">
+            部分资料暂时无法完整加载，但基础头像和昵称仍可浏览。
+          </div>
+        </Card>
+      )}
+
       {/* Profile Header - Pinterest Style */}
       <Card className="p-6 md:p-8 relative">
         <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-6">
@@ -303,14 +250,14 @@ export default function ProfilePage() {
             {/* Stats */}
             <div className="flex flex-wrap gap-4 md:gap-6 text-base">
               <Link 
-                href={`/profile/${effectiveUserId}/followers`} 
+                href={`/profile/${userId}/followers`} 
                 className="hover:underline"
               >
                 <span className="font-semibold text-lg">{formatNumber(profile.follower_count)}</span>
                 <span className="text-muted-foreground ml-1"> {t('followers')}</span>
               </Link>
               <Link 
-                href={`/profile/${effectiveUserId}/following`} 
+                href={`/profile/${userId}/following`} 
                 className="hover:underline"
               >
                 <span className="font-semibold text-lg">{formatNumber(profile.following_count)}</span>
@@ -353,7 +300,7 @@ export default function ProfilePage() {
                   href="/"
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
                 >
-                  <Coins className="h-4 w-4" />
+                  <Gift className="h-4 w-4" />
                   <span>{t('tips')}</span>
                 </Link>
                 <Link
@@ -376,14 +323,14 @@ export default function ProfilePage() {
                   <span>{tOrders('myOrders')}</span>
                 </Link>
                 <Link
-                  href={`/profile/${effectiveUserId}/people`}
+                  href={`/profile/${userId}/people`}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
                 >
                   <Users className="h-4 w-4" />
                   <span>{t('peopleEntrance')}</span>
                 </Link>
                 <Link
-                  href={`/profile/${effectiveUserId}/history`}
+                  href={`/profile/${userId}/history`}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
                 >
                   <History className="h-4 w-4" />
@@ -424,11 +371,11 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Edit Button / Follow Button */}
-          {isOwnProfile ? (
+          {/* Edit Button / Follow Button：由 capabilities 控制显隐 */}
+          {userPage.capabilities.canEditProfile ? (
             <div className="md:absolute md:top-6 md:right-6 w-full md:w-auto">
               <Button
-                onClick={() => router.push(`/profile/${effectiveUserId}/edit`)}
+                onClick={() => router.push(`/profile/${userId}/edit`)}
                 variant="outline"
                 className="w-full md:w-auto"
               >
@@ -438,35 +385,40 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div className="md:absolute md:top-6 md:right-6 w-full md:w-auto flex flex-col sm:flex-row gap-2">
-              <FollowButton userId={effectiveUserId} />
-              <UserTipButton
-                targetUserId={effectiveUserId}
-                targetUserName={profile.display_name ?? profile.username ?? undefined}
-              />
-              <ChatButton
-                targetUserId={effectiveUserId}
-                targetUserName={profile.display_name ?? profile.username ?? undefined}
-                variant="outline"
-                size="sm"
-                className="w-full md:w-auto"
-              >
-                {tMessages('chatWithAuthor')}
-              </ChatButton>
-              {/* ✅ 新增：更多菜单（包含分享、不让他看、拉黑、举报） */}
-              <ProfileMoreMenu
-                targetUserId={effectiveUserId}
-                targetUserName={profile.display_name ?? profile.username ?? undefined}
-                targetUserAvatar={profile.avatar_url}
-              />
+              {userPage.capabilities.canFollow && (
+                <FollowButton userId={userId} />
+              )}
+              {userPage.capabilities.canTip && (
+                <UserTipButton
+                  targetUserId={userId}
+                  targetUserName={profile.display_name ?? profile.username ?? undefined}
+                />
+              )}
+              {userPage.capabilities.canChat && (
+                <ChatButton
+                  targetUserId={userId}
+                  targetUserName={profile.display_name ?? profile.username ?? undefined}
+                  variant="outline"
+                  size="sm"
+                  className="w-full md:w-auto"
+                >
+                  {tMessages('chatWithAuthor')}
+                </ChatButton>
+              )}
+              {userPage.capabilities.canBlock && (
+                <ProfileMoreMenu
+                  targetUserId={userId}
+                  targetUserName={profile.display_name ?? profile.username ?? undefined}
+                  targetUserAvatar={profile.avatar_url}
+                />
+              )}
             </div>
           )}
         </div>
       </Card>
 
-      {/* ✅ 修复 P0-1: 使用 effectiveUserId 确保数据安全 */}
-      {/* ✅ 新增：你可能感兴趣的人 - 只在访问他人主页时显示，位于头部卡片下方 */}
       {!isOwnProfile && (
-        <SuggestedUsers profileUserId={effectiveUserId} limit={6} />
+        <SuggestedUsers profileUserId={userId} limit={6} />
       )}
 
       {/* Tabs Navigation */}
@@ -545,7 +497,11 @@ export default function ProfilePage() {
       <div className="mt-6 -mx-2 sm:-mx-4 md:mx-0">
         {activeTab === 'posts' && (
           <>
-            {postsLoading ? (
+            {!userPage.capabilities.canViewPosts ? (
+              <div className="py-12 text-center">
+                <p className="text-muted-foreground">{t('restrictedViewMessage')}</p>
+              </div>
+            ) : postsLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>

@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
-import { usePost } from '@/lib/hooks/usePosts'
+import { useState } from 'react'
 import { CommentSection } from '@/components/social/CommentSection'
 import { TipButton } from '@/components/social/TipButton'
 import { LikeButton } from '@/components/social/LikeButton'
@@ -17,20 +16,17 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useParams } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
-import { useAuth } from '@/lib/hooks/useAuth'
 import { useRepost } from '@/lib/hooks/useRepost'
-import { useRecordView } from '@/lib/hooks/useViewHistory'
 import { RepostDialog } from '@/components/social/RepostDialog'
 import { ShareDialog } from '@/components/social/ShareDialog'
 import { showSuccess, showInfo, showError, showWarning } from '@/lib/utils/toast'
 import { useTranslations } from 'next-intl'
-import { createClient } from '@/lib/supabase/client'
+import { usePostPage } from '@/lib/hooks/usePostPage'
 
 export default function PostPage() {
   const params = useParams()
   const postId = params.id as string
-  const { data: post, isLoading, error } = usePost(postId)
-  const { user } = useAuth()
+  const state = usePostPage(postId)
   const t = useTranslations('posts')
   const tMessages = useTranslations('messages')
   const tCommon = useTranslations('common')
@@ -42,53 +38,26 @@ export default function PostPage() {
   
   // 转发相关
   const repostMutation = useRepost()
-  
-  // 记录浏览历史
-  const recordViewMutation = useRecordView()
-  
-  // Supabase 客户端
-  const supabase = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      return createClient()
-    }
-    return null
-  }, [])
 
-  // 记录浏览历史
-  useEffect(() => {
-    if (user && post && post.status === 'approved') {
-      recordViewMutation.mutate({
-        itemType: 'post',
-        itemId: postId,
-      })
-    }
-  }, [user, post, postId, recordViewMutation])
-
-  if (isLoading) {
+  if (state.status === 'loading') {
     return <LoadingState />
   }
 
-  if (error || !post) {
-    // 区分不同类型的错误
+  if (state.status === 'unavailable') {
     let errorTitle = t('postNotFoundOrLoadFailed')
-    let errorDescription = ""
-    
-    if (error) {
-      const errorMessage = String(error.message || '')
-      if (errorMessage.includes('not found') || errorMessage.includes('不存在')) {
-        errorTitle = t('postNotFound')
-        errorDescription = t('postNotFoundDescription')
-      } else if (errorMessage.includes('permission') || errorMessage.includes('权限')) {
-        errorTitle = t('noPermissionToView')
-        errorDescription = t('noPermissionToViewDescription')
-      } else if (errorMessage.includes('network') || errorMessage.includes('网络')) {
-        errorTitle = t('networkError')
-        errorDescription = t('networkErrorDescription')
-      } else {
-        errorDescription = errorMessage
-      }
+    let errorDescription = ''
+
+    if (state.reason === 'deleted') {
+      errorTitle = t('postNotFound')
+      errorDescription = t('postNotFoundDescription')
+    } else if (state.reason === 'permission') {
+      errorTitle = t('noPermissionToView')
+      errorDescription = t('noPermissionToViewDescription')
+    } else if (state.reason === 'network') {
+      errorTitle = t('networkError')
+      errorDescription = t('networkErrorDescription')
     }
-    
+
     return (
       <div className="mx-auto w-full max-w-7xl px-2 sm:px-4 py-4 md:py-6">
         <EmptyState 
@@ -98,6 +67,12 @@ export default function PostPage() {
       </div>
     )
   }
+
+  if (state.status !== 'ready') {
+    return null
+  }
+
+  const { post, user, capabilities } = state
 
   const images = post.image_urls || []
   const hasMultipleImages = images.length > 1
@@ -215,17 +190,6 @@ export default function PostPage() {
         {/* Right Column: Content Panel */}
         <div className="lg:sticky lg:top-4 lg:h-fit min-w-0 overflow-visible">
           <div className="space-y-4 md:space-y-6 min-w-0">
-            {/* Title & Topics */}
-            <div className="space-y-3 min-w-0">
-              {post.topics && post.topics.length > 0 && (
-                <div className="flex flex-wrap gap-2 min-w-0">
-                  {post.topics.map((topic) => (
-                    <TopicTag key={topic.id} topic={topic} />
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Creator Info */}
             {post.user && (
               <div className="flex items-start gap-3 min-w-0 overflow-x-visible overflow-y-clip">
@@ -256,7 +220,10 @@ export default function PostPage() {
                 </div>
                 {user && user.id !== post.user_id && (
                   <div className="shrink-0 flex gap-2 flex-wrap relative z-10" style={{ pointerEvents: 'auto' }}>
-                    <FollowButton userId={post.user_id} />
+                    {capabilities.canFollowAuthor && (
+                      <FollowButton userId={post.user_id} />
+                    )}
+                    {/* ChatButton 目前仍主要依赖自身内部登录与校验逻辑，仅按是否为作者本人做控制 */}
                     <ChatButton
                       targetUserId={post.user_id}
                       variant="outline"
@@ -271,20 +238,22 @@ export default function PostPage() {
                     >
                       {tMessages('chatWithAuthor')}
                     </ChatButton>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (!user) {
-                          showInfo(t('pleaseLoginToReport'))
-                          return
-                        }
-                        setShowReportDialog(true)
-                      }}
-                      title={t('report')}
-                    >
-                      <Flag className="h-4 w-4" />
-                    </Button>
+                    {capabilities.canReport && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!user) {
+                            showInfo(t('pleaseLoginToReport'))
+                            return
+                          }
+                          setShowReportDialog(true)
+                        }}
+                        title={t('report')}
+                      >
+                        <Flag className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -299,14 +268,27 @@ export default function PostPage() {
               </div>
             )}
 
+            {/* Topics - moved below content */}
+            {post.topics && post.topics.length > 0 && (
+              <div className="flex flex-wrap gap-2 min-w-0">
+                {post.topics.map((topic) => (
+                  <TopicTag key={topic.id} topic={topic} />
+                ))}
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-2 border-t min-w-0 overflow-visible">
-              <LikeButton postId={post.id} initialLikes={post.like_count} />
+              <LikeButton
+                postId={post.id}
+                initialLikes={post.like_count}
+                enabled={capabilities.canLike}
+              />
               <Button variant="ghost" size="sm" className="gap-2">
                 <MessageCircle className="h-4 w-4" />
                 <span className="text-sm">{post.comment_count}</span>
               </Button>
-              {user && (
+              {capabilities.canRepost && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -318,7 +300,11 @@ export default function PostPage() {
                   <span className="text-sm">{post.repost_count || 0}</span>
                 </Button>
               )}
-              <FavoriteButton postId={post.id} initialFavorites={post.favorite_count ?? 0} />
+              <FavoriteButton
+                postId={post.id}
+                initialFavorites={post.favorite_count ?? 0}
+                enabled={capabilities.canLike}
+              />
               <Button
                 variant="ghost"
                 size="sm"
@@ -336,6 +322,7 @@ export default function PostPage() {
                 postId={post.id}
                 postAuthorId={post.user_id}
                 currentAmount={post.tip_amount || 0}
+                enabled={capabilities.canTip}
               />
             </div>
 
@@ -374,7 +361,10 @@ export default function PostPage() {
             <div className="pt-4 border-t min-w-0 overflow-visible">
               <h2 className="mb-4 text-lg font-semibold break-words">{t('comments')}</h2>
               <div className="min-w-0 overflow-visible">
-                <CommentSection postId={postId} />
+                <CommentSection
+                  postId={postId}
+                  enabled={capabilities.canComment}
+                />
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Coins, X } from 'lucide-react'
+import { Gift, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -19,19 +19,23 @@ interface TipButtonProps {
   postId: string
   postAuthorId: string
   currentAmount: number
+  enabled?: boolean
+  reasonDisabled?: string
 }
 
 export function TipButton({
   postId,
   postAuthorId,
   currentAmount,
+  enabled = true,
 }: TipButtonProps) {
   const [showModal, setShowModal] = useState(false)
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal'>('stripe')
   const [loading, setLoading] = useState(false)
   const { user } = useAuth()
-  const { data: profile, isLoading: profileLoading } = useProfile(user?.id ?? '')
+  const { data: profileResult, isLoading: profileLoading } = useProfile(user?.id ?? '')
+  const profile = profileResult?.profile
   const router = useRouter()
   const { toast } = useToast()
   const t = useTranslations('tips')
@@ -60,12 +64,22 @@ export function TipButton({
 
   const tipEnabled = !!profile?.tip_enabled && !!tipSubscription
 
+  // 页面级能力关闭时，展示禁用态按钮，不再触发后续逻辑
+  if (!enabled) {
+    return (
+      <Button variant="outline" size="sm" className="gap-2" disabled>
+        <Gift className="h-4 w-4" />
+        {t('tip')}
+      </Button>
+    )
+  }
+
   // 未登录用户显示"登录后打赏"按钮
   if (!user) {
     return (
       <Button variant="outline" size="sm" className="gap-2" asChild>
         <Link href={`/login?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`}>
-          <Coins className="h-4 w-4" />
+          <Gift className="h-4 w-4" />
           {t('tip') || '打赏'}
         </Link>
       </Button>
@@ -75,7 +89,7 @@ export function TipButton({
   if (profileLoading) {
     return (
       <Button variant="outline" size="sm" className="gap-2" disabled>
-        <Coins className="h-4 w-4" />
+        <Gift className="h-4 w-4" />
         <span className="text-xs">{t('tip')}</span>
         <span className="text-xs text-muted-foreground ml-1">加载中...</span>
       </Button>
@@ -86,7 +100,7 @@ export function TipButton({
     return (
       <Button variant="outline" size="sm" className="gap-2" asChild>
         <Link href="/subscription/tip">
-          <Coins className="h-4 w-4" />
+          <Gift className="h-4 w-4" />
           {t('enableTip')}
         </Link>
       </Button>
@@ -171,7 +185,7 @@ export function TipButton({
         className="gap-2"
         onClick={() => setShowModal(true)}
       >
-        <Coins className="h-4 w-4" />
+        <Gift className="h-4 w-4" />
         {t('tip')}
       </Button>
       {showModal && (

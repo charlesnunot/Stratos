@@ -21,38 +21,113 @@ export interface Profile {
   tip_enabled?: boolean | null
 }
 
+export type ProfileQueryErrorKind =
+  | 'network'
+  | 'schema_mismatch'
+  | 'permission_limited'
+  | 'unknown'
+
+export interface ProfileResult {
+  profile: Profile | null
+  errorKind?: ProfileQueryErrorKind
+  rawError?: unknown
+}
+
 export function useProfile(userId: string) {
   const { user } = useAuth()
   const isOwnProfile = user?.id === userId
 
   return useQuery({
     queryKey: ['profile', userId],
-    queryFn: async () => {
+    queryFn: async (): Promise<ProfileResult> => {
       const supabase = createClient()
       
       // ✅ 修复 P0-3: 如果是自己的页面，查询完整数据（包括 email 等）
       // 如果是他人页面，只查询公开字段
-      const selectFields = isOwnProfile
+      const baseSelectFields = isOwnProfile
         ? 'id, username, display_name, avatar_url, bio, location, follower_count, following_count, created_at, status, email, subscription_type, role, tip_enabled'
         : 'id, username, display_name, avatar_url, bio, location, follower_count, following_count, created_at, status'
-      
+
+      // 最小公开字段（用于 400 降级重试）
+      const publicSelectFields =
+        'id, username, display_name, avatar_url, follower_count, following_count, created_at'
+
+      const classifyError = (error: any): ProfileQueryErrorKind => {
+        if (!error) return 'unknown'
+        const message: string = error.message || ''
+        const status: number | undefined =
+          typeof error.status === 'number' ? error.status : undefined
+        const code = error.code
+
+        if (
+          message.includes('Failed to fetch') ||
+          message.includes('ERR_CONNECTION') ||
+          message.includes('TypeError: Failed to fetch')
+        ) {
+          return 'network'
+        }
+
+        if (status === 400 || code === '400') {
+          return 'schema_mismatch'
+        }
+
+        if (status === 401 || status === 403 || code === '401' || code === '403') {
+          return 'permission_limited'
+        }
+
+        return 'unknown'
+      }
+
+      // 主查询
       const { data, error } = await supabase
         .from('profiles')
-        .select(selectFields)
+        .select(baseSelectFields)
         .eq('id', userId)
         .single()
 
-      if (error) {
-        console.error('Profile query error:', error)
-        throw error
-      }
-      
-      if (!data) {
-        console.error('Profile not found for userId:', userId)
-        throw new Error('Profile not found')
+      if (!error && data) {
+        return {
+          profile: data as unknown as Profile,
+        }
       }
 
-      return data as unknown as Profile
+      const errorKind = classifyError(error)
+
+      // 针对 400（字段 / RLS 不兼容）做一次公开字段的降级重试
+      if (errorKind === 'schema_mismatch') {
+        const { data: publicData, error: publicError } = await supabase
+          .from('profiles')
+          .select(publicSelectFields)
+          .eq('id', userId)
+          .single()
+
+        if (!publicError && publicData) {
+          return {
+            profile: publicData as unknown as Profile,
+            errorKind,
+            rawError: error,
+          }
+        }
+
+        return {
+          profile: null,
+          errorKind,
+          rawError: error,
+        }
+      }
+
+      // 权限或网络等可预期错误：交由上层根据 errorKind 做降级渲染，不在这里抛出泛化异常
+      if (errorKind === 'permission_limited' || errorKind === 'network') {
+        return {
+          profile: null,
+          errorKind,
+          rawError: error,
+        }
+      }
+
+      // 其他未知错误：仍然抛出，让 React Query 标记为 error，方便暴露真正配置问题
+      console.error('Profile query unexpected error:', error)
+      throw error
     },
     enabled: !!userId,
     retry: 1,

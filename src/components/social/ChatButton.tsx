@@ -98,23 +98,25 @@ export function ChatButton({
       console.log('ChatButton: Conversation ID', conversationId)
 
       // 可选：先发送卡片（不依赖 chat 页面解析参数）
+      // 为了加快跳转，这里改为 fire-and-forget，不阻塞导航
       if (shareCard) {
-        console.log('ChatButton: Sending share card', shareCard)
-        const messageType = shareCard.type
-        
-        try {
-          const { error: insertError } = await supabase.from('messages').insert({
-            conversation_id: conversationId,
-            sender_id: user.id,
-            content: JSON.stringify(shareCard),
-            message_type: messageType,
-          })
+        ;(async () => {
+          console.log('ChatButton: Sending share card', shareCard)
+          const messageType = shareCard.type
+          
+          try {
+            const { error: insertError } = await supabase.from('messages').insert({
+              conversation_id: conversationId,
+              sender_id: user.id,
+              content: JSON.stringify(shareCard),
+              message_type: messageType,
+            })
 
-          if (insertError) {
-            console.error('ChatButton: Failed to insert message', insertError)
-            // 不阻止导航，只记录错误
-          } else {
-            // 更新会话时间戳
+            if (insertError) {
+              console.error('ChatButton: Failed to insert message', insertError)
+              return
+            }
+
             const { error: updateError } = await supabase
               .from('conversations')
               .update({
@@ -124,22 +126,19 @@ export function ChatButton({
 
             if (updateError) {
               console.error('ChatButton: Failed to update conversation', updateError)
-              // 不阻止导航
+            }
+          } catch (shareError: any) {
+            const isAbortError = 
+              shareError?.name === 'AbortError' ||
+              shareError?.message?.includes('aborted') ||
+              shareError?.message?.includes('cancelled') ||
+              shareError?.message === 'signal is aborted without reason'
+            
+            if (!isAbortError) {
+              console.error('ChatButton: Error sending share card', shareError)
             }
           }
-        } catch (shareError: any) {
-          // 静默处理 AbortError，不阻止导航
-          const isAbortError = 
-            shareError?.name === 'AbortError' ||
-            shareError?.message?.includes('aborted') ||
-            shareError?.message?.includes('cancelled') ||
-            shareError?.message === 'signal is aborted without reason'
-          
-          if (!isAbortError) {
-            console.error('ChatButton: Error sending share card', shareError)
-          }
-          // 即使发送卡片失败，也继续导航
-        }
+        })()
       }
 
       onSuccess?.(conversationId)

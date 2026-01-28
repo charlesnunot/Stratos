@@ -17,9 +17,10 @@ const HEART_POP_DURATION = 0.35
 interface LikeButtonProps {
   postId: string
   initialLikes: number
+  enabled?: boolean
 }
 
-export function LikeButton({ postId, initialLikes }: LikeButtonProps) {
+export function LikeButton({ postId, initialLikes, enabled = true }: LikeButtonProps) {
   const { user } = useAuth()
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
@@ -176,6 +177,9 @@ export function LikeButton({ postId, initialLikes }: LikeButtonProps) {
   })
 
   const handleLike = () => {
+    if (!enabled) {
+      return
+    }
     if (!user) {
       showInfo('请先登录后再点赞')
       return
@@ -223,7 +227,7 @@ export function LikeButton({ postId, initialLikes }: LikeButtonProps) {
       size="sm"
       className="gap-1 sm:gap-2 shrink-0 overflow-visible"
       onClick={handleLike}
-      disabled={likeMutation.isPending}
+      disabled={!enabled || likeMutation.isPending}
     >
       <span className="relative inline-flex shrink-0">
         <motion.span

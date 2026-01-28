@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Heart, MessageCircle, Share2, Repeat2, Star, Coins } from 'lucide-react'
+import { Heart, MessageCircle, Share2, Repeat2, Star, Gift } from 'lucide-react'
 
 interface PostStatsDialogProps {
   open: boolean
@@ -48,7 +48,7 @@ export function PostStatsDialog({ open, onClose, post }: PostStatsDialogProps) {
           {statRow(t('share'), post.share_count ?? 0, <Share2 className="h-4 w-4" />)}
           {statRow(t('repostCount'), post.repost_count ?? 0, <Repeat2 className="h-4 w-4" />)}
           {statRow(t('addToFavorites'), post.favorite_count ?? 0, <Star className="h-4 w-4" />)}
-          {statRow(tTips('tip'), `¥${Number(post.tip_amount ?? 0).toFixed(2)}`, <Coins className="h-4 w-4" />)}
+          {statRow(tTips('tip'), `¥${Number(post.tip_amount ?? 0).toFixed(2)}`, <Gift className="h-4 w-4" />)}
         </div>
       </DialogContent>
     </Dialog>

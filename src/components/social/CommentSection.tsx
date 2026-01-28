@@ -89,11 +89,13 @@ interface Comment {
 
 interface CommentSectionProps {
   postId: string
+  enabled?: boolean
+  reasonDisabled?: string
 }
 
 const COMMENTS_PER_PAGE = 20 // ✅ 修复 P0-1: 分页大小
 
-export function CommentSection({ postId }: CommentSectionProps) {
+export function CommentSection({ postId, enabled = true, reasonDisabled }: CommentSectionProps) {
   const { user } = useAuth()
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
@@ -114,21 +116,6 @@ export function CommentSection({ postId }: CommentSectionProps) {
   const [lastSubmitTime, setLastSubmitTime] = useState(0)
   const RATE_LIMIT_MS = 2000
   
-  // ✅ 修复 P0-2 & P1-1: 检查帖子状态和用户状态
-  const { data: post } = useQuery({
-    queryKey: ['post', postId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('id, status, user_id')
-        .eq('id', postId)
-        .single()
-      if (error) throw error
-      return data
-    },
-    enabled: !!postId,
-  })
-  
   const { data: userProfile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
@@ -144,25 +131,8 @@ export function CommentSection({ postId }: CommentSectionProps) {
     enabled: !!user,
   })
   
-  // ✅ 修复 P0-2: 检查是否被拉黑
-  const { data: isBlocked } = useQuery({
-    queryKey: ['isBlockedByPostAuthor', user?.id, post?.user_id],
-    queryFn: async () => {
-      if (!user || !post?.user_id || user.id === post.user_id) return false
-      const { data } = await supabase
-        .from('blocked_users')
-        .select('id')
-        .eq('blocker_id', post.user_id)
-        .eq('blocked_id', user.id)
-        .limit(1)
-        .maybeSingle()
-      return !!data
-    },
-    enabled: !!user && !!post?.user_id && user.id !== post.user_id,
-  })
-  
-  // ✅ 修复 P0-2: 检查帖子是否允许评论
-  const canComment = post?.status === 'approved' && !isBlocked && userProfile?.status === 'active'
+  // 是否允许评论：由页面级 enabled 控制，这里仅关注「是否登录」
+  const canComment = enabled && !!user
   
   // Image upload for new comment
   const newCommentImageUpload = useImageUpload({
@@ -240,7 +210,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
       const from = pageParam * COMMENTS_PER_PAGE
       const to = from + COMMENTS_PER_PAGE - 1
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('comments')
         .select(`
           *,
@@ -248,7 +218,18 @@ export function CommentSection({ postId }: CommentSectionProps) {
           user:profiles!comments_user_id_fkey(username, display_name, avatar_url)
         `)
         .eq('post_id', postId)
-        .eq('status', 'approved')
+      
+      // 对当前登录用户：展示「已审核的所有评论 + 自己的 pending 评论」
+      // 对未登录用户：只展示已审核的评论
+      if (user) {
+        query = query.or(
+          `status.eq.approved,and(status.eq.pending,user_id.eq.${user.id})`
+        )
+      } else {
+        query = query.eq('status', 'approved')
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: true })
         .range(from, to)
 
@@ -288,26 +269,20 @@ export function CommentSection({ postId }: CommentSectionProps) {
     }
   }, [postId, supabase, queryClient])
   
-  // Add comment mutation with optimistic update
+  // Add comment mutation with optimistic update（仅对审核通过的评论做乐观更新）
   const addCommentMutation = useMutation({
-    mutationFn: async ({ content, parentId, imageUrls }: { content: string; parentId?: string | null; imageUrls?: string[] }) => {
+    mutationFn: async ({
+      content,
+      parentId,
+      imageUrls,
+      commentStatus,
+    }: {
+      content: string
+      parentId?: string | null
+      imageUrls?: string[]
+      commentStatus: 'approved' | 'pending'
+    }) => {
       if (!user) throw new Error('Not authenticated')
-      
-      // ✅ 修复 P0-2: 检查帖子状态
-      if (!post || post.status !== 'approved') {
-        throw new Error(t('postNotFoundOrCannotComment'))
-      }
-      
-      // ✅ 修复 P1-1: 检查用户是否被禁言
-      if (userProfile?.status !== 'active') {
-        throw new Error(t('accountBannedCannotComment'))
-      }
-      
-      // ✅ 修复 P0-2: 检查是否被拉黑
-      if (isBlocked) {
-        throw new Error(t('blockedByUserCannotComment'))
-      }
-      
       // Input validation
       const trimmedContent = content.trim()
       if (!trimmedContent && (!imageUrls || imageUrls.length === 0)) {
@@ -338,9 +313,6 @@ export function CommentSection({ postId }: CommentSectionProps) {
         }
       }
 
-      // ✅ 修复 P0-10: 新评论默认 pending（除非是管理员）
-      const commentStatus = userProfile?.role === 'admin' || userProfile?.role === 'support' ? 'approved' : 'pending'
-      
       const { data, error } = await supabase
         .from('comments')
         .insert({
@@ -349,7 +321,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
           content: sanitizedContent || '',
           parent_id: parentId || null,
           image_urls: uploadedImageUrls,
-          status: commentStatus, // ✅ 修复 P0-10: 默认 pending，等待审核
+          status: commentStatus, // 由调用方决定是 approved 还是 pending
         })
         .select(`
           *,
@@ -366,8 +338,10 @@ export function CommentSection({ postId }: CommentSectionProps) {
       
       // Snapshot previous value (InfiniteData structure)
       const previousComments = queryClient.getQueryData<InfiniteData<Comment[]>>(['comments', postId])
-      
-      // Optimistically add new comment
+
+      // ✅ 所有角色的评论都做乐观更新：
+      // - 本地立即插入一条临时评论
+      // - 本地把 post.comment_count + 1
       const optimisticComment: Comment = {
         id: `temp-${Date.now()}`,
         content: variables.content.trim(),
@@ -382,7 +356,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
           avatar_url: null,
         },
       }
-      
+
       // Update InfiniteData structure correctly
       queryClient.setQueryData<InfiniteData<Comment[]>>(['comments', postId], (old) => {
         if (!old) {
@@ -392,7 +366,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
             pageParams: [0],
           }
         }
-        
+
         // Add optimistic comment to the first page
         const newPages = [...old.pages]
         if (newPages.length > 0) {
@@ -400,22 +374,22 @@ export function CommentSection({ postId }: CommentSectionProps) {
         } else {
           newPages[0] = [optimisticComment]
         }
-        
+
         return {
           ...old,
           pages: newPages,
         }
       })
-      
-      // Optimistically update post comment count
+
+      // Optimistically update post comment count（所有新评论都 +1，让用户看到自己的评论数变化）
       queryClient.setQueryData(['post', postId], (old: any) => {
         if (old) {
           return { ...old, comment_count: (old.comment_count || 0) + 1 }
         }
         return old
       })
-      
-      return { previousComments }
+
+      return { previousComments, didOptimistic: true }
     },
     onSuccess: (_data, variables) => {
       setNewComment('')
@@ -429,18 +403,20 @@ export function CommentSection({ postId }: CommentSectionProps) {
       showSuccess(variables.parentId ? t('replySuccess') : t('commentSuccess'))
     },
     onError: (err: any, variables, context) => {
-      // Rollback optimistic update on error
-      if (context?.previousComments !== undefined) {
+      // Rollback optimistic update on error（仅当之前做过乐观更新时）
+      if (context?.didOptimistic && context?.previousComments !== undefined) {
         queryClient.setQueryData<InfiniteData<Comment[]>>(['comments', postId], context.previousComments)
       }
       
-      // Rollback post comment count
-      queryClient.setQueryData(['post', postId], (old: any) => {
-        if (old) {
-          return { ...old, comment_count: Math.max(0, (old.comment_count || 0) - 1) }
-        }
-        return old
-      })
+      if (context?.didOptimistic) {
+        // Rollback post comment count
+        queryClient.setQueryData(['post', postId], (old: any) => {
+          if (old) {
+            return { ...old, comment_count: Math.max(0, (old.comment_count || 0) - 1) }
+          }
+          return old
+        })
+      }
       
       // Handle error display
       const errorMessage = String(err?.message || err?.details || '')
@@ -606,43 +582,55 @@ export function CommentSection({ postId }: CommentSectionProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
-    if (!canComment) {
-      if (isBlocked) {
-        showWarning(t('blockedByUserCannotComment'))
-      } else if (userProfile?.status !== 'active') {
-        showWarning(t('accountBannedCannotComment'))
+    if (!enabled) {
+      if (reasonDisabled) {
+        showWarning(reasonDisabled)
       } else {
         showWarning(t('postNotFoundOrCannotComment'))
       }
       return
     }
+    if (!canComment) {
+      showWarning(reasonDisabled || t('postNotFoundOrCannotComment'))
+      return
+    }
     if (!newComment.trim() && newCommentImageUpload.totalImageCount === 0) return
     if (!checkRateLimit()) return
-    addCommentMutation.mutate({ 
+    const isAdminOrSupport =
+      userProfile?.role === 'admin' || userProfile?.role === 'support'
+    const commentStatus: 'approved' | 'pending' = isAdminOrSupport ? 'approved' : 'pending'
+    addCommentMutation.mutate({
       content: newComment.trim(),
       imageUrls: newCommentImageUpload.existingImages,
+      commentStatus,
     })
   }
 
   const handleReplySubmit = async (e: React.FormEvent, parentId: string) => {
     e.preventDefault()
     if (!user) return
-    if (!canComment) {
-      if (isBlocked) {
-        showWarning(t('blockedByUserCannotComment'))
-      } else if (userProfile?.status !== 'active') {
-        showWarning(t('accountBannedCannotComment'))
+    if (!enabled) {
+      if (reasonDisabled) {
+        showWarning(reasonDisabled)
       } else {
         showWarning(t('postNotFoundOrCannotComment'))
       }
       return
     }
+    if (!canComment) {
+      showWarning(reasonDisabled || t('postNotFoundOrCannotComment'))
+      return
+    }
     if (!replyContent.trim() && replyImageUpload.totalImageCount === 0) return
     if (!checkRateLimit()) return
-    addCommentMutation.mutate({ 
-      content: replyContent.trim(), 
+    const isAdminOrSupport =
+      userProfile?.role === 'admin' || userProfile?.role === 'support'
+    const commentStatus: 'approved' | 'pending' = isAdminOrSupport ? 'approved' : 'pending'
+    addCommentMutation.mutate({
+      content: replyContent.trim(),
       parentId,
       imageUrls: replyImageUpload.existingImages,
+      commentStatus,
     })
   }
 
@@ -804,22 +792,10 @@ export function CommentSection({ postId }: CommentSectionProps) {
       {/* Comment Form */}
       {user && (
         <div className="space-y-2">
-          {/* ✅ 修复 P1-1: 显示禁言提示 */}
-          {userProfile?.status !== 'active' && (
-            <div className="p-3 bg-warning/10 border border-warning/20 rounded-md text-sm text-warning-foreground">
-              {userProfile?.status === 'banned' ? t('accountPermanentlyBanned') : t('accountSuspended')}
-            </div>
-          )}
-          {/* ✅ 修复 P0-2: 显示被拉黑提示 */}
-          {isBlocked && (
-            <div className="p-3 bg-warning/10 border border-warning/20 rounded-md text-sm text-warning-foreground">
-              {t('blockedByUserCannotComment')}
-            </div>
-          )}
-          {/* ✅ 修复 P0-2: 显示帖子不允许评论提示 */}
-          {post && post.status !== 'approved' && (
+          {/* 页面级能力禁用提示 */}
+          {!enabled && (
             <div className="p-3 bg-muted border border-muted-foreground/20 rounded-md text-sm text-muted-foreground">
-              {t('postNotFoundOrCannotComment')}
+              {reasonDisabled || t('postNotFoundOrCannotComment')}
             </div>
           )}
           <form onSubmit={handleSubmit} className="flex gap-2 min-w-0">

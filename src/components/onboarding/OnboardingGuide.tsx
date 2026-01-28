@@ -38,7 +38,8 @@ export function OnboardingGuide() {
   const [currentStep, setCurrentStep] = useState(0)
 
   // 获取用户档案以检查创建时间
-  const { data: profile } = useProfile(user?.id || '')
+  const { data: profileResult } = useProfile(user?.id || '')
+  const profile = profileResult?.profile
 
   // 判断是否显示引导
   useEffect(() => {
