@@ -3,6 +3,8 @@ import { ProductPageClient } from './ProductPageClient'
 import { getTranslations } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ProductPage({
   params,
 }: {
@@ -48,6 +50,8 @@ export default async function ProductPage({
     share_count: product.share_count || 0,
     repost_count: product.repost_count || 0,
     favorite_count: product.favorite_count || 0,
+    sales_count: product.sales_count || 0,
+    currency: product.currency || 'USD',
   }
 
   const t = await getTranslations('products')
@@ -68,6 +72,7 @@ export default async function ProductPage({
         addedToCart: t('addedToCart'),
         addToCart: t('addToCart'),
         buyNow: t('buyNow'),
+        redirectingCheckout: t('redirectingCheckout'),
         noImage: tCommon('noImage'),
         removeFromFavorites: tPosts('removeFromFavorites'),
         addToFavorites: tPosts('addToFavorites'),

@@ -17,6 +17,7 @@ export interface Database {
           avatar_url: string | null
           bio: string | null
           location: string | null
+          location_translated: string | null
           language: string
           follower_count: number
           following_count: number
@@ -34,6 +35,7 @@ export interface Database {
           avatar_url?: string | null
           bio?: string | null
           location?: string | null
+          location_translated?: string | null
           language?: string
           follower_count?: number
           following_count?: number
@@ -51,6 +53,7 @@ export interface Database {
           avatar_url?: string | null
           bio?: string | null
           location?: string | null
+          location_translated?: string | null
           language?: string
           follower_count?: number
           following_count?: number
@@ -58,6 +61,91 @@ export interface Database {
           subscription_type?: string | null
           subscription_expires_at?: string | null
           status?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      user_settings: {
+        Row: {
+          user_id: string
+          profile_visibility: string
+          who_can_message: string
+          who_can_comment: string
+          email_messages: boolean
+          email_likes: boolean
+          email_comments: boolean
+          email_follows: boolean
+          email_orders: boolean
+          email_marketing: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          profile_visibility?: string
+          who_can_message?: string
+          who_can_comment?: string
+          email_messages?: boolean
+          email_likes?: boolean
+          email_comments?: boolean
+          email_follows?: boolean
+          email_orders?: boolean
+          email_marketing?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          profile_visibility?: string
+          who_can_message?: string
+          who_can_comment?: string
+          email_messages?: boolean
+          email_likes?: boolean
+          email_comments?: boolean
+          email_follows?: boolean
+          email_orders?: boolean
+          email_marketing?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      identity_verifications: {
+        Row: {
+          user_id: string
+          real_name: string
+          id_number: string
+          id_card_front_path: string | null
+          id_card_back_path: string | null
+          status: string
+          rejected_reason: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          real_name: string
+          id_number: string
+          id_card_front_path?: string | null
+          id_card_back_path?: string | null
+          status?: string
+          rejected_reason?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          real_name?: string
+          id_number?: string
+          id_card_front_path?: string | null
+          id_card_back_path?: string | null
+          status?: string
+          rejected_reason?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -110,6 +198,7 @@ export interface Database {
           series_id: string | null
           series_order: number | null
           topic_ids: string[]
+          group_id: string | null
           location: string | null
           like_count: number
           comment_count: number
@@ -120,6 +209,12 @@ export interface Database {
           reviewed_at: string | null
           created_at: string
           updated_at: string
+          chapter_number: number | null
+          content_length: number | null
+          music_url: string | null
+          duration_seconds: number | null
+          video_url: string | null
+          cover_url: string | null
         }
         Insert: {
           id?: string
@@ -130,6 +225,7 @@ export interface Database {
           series_id?: string | null
           series_order?: number | null
           topic_ids?: string[]
+          group_id?: string | null
           location?: string | null
           like_count?: number
           comment_count?: number
@@ -140,6 +236,12 @@ export interface Database {
           reviewed_at?: string | null
           created_at?: string
           updated_at?: string
+          chapter_number?: number | null
+          content_length?: number | null
+          music_url?: string | null
+          duration_seconds?: number | null
+          video_url?: string | null
+          cover_url?: string | null
         }
         Update: {
           id?: string
@@ -150,6 +252,7 @@ export interface Database {
           series_id?: string | null
           series_order?: number | null
           topic_ids?: string[]
+          group_id?: string | null
           location?: string | null
           like_count?: number
           comment_count?: number
@@ -160,6 +263,12 @@ export interface Database {
           reviewed_at?: string | null
           created_at?: string
           updated_at?: string
+          chapter_number?: number | null
+          content_length?: number | null
+          music_url?: string | null
+          duration_seconds?: number | null
+          video_url?: string | null
+          cover_url?: string | null
         }
       }
       products: {
@@ -331,6 +440,8 @@ export interface Database {
           type: string
           title: string
           content: string | null
+          content_key: string | null
+          content_params: Json | null
           related_id: string | null
           related_type: string | null
           link: string | null
@@ -344,6 +455,8 @@ export interface Database {
           type: string
           title: string
           content?: string | null
+          content_key?: string | null
+          content_params?: Json | null
           related_id?: string | null
           related_type?: string | null
           link?: string | null
@@ -357,12 +470,222 @@ export interface Database {
           type?: string
           title?: string
           content?: string | null
+          content_key?: string | null
+          content_params?: Json | null
           related_id?: string | null
           related_type?: string | null
           link?: string | null
           is_read?: boolean
           created_at?: string
           actor_id?: string | null
+        }
+      }
+      trust_judgment_feedback: {
+        Row: {
+          id: string
+          product_id: string
+          seller_id: string
+          user_id: string
+          agreed: boolean
+          reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          seller_id: string
+          user_id: string
+          agreed: boolean
+          reason?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          seller_id?: string
+          user_id?: string
+          agreed?: boolean
+          reason?: string | null
+          created_at?: string
+        }
+      }
+      feed_recommendation_feedback: {
+        Row: {
+          id: string
+          user_id: string
+          post_id: string
+          reason_type: string | null
+          agreed: boolean | null
+          dismissed: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          post_id: string
+          reason_type?: string | null
+          agreed?: boolean | null
+          dismissed?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          post_id?: string
+          reason_type?: string | null
+          agreed?: boolean | null
+          dismissed?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      post_products: {
+        Row: {
+          id: string
+          post_id: string
+          product_id: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          product_id: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          product_id?: string
+          sort_order?: number
+          created_at?: string
+        }
+      }
+      community_groups: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          description: string | null
+          cover_url: string | null
+          created_by: string
+          member_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          description?: string | null
+          cover_url?: string | null
+          created_by: string
+          member_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          description?: string | null
+          cover_url?: string | null
+          created_by?: string
+          member_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      group_members: {
+        Row: {
+          id: string
+          group_id: string
+          user_id: string
+          role: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          user_id: string
+          role?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          user_id?: string
+          role?: string
+          created_at?: string
+        }
+      }
+      user_points: {
+        Row: {
+          user_id: string
+          points: number
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          points?: number
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          points?: number
+          updated_at?: string
+        }
+      }
+      badges: {
+        Row: {
+          id: string
+          key: string
+          name: string
+          description: string | null
+          icon_url: string | null
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          name: string
+          description?: string | null
+          icon_url?: string | null
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          name?: string
+          description?: string | null
+          icon_url?: string | null
+          sort_order?: number
+          created_at?: string
+        }
+      }
+      user_badges: {
+        Row: {
+          id: string
+          user_id: string
+          badge_id: string
+          earned_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          badge_id: string
+          earned_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          badge_id?: string
+          earned_at?: string
         }
       }
     }

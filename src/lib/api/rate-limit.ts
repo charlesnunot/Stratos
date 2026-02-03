@@ -58,6 +58,15 @@ export const RateLimitConfigs = {
   
   // Webhook endpoints (very permissive, signature verification is the main protection)
   WEBHOOK: { maxRequests: 1000, windowMs: 60 * 1000 }, // 1000 requests per minute
+
+  // Track/view (浏览埋点，防刷量)
+  TRACK_VIEW: { maxRequests: 120, windowMs: 60 * 1000 }, // 120 requests per minute per IP/user
+
+  // Messages (防消息刷屏)
+  MESSAGES: { maxRequests: 30, windowMs: 60 * 1000 }, // 30 messages per minute per user
+
+  // Order cancel (防刷取消)
+  ORDER_CANCEL: { maxRequests: 20, windowMs: 60 * 1000 }, // 20 cancels per minute per user
 } as const
 
 /**

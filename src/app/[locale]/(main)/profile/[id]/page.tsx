@@ -5,17 +5,18 @@ import { useUserPosts } from '@/lib/hooks/usePosts'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useUserPage } from '@/lib/hooks/useUserPage'
 import { FollowButton } from '@/components/social/FollowButton'
-import { PostCard } from '@/components/social/PostCard'
+import { PostCardUnit } from '@/components/social/PostCardUnit'
 import { ChatButton } from '@/components/social/ChatButton'
 import { UserTipButton } from '@/components/social/UserTipButton'
 import { ProfileMoreMenu } from '@/components/social/ProfileMoreMenu'
 import { ProductCard } from '@/components/ecommerce/ProductCard'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { MasonryGrid } from '@/components/layout/MasonryGrid'
-import { Loader2, Plus, Pencil, Star, Tag, TrendingUp, Gift, Shield, ShoppingCart, Package, BookOpen, EyeOff, Users, History, BarChart3 } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
-import { Link } from '@/i18n/navigation'
+import { Loader2, Plus, Pencil, Star, Tag, TrendingUp, Gift, Shield, ShoppingCart, Package, BookOpen, EyeOff, Users, History, BarChart3, Hash, Music2, Video, FileText } from 'lucide-react'
+import { useParams } from 'next/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { useTranslations, useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
@@ -25,6 +26,8 @@ import { useCartStore } from '@/store/cartStore'
 import { useUserProducts } from '@/lib/hooks/useProducts'
 import { SuggestedUsers } from '@/components/social/SuggestedUsers'
 import { useTrackView } from '@/lib/hooks/useTrackView'
+import { mapProfilePostToListPostDTO } from '@/lib/post-card/mappers'
+import { getDisplayContent } from '@/lib/ai/display-translated'
 
 export default function ProfilePage() {
   const params = useParams()
@@ -48,8 +51,29 @@ export default function ProfilePage() {
   const profileErrorKind = userPage.profileErrorKind
   const isOwnProfile = userPage.relationship === 'self'
 
-  const { data: postsData, isLoading: postsLoading } = useUserPosts(userId, isOwnProfile ? undefined : 'approved')
   const supabase = createClient()
+
+  // 当前登录用户是否为管理员：专用查询只查 role，避免 useProfile 未返回 role 导致入口不显示
+  const { data: viewerRole } = useQuery({
+    queryKey: ['viewerRole', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null
+      const { data } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      return (data?.role as string) ?? null
+    },
+    enabled: !!user?.id,
+  })
+  // 自己页用页面 profile 兜底（与专用查询二选一成立即显示）
+  const isViewerAdmin =
+    viewerRole === 'admin' ||
+    viewerRole === 'support' ||
+    (isOwnProfile && (profile?.role === 'admin' || profile?.role === 'support'))
+
+  const { data: postsData, isLoading: postsLoading } = useUserPosts(userId, isOwnProfile ? undefined : 'approved')
   const t = useTranslations('profile')
   const tPosts = useTranslations('posts')
   const tCommon = useTranslations('common')
@@ -58,7 +82,7 @@ export default function ProfilePage() {
   const tCart = useTranslations('cart')
   const tOrders = useTranslations('orders')
   const locale = useLocale()
-  const [activeTab, setActiveTab] = useState<'posts' | 'products' | 'series' | 'favorites' | 'drafts'>('posts')
+  const [activeTab, setActiveTab] = useState<'posts' | 'products' | 'series' | 'story' | 'music' | 'short_video' | 'favorites' | 'drafts'>('posts')
 
   // Get user posts from paginated data
   // ✅ 修复 P0-2: 如果是自己的页面，postsData 包含所有状态的帖子（包括草稿）
@@ -71,6 +95,20 @@ export default function ProfilePage() {
   const draftPosts = isOwnProfile 
     ? userPosts.filter((post: any) => post.status === 'draft' || post.status === 'pending')
     : []
+
+  // 本人且待审核时展示 pending_*，他人或已审核时展示主字段
+  const effectiveProfile = useMemo(() => {
+    if (!profile) return null
+    const isPending = isOwnProfile && profile.profile_status === 'pending'
+    return {
+      display_name: (isPending && profile.pending_display_name != null ? profile.pending_display_name : profile.display_name) ?? null,
+      username: (isPending && profile.pending_username != null ? profile.pending_username : profile.username) ?? null,
+      avatar_url: (isPending && profile.pending_avatar_url != null ? profile.pending_avatar_url : profile.avatar_url) ?? null,
+      bio: (isPending && profile.pending_bio != null ? profile.pending_bio : profile.bio) ?? null,
+      location: (isPending && profile.pending_location != null ? profile.pending_location : profile.location) ?? null,
+      showPendingBadge: isOwnProfile && profile.profile_status === 'pending',
+    }
+  }, [profile, isOwnProfile])
 
   const { data: productsData, isLoading: productsLoading } = useUserProducts(userId)
   const userProducts = productsData?.pages.flatMap((page) => page) || []
@@ -87,6 +125,14 @@ export default function ProfilePage() {
     },
     enabled: !!userId,
   })
+
+  // 阶段4：创作集按 post_type 计数（故事/音乐/短视频）
+  const storyCount = useMemo(() => approvedPosts.filter((p: any) => p.post_type === 'story').length, [approvedPosts])
+  const musicCount = useMemo(() => approvedPosts.filter((p: any) => p.post_type === 'music').length, [approvedPosts])
+  const shortVideoCount = useMemo(() => approvedPosts.filter((p: any) => p.post_type === 'short_video').length, [approvedPosts])
+  const storyPosts = useMemo(() => approvedPosts.filter((p: any) => p.post_type === 'story'), [approvedPosts])
+  const musicPosts = useMemo(() => approvedPosts.filter((p: any) => p.post_type === 'music'), [approvedPosts])
+  const shortVideoPosts = useMemo(() => approvedPosts.filter((p: any) => p.post_type === 'short_video'), [approvedPosts])
 
   // ✅ 新增：处理连载帖子 - 按 series_id 分组（只处理已审核的帖子）
   const seriesPosts = useMemo(() => {
@@ -159,6 +205,29 @@ export default function ProfilePage() {
   const { data: favorites, isLoading: favoritesLoading } = useFavorites(undefined)
   const favoritesCount = favorites?.length || 0
 
+  // 用户成长：积分与等级（阶段4）
+  const { data: pointsRow } = useQuery({
+    queryKey: ['userPoints', userId],
+    queryFn: async () => {
+      const { data } = await supabase.from('user_points').select('points').eq('user_id', userId).maybeSingle()
+      return data
+    },
+    enabled: !!userId,
+  })
+  const points = pointsRow?.points ?? 0
+  const level = points < 100 ? 1 : points < 500 ? 2 : points < 2000 ? 3 : points < 5000 ? 4 : points < 10000 ? 5 : Math.min(10, 5 + Math.floor(points / 10000))
+
+  const { data: earnedBadges = [] } = useQuery({
+    queryKey: ['userBadges', userId],
+    queryFn: async () => {
+      const { data: ub } = await supabase.from('user_badges').select('badge_id').eq('user_id', userId)
+      if (!ub?.length) return []
+      const { data: badges } = await supabase.from('badges').select('id, key, name, icon_url').in('id', ub.map((x) => x.badge_id))
+      return badges ?? []
+    },
+    enabled: !!userId,
+  })
+
   // 获取购物车商品数量
   const cartItems = useCartStore((state) => state.items)
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
@@ -168,8 +237,6 @@ export default function ProfilePage() {
     const l = locale === 'zh' ? 'zh-CN' : locale
     return new Intl.NumberFormat(l).format(num)
   }
-
-  const isAdmin = isOwnProfile && (profile?.role === 'admin' || profile?.role === 'support')
 
   // 页面级状态机：loading / unavailable / ready
   if (userPage.status === 'loading') {
@@ -245,39 +312,76 @@ export default function ProfilePage() {
           {/* Left: Name, Stats, Bio */}
           <div className="flex-1 space-y-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
-                {profile.display_name || t('unnamedUser')}
-              </h1>
-              <p className="text-base md:text-lg text-muted-foreground">@{profile.username}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-0">
+                  {effectiveProfile?.showPendingBadge
+                    ? (effectiveProfile?.display_name || profile.display_name || t('unnamedUser'))
+                    : getDisplayContent(locale, profile.content_lang ?? null, profile.display_name, profile.display_name_translated) || t('unnamedUser')}
+                </h1>
+                {effectiveProfile?.showPendingBadge && (
+                  <Badge variant="secondary" className="text-xs">{t('pendingReview')}</Badge>
+                )}
+              </div>
+              <p className="text-base md:text-lg text-muted-foreground">@{effectiveProfile?.username ?? profile.username}</p>
             </div>
 
             {/* Stats */}
             <div className="flex flex-wrap gap-4 md:gap-6 text-base">
-              <Link 
-                href={`/profile/${userId}/followers`} 
-                className="hover:underline"
+              <button
+                type="button"
+                onClick={() => router.push(`/profile/${userId}/followers`)}
+                className="hover:underline text-left cursor-pointer bg-transparent border-0 p-0 font-inherit"
               >
                 <span className="font-semibold text-lg">{formatNumber(profile.follower_count)}</span>
                 <span className="text-muted-foreground ml-1"> {t('followers')}</span>
-              </Link>
-              <Link 
-                href={`/profile/${userId}/following`} 
-                className="hover:underline"
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/profile/${userId}/following`)}
+                className="hover:underline text-left cursor-pointer bg-transparent border-0 p-0 font-inherit"
               >
                 <span className="font-semibold text-lg">{formatNumber(profile.following_count)}</span>
                 <span className="text-muted-foreground ml-1"> {t('following')}</span>
-              </Link>
-              {/* ✅ 新增：获赞统计 */}
-              <div className="hover:underline cursor-default">
+              </button>
+              {/* 成长：等级与积分（阶段4） */}
+              {(points > 0 || earnedBadges.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+                  <span className="text-sm">{t('level')} {level}</span>
+                  <span className="text-sm">·</span>
+                  <span className="text-sm">{points} {t('points')}</span>
+                  {earnedBadges.length > 0 && (
+                    <>
+                      <span className="text-sm">·</span>
+                      <span className="flex gap-1">
+                        {earnedBadges.slice(0, 5).map((b) => (
+                          <span key={b.id} title={b.name} className="inline-flex items-center">
+                            {b.icon_url ? (
+                              <img src={b.icon_url} alt={b.name} className="h-5 w-5 rounded-full object-cover" />
+                            ) : (
+                              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs">{b.name}</span>
+                            )}
+                          </span>
+                        ))}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+              {/* 获赞：跳转到获赞页 */}
+              <button
+                type="button"
+                onClick={() => router.push(`/profile/${userId}/likes`)}
+                className="hover:underline text-left cursor-pointer bg-transparent border-0 p-0 font-inherit"
+              >
                 <span className="font-semibold text-lg">{formatNumber(totalLikes)}</span>
                 <span className="text-muted-foreground ml-1">{t('totalLikes')}</span>
-              </div>
+              </button>
             </div>
 
-            {/* Feature Entrances - Only shown on own profile */}
-            {isOwnProfile && (
+            {/* Feature Entrances：管理员入口任意页显示，卖家/带货等仅在自己页显示 */}
+            {(isViewerAdmin || isOwnProfile) && (
               <div className="flex flex-wrap gap-2 sm:gap-3 pt-2">
-                {isAdmin && (
+                {isViewerAdmin && (
                   <Link
                     href="/admin/dashboard"
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
@@ -286,6 +390,8 @@ export default function ProfilePage() {
                     <span>{t('adminPanel')}</span>
                   </Link>
                 )}
+                {isOwnProfile && (
+                  <>
                 <Link
                   href="/seller/dashboard"
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
@@ -341,42 +447,55 @@ export default function ProfilePage() {
                   <span>{t('historyEntrance')}</span>
                 </Link>
                 <Link
+                  href={`/profile/${userId}/topics`}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
+                >
+                  <Hash className="h-4 w-4" />
+                  <span>{t('topicsEntrance')}</span>
+                </Link>
+                <Link
                   href="/insights"
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
                 >
                   <BarChart3 className="h-4 w-4" />
                   <span>{t('insightsEntrance')}</span>
                 </Link>
+                  </>
+                )}
               </div>
             )}
 
             {/* Bio */}
-            {profile.bio && (
+            {(effectiveProfile?.showPendingBadge ? (effectiveProfile?.bio ?? profile.bio) : (profile.bio || profile.bio_translated)) && (
               <div className="text-sm leading-relaxed text-foreground max-w-2xl">
-                {profile.bio}
+                {effectiveProfile?.showPendingBadge
+                  ? (effectiveProfile?.bio ?? profile.bio)
+                  : getDisplayContent(locale, profile.content_lang ?? null, profile.bio, profile.bio_translated)}
               </div>
             )}
 
             {/* Location */}
-            {profile.location && (
+            {(effectiveProfile?.location ?? profile.location ?? profile.location_translated) && (
               <p className="text-sm text-muted-foreground flex items-center gap-1">
-                📍 {profile.location}
+                📍 {effectiveProfile?.showPendingBadge
+                  ? (effectiveProfile?.location ?? profile.location)
+                  : getDisplayContent(locale, profile.content_lang ?? null, profile.location, profile.location_translated)}
               </p>
             )}
           </div>
 
           {/* Right: Large Avatar */}
           <div className="flex-shrink-0 order-first md:order-last">
-            {profile.avatar_url ? (
+            {(effectiveProfile?.avatar_url ?? profile.avatar_url) ? (
               <img
-                src={profile.avatar_url}
-                alt={profile.display_name || t('userFallback')}
+                src={(effectiveProfile?.avatar_url ?? profile.avatar_url) ?? undefined}
+                alt={effectiveProfile?.display_name || profile.display_name || t('userFallback')}
                 className="h-24 w-24 sm:h-28 sm:w-28 md:h-36 md:w-36 rounded-full object-cover border-2 border-background shadow-md"
               />
             ) : (
               <div className="flex h-24 w-24 sm:h-28 sm:w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-muted border-2 border-background shadow-md">
                 <span className="text-3xl sm:text-4xl md:text-5xl font-semibold">
-                  {profile.display_name?.[0] || t('userInitial')}
+                  {(effectiveProfile?.display_name || profile.display_name)?.[0] || t('userInitial')}
                 </span>
               </div>
             )}
@@ -402,13 +521,13 @@ export default function ProfilePage() {
               {userPage.capabilities.canTip && (
                 <UserTipButton
                   targetUserId={userId}
-                  targetUserName={profile.display_name ?? profile.username ?? undefined}
+                  targetUserName={effectiveProfile?.display_name ?? profile.display_name ?? profile.username ?? undefined}
                 />
               )}
               {userPage.capabilities.canChat && (
                 <ChatButton
                   targetUserId={userId}
-                  targetUserName={profile.display_name ?? profile.username ?? undefined}
+                  targetUserName={effectiveProfile?.display_name ?? profile.display_name ?? profile.username ?? undefined}
                   variant="outline"
                   size="sm"
                   className="w-full md:w-auto"
@@ -419,8 +538,8 @@ export default function ProfilePage() {
               {userPage.capabilities.canBlock && (
                 <ProfileMoreMenu
                   targetUserId={userId}
-                  targetUserName={profile.display_name ?? profile.username ?? undefined}
-                  targetUserAvatar={profile.avatar_url}
+                  targetUserName={effectiveProfile?.display_name ?? profile.display_name ?? profile.username ?? undefined}
+                  targetUserAvatar={effectiveProfile?.avatar_url ?? profile.avatar_url}
                 />
               )}
             </div>
@@ -473,6 +592,46 @@ export default function ProfilePage() {
               {t('series')} ({formatNumber(seriesCount)})
             </button>
           )}
+          {/* 阶段4：创作集 Tab - 故事/音乐/短视频 */}
+          {storyCount > 0 && (
+            <button
+              onClick={() => setActiveTab('story')}
+              className={`pb-3 px-1 text-base font-medium transition-colors border-b-2 min-w-fit ${
+                activeTab === 'story'
+                  ? 'border-foreground text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <FileText className="inline-block h-4 w-4 mr-1" />
+              {t('story')} ({formatNumber(storyCount)})
+            </button>
+          )}
+          {musicCount > 0 && (
+            <button
+              onClick={() => setActiveTab('music')}
+              className={`pb-3 px-1 text-base font-medium transition-colors border-b-2 min-w-fit ${
+                activeTab === 'music'
+                  ? 'border-foreground text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Music2 className="inline-block h-4 w-4 mr-1" />
+              {t('music')} ({formatNumber(musicCount)})
+            </button>
+          )}
+          {shortVideoCount > 0 && (
+            <button
+              onClick={() => setActiveTab('short_video')}
+              className={`pb-3 px-1 text-base font-medium transition-colors border-b-2 min-w-fit ${
+                activeTab === 'short_video'
+                  ? 'border-foreground text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Video className="inline-block h-4 w-4 mr-1" />
+              {t('shortVideo')} ({formatNumber(shortVideoCount)})
+            </button>
+          )}
           {/* ✅ 修复 P0-2: 草稿 Tab - 只对自己的页面显示 */}
           {isOwnProfile && draftCount > 0 && (
             <button
@@ -517,7 +676,32 @@ export default function ProfilePage() {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : seriesPosts.normalPosts.length === 0 && seriesCount === 0 ? (
-              <p className="py-12 text-center text-muted-foreground">{t('noPosts')}</p>
+              /* 无帖子时：自己的页面仍显示「创建帖子」卡片，他人页面只显示空状态 */
+              isOwnProfile ? (
+                <MasonryGrid>
+                  <Card
+                    className="group overflow-hidden transition-shadow hover:shadow-lg cursor-pointer border-dashed border-2"
+                    onClick={() => router.push('/post/create')}
+                  >
+                    <div className="p-6 sm:p-8 md:p-12 flex flex-col items-center justify-center min-h-[200px] text-center">
+                      <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                        <Plus className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+                      </div>
+                      <p className="text-base sm:text-lg font-semibold text-foreground">
+                        {tPosts('createPost')}
+                      </p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+                        {t('createPostHint')}
+                      </p>
+                    </div>
+                  </Card>
+                  <p className="col-span-full py-6 text-center text-sm text-muted-foreground">
+                    {t('noPosts')}
+                  </p>
+                </MasonryGrid>
+              ) : (
+                <p className="py-12 text-center text-muted-foreground">{t('noPosts')}</p>
+              )
             ) : (
               <MasonryGrid>
                 {/* Create Post Card - Only shown on own profile */}
@@ -541,7 +725,7 @@ export default function ProfilePage() {
                 )}
                 {/* User Posts (只显示非连载帖子) */}
                 {seriesPosts.normalPosts.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                  <PostCardUnit key={post.id} dto={mapProfilePostToListPostDTO(post)} />
                 ))}
               </MasonryGrid>
             )}
@@ -593,7 +777,7 @@ export default function ProfilePage() {
                             {index + 1}
                           </div>
                           <div className="flex-1">
-                            <PostCard post={post} />
+                            <PostCardUnit dto={mapProfilePostToListPostDTO(post)} />
                           </div>
                         </div>
                       ))}
@@ -601,6 +785,71 @@ export default function ProfilePage() {
                   </Card>
                 ))}
               </div>
+            )}
+          </>
+        )}
+
+        {/* 阶段4：创作集 Tab 内容 - 故事/音乐/短视频 */}
+        {activeTab === 'story' && (
+          <>
+            {!userPage.capabilities.canViewPosts ? (
+              <div className="py-12 text-center">
+                <p className="text-muted-foreground">{t('restrictedViewMessage')}</p>
+              </div>
+            ) : postsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : storyPosts.length === 0 ? (
+              <p className="py-12 text-center text-muted-foreground">{t('noStory')}</p>
+            ) : (
+              <MasonryGrid>
+                {storyPosts.map((post) => (
+                  <PostCardUnit key={post.id} dto={mapProfilePostToListPostDTO(post)} />
+                ))}
+              </MasonryGrid>
+            )}
+          </>
+        )}
+        {activeTab === 'music' && (
+          <>
+            {!userPage.capabilities.canViewPosts ? (
+              <div className="py-12 text-center">
+                <p className="text-muted-foreground">{t('restrictedViewMessage')}</p>
+              </div>
+            ) : postsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : musicPosts.length === 0 ? (
+              <p className="py-12 text-center text-muted-foreground">{t('noMusic')}</p>
+            ) : (
+              <MasonryGrid>
+                {musicPosts.map((post) => (
+                  <PostCardUnit key={post.id} dto={mapProfilePostToListPostDTO(post)} />
+                ))}
+              </MasonryGrid>
+            )}
+          </>
+        )}
+        {activeTab === 'short_video' && (
+          <>
+            {!userPage.capabilities.canViewPosts ? (
+              <div className="py-12 text-center">
+                <p className="text-muted-foreground">{t('restrictedViewMessage')}</p>
+              </div>
+            ) : postsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : shortVideoPosts.length === 0 ? (
+              <p className="py-12 text-center text-muted-foreground">{t('noShortVideo')}</p>
+            ) : (
+              <MasonryGrid>
+                {shortVideoPosts.map((post) => (
+                  <PostCardUnit key={post.id} dto={mapProfilePostToListPostDTO(post)} />
+                ))}
+              </MasonryGrid>
             )}
           </>
         )}
@@ -627,7 +876,7 @@ export default function ProfilePage() {
             ) : (
               <MasonryGrid>
                 {draftPosts.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                  <PostCardUnit key={post.id} dto={mapProfilePostToListPostDTO(post)} />
                 ))}
               </MasonryGrid>
             )}

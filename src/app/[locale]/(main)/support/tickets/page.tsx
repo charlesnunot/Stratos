@@ -106,15 +106,15 @@ export default function SupportTicketsPage() {
                       {ticket.description}
                     </p>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>类型: {ticket.ticket_type}</span>
+                      <span>{t('ticketType')}: {t(`type_${ticket.ticket_type}`)}</span>
                       <span>
-                        创建时间:{' '}
-                        {new Date(ticket.created_at).toLocaleString('zh-CN')}
+                        {tCommon('createdAt')}:{' '}
+                        {new Date(ticket.created_at).toLocaleString()}
                       </span>
                       {ticket.updated_at && (
                         <span>
-                          更新时间:{' '}
-                          {new Date(ticket.updated_at).toLocaleString('zh-CN')}
+                          {tCommon('updatedAt')}:{' '}
+                          {new Date(ticket.updated_at).toLocaleString()}
                         </span>
                       )}
                     </div>

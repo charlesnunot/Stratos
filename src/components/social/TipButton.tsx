@@ -28,6 +28,7 @@ export function TipButton({
   postAuthorId,
   currentAmount,
   enabled = true,
+  reasonDisabled,
 }: TipButtonProps) {
   const [showModal, setShowModal] = useState(false)
   const [amount, setAmount] = useState('')
@@ -64,10 +65,16 @@ export function TipButton({
 
   const tipEnabled = !!profile?.tip_enabled && !!tipSubscription
 
-  // 页面级能力关闭时，展示禁用态按钮，不再触发后续逻辑
+  // 页面级能力关闭时，展示禁用态按钮，悬停显示原因
   if (!enabled) {
     return (
-      <Button variant="outline" size="sm" className="gap-2" disabled>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2"
+        disabled
+        title={reasonDisabled}
+      >
         <Gift className="h-4 w-4" />
         {t('tip')}
       </Button>
@@ -91,7 +98,7 @@ export function TipButton({
       <Button variant="outline" size="sm" className="gap-2" disabled>
         <Gift className="h-4 w-4" />
         <span className="text-xs">{t('tip')}</span>
-        <span className="text-xs text-muted-foreground ml-1">加载中...</span>
+        <span className="text-xs text-muted-foreground ml-1">{tCommon('loading')}</span>
       </Button>
     )
   }
@@ -107,13 +114,23 @@ export function TipButton({
     )
   }
 
+  const MAX_TIP_CNY = 35
+
   const handleTip = async () => {
     const tipAmount = parseFloat(amount)
     if (!tipAmount || tipAmount <= 0) {
       toast({
         variant: 'warning',
-        title: '提示',
+        title: tCommon('notice'),
         description: t('enterValidAmount'),
+      })
+      return
+    }
+    if (tipAmount > MAX_TIP_CNY) {
+      toast({
+        variant: 'warning',
+        title: tCommon('notice'),
+        description: t('maximumTipAmount'),
       })
       return
     }
@@ -121,7 +138,7 @@ export function TipButton({
     if (user.id === postAuthorId) {
       toast({
         variant: 'warning',
-        title: '提示',
+        title: tCommon('notice'),
         description: t('cannotTipSelf'),
       })
       return
@@ -129,6 +146,8 @@ export function TipButton({
 
     setLoading(true)
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 18000)
       const response = await fetch('/api/payments/stripe/create-tip-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,24 +159,26 @@ export function TipButton({
           cancelUrl: window.location.href,
           currency: 'CNY',
         }),
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const err = await response.json()
         const errorMessage = err.error || 'Failed to create checkout session'
         
-        // 根据错误类型显示更具体的错误信息
+        // Map error types to i18n keys
         let userFriendlyMessage = errorMessage
         if (errorMessage.includes('subscription')) {
-          userFriendlyMessage = '您的打赏订阅已过期，请续费后再试'
+          userFriendlyMessage = t('tipSubscriptionExpired')
         } else if (errorMessage.includes('Tip feature subscription required')) {
-          userFriendlyMessage = '请先开通打赏功能订阅'
+          userFriendlyMessage = t('tipSubscriptionRequired')
         } else if (errorMessage.includes('Tip subscription expired')) {
-          userFriendlyMessage = '您的打赏订阅已过期，请续费后再试'
+          userFriendlyMessage = t('tipSubscriptionExpired')
         } else if (errorMessage.includes('Cannot tip yourself')) {
-          userFriendlyMessage = '不能给自己打赏'
+          userFriendlyMessage = t('cannotTipSelf')
         } else if (errorMessage.includes('Tip limit exceeded')) {
-          userFriendlyMessage = '打赏限额已超，请稍后再试'
+          userFriendlyMessage = t('tipLimitExceeded')
         }
         
         throw new Error(userFriendlyMessage)
@@ -167,10 +188,11 @@ export function TipButton({
       window.location.href = url
     } catch (error: any) {
       console.error('Tip error:', error)
+      const isAbort = error?.name === 'AbortError'
       toast({
         variant: 'destructive',
-        title: '错误',
-        description: t('tipFailed', { error: error.message }),
+        title: tCommon('error'),
+        description: isAbort ? t('requestTimeoutRetry') : t('tipFailed', { error: error.message }),
       })
     } finally {
       setLoading(false)
@@ -180,6 +202,7 @@ export function TipButton({
   return (
     <>
       <Button
+        type="button"
         variant="outline"
         size="sm"
         className="gap-2"
@@ -216,13 +239,14 @@ export function TipButton({
               <Input
                 type="number"
                 min="0.01"
+                max="35"
                 step="0.01"
                 placeholder={t('enterAmount')}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 disabled={paymentMethod === 'paypal'}
               />
-              <p className="text-xs text-muted-foreground">最小打赏金额：¥0.01</p>
+              <p className="text-xs text-muted-foreground">{t('minimumTipAmount')} · {t('maximumTipAmount')}</p>
             </div>
 
             <div className="mb-4">
@@ -250,7 +274,7 @@ export function TipButton({
                     onSuccess={() => {
                       toast({
                         variant: 'success',
-                        title: '成功',
+                        title: tCommon('success'),
                         description: t('tipCreated'),
                       })
                       setShowModal(false)
@@ -260,14 +284,14 @@ export function TipButton({
                     onError={(error) => {
                       toast({
                         variant: 'destructive',
-                        title: '错误',
+                        title: tCommon('error'),
                         description: t('tipFailed', { error: error.message }),
                       })
                     }}
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground text-center">
-                    请输入打赏金额
+                    {t('enterAmount')}
                   </p>
                 )}
                 <Button

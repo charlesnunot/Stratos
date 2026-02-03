@@ -12,12 +12,15 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Save, CheckSquare, Square } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { formatCurrency } from '@/lib/currency/format-currency'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 interface Product {
   id: string
   name: string
   images: string[] | null
   price: number
+  currency?: string
   allow_affiliate: boolean
   commission_rate: number | null
 }
@@ -376,7 +379,7 @@ export default function AffiliateSettingsPage() {
                   )}
                   <div className="flex-1">
                     <h3 className="font-semibold">{product.name}</h3>
-                    <p className="text-sm text-muted-foreground">¥{product.price.toFixed(2)}</p>
+                    <p className="text-sm text-muted-foreground">{formatCurrency(product.price, (product.currency as Currency) || 'USD')}</p>
                   </div>
                 </div>
 

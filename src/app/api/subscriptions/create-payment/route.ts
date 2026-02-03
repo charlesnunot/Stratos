@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSubscriptionPrice } from '@/lib/subscriptions/pricing'
 import type { SubscriptionType } from '@/lib/subscriptions/pricing'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,6 +66,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (sub.subscription_type === 'creator') {
+      return NextResponse.json(
+        { error: 'Creator (paid chapters) subscription is no longer supported' },
+        { status: 400 }
+      )
+    }
     const typeName: Record<string, string> = {
       seller: '卖家订阅',
       affiliate: '带货者订阅',
@@ -79,6 +86,16 @@ export async function POST(request: NextRequest) {
 
     const outTradeNo = `sub_${subscriptionId}_${Date.now()}`
     const origin = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000'
+
+    logAudit({
+      action: 'create_subscription_payment',
+      userId: user.id,
+      resourceId: subscriptionId,
+      resourceType: 'subscription',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { paymentMethod, subscriptionType: sub.subscription_type },
+    })
 
     if (paymentMethod === 'alipay') {
       const { createAlipayOrder } = await import('@/lib/payments/alipay')
@@ -142,9 +159,10 @@ export async function POST(request: NextRequest) {
       { error: `Payment method ${paymentMethod} not supported` },
       { status: 400 }
     )
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Failed to create subscription payment'
     return NextResponse.json(
-      { error: e.message || 'Failed to create subscription payment' },
+      { error: message },
       { status: 500 }
     )
   }

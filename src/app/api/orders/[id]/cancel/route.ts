@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import Stripe from 'stripe'
 import { checkAutoRecovery } from '@/lib/deposits/payment-control'
+import { logAudit } from '@/lib/api/audit'
+import { withApiLogging } from '@/lib/api/logger'
+import { RateLimitConfigs } from '@/lib/api/rate-limit'
 
 async function getStripeClient() {
   const stripeKey = process.env.STRIPE_SECRET_KEY
@@ -14,12 +17,16 @@ async function getStripeClient() {
   })
 }
 
-export async function POST(
+async function cancelOrderHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context?: { params?: Promise<{ id: string }> }
 ) {
   try {
-    const orderId = params.id
+    const params = await (context?.params ?? Promise.resolve({ id: '' }))
+    const orderId = params?.id
+    if (!orderId) {
+      return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
+    }
     const supabase = await createClient()
     const {
       data: { user },
@@ -155,6 +162,8 @@ export async function POST(
               related_id: orderId,
               related_type: 'order',
               link: `/orders/${orderId}`,
+              content_key: 'order_cancelled',
+              content_params: {},
             })
 
             await supabaseAdminForCancel.from('notifications').insert({
@@ -165,6 +174,8 @@ export async function POST(
               related_id: orderId,
               related_type: 'order',
               link: `/orders/${orderId}`,
+              content_key: 'order_cancelled',
+              content_params: {},
             })
 
     // Check and recover seller payment if unfilled orders drop below tier
@@ -257,6 +268,8 @@ export async function POST(
               related_id: orderId,
               related_type: 'order',
               link: `/orders/${orderId}`,
+              content_key: 'order_cancelled',
+              content_params: {},
             })
 
             await supabaseAdminForCancel.from('notifications').insert({
@@ -267,6 +280,8 @@ export async function POST(
               related_id: orderId,
               related_type: 'order',
               link: `/orders/${orderId}`,
+              content_key: 'order_cancelled',
+              content_params: {},
             })
 
             // Check and recover seller payment if unfilled orders drop below tier
@@ -334,6 +349,8 @@ export async function POST(
       related_id: orderId,
       related_type: 'order',
       link: `/orders/${orderId}`,
+      content_key: 'order_cancelled',
+      content_params: {},
     })
 
     if (order.seller_id !== order.buyer_id) {
@@ -345,6 +362,8 @@ export async function POST(
         related_id: orderId,
         related_type: 'order',
         link: `/orders/${orderId}`,
+        content_key: 'order_cancelled',
+        content_params: {},
       })
     }
 
@@ -376,6 +395,15 @@ export async function POST(
       })
     }
 
+    logAudit({
+      action: 'order_cancel',
+      userId: user.id,
+      resourceId: orderId,
+      resourceType: 'order',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+    })
+
     return NextResponse.json({
       success: true,
       message: 'Order cancelled successfully',
@@ -388,3 +416,7 @@ export async function POST(
     )
   }
 }
+
+export const POST = withApiLogging(cancelOrderHandler, {
+  rateLimitConfig: RateLimitConfigs.ORDER_CANCEL,
+})

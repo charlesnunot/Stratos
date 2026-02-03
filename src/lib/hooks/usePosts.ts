@@ -2,32 +2,58 @@
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import {
+  type Post,
+  type FeedRecommendationReasonType,
+  POST_SELECT,
+  POSTS_PER_PAGE,
+  mapRowToPost,
+} from '@/lib/posts/shared'
 
-export interface Post {
-  id: string
-  user_id: string
-  content: string | null
-  image_urls: string[]
-  like_count: number
-  comment_count: number
-  share_count: number
-  repost_count?: number
-  favorite_count?: number
-  tip_amount: number
-  created_at: string
-  status?: string
-  affiliatePost?: {
-    product?: { images?: string[] } & Record<string, unknown>
-  }
-  user?: {
-    username: string
-    display_name: string
-    avatar_url: string | null
-  }
-  topics?: Array<{ id: string; name: string; slug: string }>
+export type { Post }
+
+/** 个性化 Feed（带推荐理由）：调用 get_personalized_feed_with_reasons，再拉取完整帖子并保持顺序 */
+async function fetchPersonalizedFeedWithReasons(
+  userId: string,
+  page: number,
+  options?: { followedOnly?: boolean }
+): Promise<Post[]> {
+  const supabase = createClient()
+  const offset = page * POSTS_PER_PAGE
+
+  const { data: rows, error: rpcError } = await supabase.rpc('get_personalized_feed_with_reasons', {
+    p_user_id: userId,
+    p_limit: POSTS_PER_PAGE,
+    p_offset: offset,
+    p_followed_only: options?.followedOnly ?? false,
+    p_exclude_viewed_days: 7,
+    p_tier1_base: 100,
+    p_tier2_base: 50,
+    p_diversity_n: 20,
+    p_diversity_k: 2,
+  })
+
+  if (rpcError) throw rpcError
+  const items = (rows || []) as { post_id: string; reason_type: string | null }[]
+  const ids = items.map((r) => r.post_id).filter(Boolean)
+  if (ids.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('posts')
+    .select(POST_SELECT)
+    .in('id', ids)
+
+  if (error) throw error
+
+  const byId = new Map((data || []).map((p: any) => [p.id, mapRowToPost(p)]))
+  return ids.map((id: string) => {
+    const post = byId.get(id)
+    if (!post) return null
+    const item = items.find((r) => r.post_id === id)
+    const reasonType = (item?.reason_type ?? 'trending') as FeedRecommendationReasonType
+    return { ...post, recommendationReason: { reasonType } }
+  }).filter(Boolean) as Post[]
 }
-
-const POSTS_PER_PAGE = 20
 
 async function fetchPosts(page: number = 0, status: string = 'approved') {
   const supabase = createClient()
@@ -37,101 +63,290 @@ async function fetchPosts(page: number = 0, status: string = 'approved') {
 
   const { data, error } = await supabase
     .from('posts')
-    .select(`
-      *,
-      user:profiles!posts_user_id_fkey (
-        username,
-        display_name,
-        avatar_url
-      ),
-      topics:post_topics (
-        topic:topics (
-          id,
-          name,
-          slug
-        )
-      )
-    `)
+    .select(POST_SELECT)
     .eq('status', status)
     .order('created_at', { ascending: false })
     .range(from, to)
 
   if (error) throw error
-
-  // Transform the data to match our Post interface
-  const posts: Post[] = (data || []).map((post: any) => ({
-    ...post,
-    // Ensure numeric fields have default values
-    like_count: post.like_count ?? 0,
-    comment_count: post.comment_count ?? 0,
-    share_count: post.share_count ?? 0,
-    favorite_count: post.favorite_count ?? 0,
-    tip_amount: post.tip_amount ?? 0,
-    user: post.user ? {
-      username: post.user.username || '',
-      display_name: post.user.display_name || '',
-      avatar_url: post.user.avatar_url,
-    } : undefined,
-    topics: post.topics?.map((pt: any) => pt.topic).filter(Boolean) || [],
-  }))
-
-  return posts
+  return (data || []).map(mapRowToPost)
 }
 
-async function fetchUserPosts(userId: string, page: number = 0, status: string | undefined = 'approved') {
+async function fetchUserPosts(
+  userId: string,
+  page: number = 0,
+  status: string | undefined = 'approved',
+  postType?: string
+) {
   const supabase = createClient()
-  
   const from = page * POSTS_PER_PAGE
   const to = from + POSTS_PER_PAGE - 1
 
   let query = supabase
     .from('posts')
-    .select(`
+    .select(POST_SELECT)
+    .eq('user_id', userId)
+
+  if (status !== undefined) {
+    query = query.eq('status', status)
+  }
+  if (postType) {
+    if (postType === 'normal') {
+      query = query.in('post_type', ['normal', 'image', 'text'])
+    } else {
+      query = query.eq('post_type', postType)
+    }
+  }
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  if (error) throw error
+  return (data || []).map(mapRowToPost)
+}
+
+/** 按话题拉取已审核帖子（分页），用于话题页。可选按 post_type 筛选。 */
+async function fetchTopicPosts(topicId: string, page: number = 0, postType?: string): Promise<Post[]> {
+  const supabase = createClient()
+  const from = page * POSTS_PER_PAGE
+  const to = from + POSTS_PER_PAGE - 1
+
+  let query = supabase
+    .from('posts')
+    .select(
+      `
       *,
       user:profiles!posts_user_id_fkey (
         username,
         display_name,
         avatar_url
       ),
-      topics:post_topics (
+      topics:post_topics!inner (
         topic:topics (
           id,
           name,
-          slug
+          slug,
+          name_translated,
+          name_lang
         )
       )
-    `)
-    .eq('user_id', userId)
-  
-  // ✅ 修复 P0-2: 如果 status 为 undefined，查询所有状态的帖子（用于自己的页面显示草稿）
-  if (status !== undefined) {
-    query = query.eq('status', status)
+      `
+    )
+    .eq('status', 'approved')
+    .eq('topics.topic_id', topicId)
+
+  if (postType) {
+    if (postType === 'normal') {
+      query = query.in('post_type', ['normal', 'image', 'text'])
+    } else {
+      query = query.eq('post_type', postType)
+    }
   }
-  
+
   const { data, error } = await query
     .order('created_at', { ascending: false })
     .range(from, to)
 
   if (error) throw error
+  return (data || []).map((p: any) => mapRowToPost({ ...p, topics: p.topics?.map((pt: any) => pt.topic).filter(Boolean) || [] }))
+}
 
-  // Transform the data to match our Post interface
-  const posts: Post[] = (data || []).map((post: any) => ({
-    ...post,
-    // Ensure numeric fields have default values
-    like_count: post.like_count ?? 0,
-    comment_count: post.comment_count ?? 0,
-    share_count: post.share_count ?? 0,
-    favorite_count: post.favorite_count ?? 0,
-    tip_amount: post.tip_amount ?? 0,
-    user: post.user ? {
-      username: post.user.username || '',
-      display_name: post.user.display_name || '',
-      avatar_url: post.user.avatar_url,
-    } : undefined,
-    topics: post.topics?.map((pt: any) => pt.topic).filter(Boolean) || [],
-  }))
+/** 仅拉取 short_video 帖子（分页），按时间倒序。用于视频流。 */
+async function fetchShortVideoPosts(page: number = 0, limit: number = POSTS_PER_PAGE): Promise<Post[]> {
+  const supabase = createClient()
+  const from = page * limit
+  const to = from + limit - 1
+  const { data, error } = await supabase
+    .from('posts')
+    .select(POST_SELECT)
+    .eq('status', 'approved')
+    .eq('post_type', 'short_video')
+    .order('created_at', { ascending: false })
+    .range(from, to)
+  if (error) throw error
+  return (data || []).map(mapRowToPost)
+}
 
-  return posts
+/** 以某帖为起点，拉取其前后各 N 条 short_video，用于视频流首屏。返回有序列表与当前帖下标。 */
+export async function fetchShortVideoAroundPost(
+  postId: string,
+  beforeCount: number = 10,
+  afterCount: number = 10
+): Promise<{ posts: Post[]; currentIndex: number }> {
+  const supabase = createClient()
+  const { data: row, error: rowError } = await supabase
+    .from('posts')
+    .select('id, created_at')
+    .eq('id', postId)
+    .eq('status', 'approved')
+    .eq('post_type', 'short_video')
+    .single()
+  if (rowError || !row) throw new Error('Post not found or not a short_video')
+  const createdAt = row.created_at as string
+
+  const [olderRes, newerRes] = await Promise.all([
+    supabase
+      .from('posts')
+      .select(POST_SELECT)
+      .eq('status', 'approved')
+      .eq('post_type', 'short_video')
+      .lt('created_at', createdAt)
+      .order('created_at', { ascending: false })
+      .limit(beforeCount),
+    supabase
+      .from('posts')
+      .select(POST_SELECT)
+      .eq('status', 'approved')
+      .eq('post_type', 'short_video')
+      .gt('created_at', createdAt)
+      .order('created_at', { ascending: true })
+      .limit(afterCount),
+  ])
+  if (olderRes.error) throw olderRes.error
+  if (newerRes.error) throw newerRes.error
+  const older = (olderRes.data || []).map(mapRowToPost)
+  const newer = (newerRes.data || []).map(mapRowToPost).reverse()
+  const { data: currentRow, error: currentErr } = await supabase
+    .from('posts')
+    .select(POST_SELECT)
+    .eq('id', postId)
+    .single()
+  if (currentErr || !currentRow) throw new Error('Post not found')
+  const currentPost = mapRowToPost(currentRow)
+  const posts = [...older, currentPost, ...newer]
+  const currentIndex = older.length
+  return { posts, currentIndex }
+}
+
+/** 拉取比某时间更早的 short_video（用于视频流向下滑动加载更多）。 */
+export async function fetchShortVideoOlderThan(createdAt: string, limit: number = POSTS_PER_PAGE): Promise<Post[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('posts')
+    .select(POST_SELECT)
+    .eq('status', 'approved')
+    .eq('post_type', 'short_video')
+    .lt('created_at', createdAt)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data || []).map(mapRowToPost)
+}
+
+/** 拉取比某时间更新的 short_video（用于视频流向上滑动加载更多）。 */
+export async function fetchShortVideoNewerThan(createdAt: string, limit: number = POSTS_PER_PAGE): Promise<Post[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('posts')
+    .select(POST_SELECT)
+    .eq('status', 'approved')
+    .eq('post_type', 'short_video')
+    .gt('created_at', createdAt)
+    .order('created_at', { ascending: true })
+    .limit(limit)
+  if (error) throw error
+  return (data || []).map(mapRowToPost).reverse()
+}
+
+/** 按小组拉取已审核帖子（分页），用于小组详情页。可选按 post_type 筛选。 */
+async function fetchGroupPosts(groupId: string, page: number = 0, postType?: string): Promise<Post[]> {
+  const supabase = createClient()
+  const from = page * POSTS_PER_PAGE
+  const to = from + POSTS_PER_PAGE - 1
+
+  let query = supabase
+    .from('posts')
+    .select(POST_SELECT)
+    .eq('group_id', groupId)
+    .eq('status', 'approved')
+
+  if (postType) {
+    if (postType === 'normal') {
+      query = query.in('post_type', ['normal', 'image', 'text'])
+    } else {
+      query = query.eq('post_type', postType)
+    }
+  }
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  if (error) throw error
+  return (data || []).map(mapRowToPost)
+}
+
+/** 个性化推荐 Feed（登录用户，带推荐理由）；Following 页传 followedOnly: true */
+export function useFeed(
+  userId: string | undefined,
+  options?: {
+    followedOnly?: boolean
+    enabled?: boolean
+  }
+) {
+  return useInfiniteQuery({
+    queryKey: ['feed', userId, options?.followedOnly ?? false],
+    queryFn: ({ pageParam = 0 }) =>
+      fetchPersonalizedFeedWithReasons(userId!, pageParam, { followedOnly: options?.followedOnly }),
+    getNextPageParam: (lastPage, allPages) => {
+      if (lastPage.length < POSTS_PER_PAGE) return undefined
+      return allPages.length
+    },
+    initialPageParam: 0,
+    enabled: (options?.enabled !== false) && !!userId,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    gcTime: 5 * 60 * 1000,
+  })
+}
+
+const IMPRESSION_DEBOUNCE_MS = 800
+const IMPRESSION_BATCH_MAX = 50
+const pendingByUser = new Map<string, Set<string>>()
+let impressionFlushTimer: ReturnType<typeof setTimeout> | null = null
+
+function flushFeedImpressions() {
+  impressionFlushTimer = null
+  if (pendingByUser.size === 0) return
+  const rows: { user_id: string; post_id: string; shown_at: string }[] = []
+  const now = new Date().toISOString()
+  for (const [userId, ids] of pendingByUser) {
+    for (const postId of ids) {
+      rows.push({ user_id: userId, post_id: postId, shown_at: now })
+      if (rows.length >= IMPRESSION_BATCH_MAX) break
+    }
+    if (rows.length >= IMPRESSION_BATCH_MAX) break
+  }
+  if (rows.length === 0) return
+  const supabase = createClient()
+  supabase.from('feed_impressions').insert(rows).then(() => {
+    for (const r of rows) {
+      pendingByUser.get(r.user_id)?.delete(r.post_id)
+      if (pendingByUser.get(r.user_id)?.size === 0) pendingByUser.delete(r.user_id)
+    }
+    if (pendingByUser.size > 0) impressionFlushTimer = setTimeout(flushFeedImpressions, IMPRESSION_DEBOUNCE_MS)
+  })
+}
+
+/** 写入 Feed 曝光（防抖 + 批量）；可选在展示时调用 */
+export function recordFeedImpressions(userId: string, postIds: string[]): void {
+  if (postIds.length === 0) return
+  let set = pendingByUser.get(userId)
+  if (!set) {
+    set = new Set()
+    pendingByUser.set(userId, set)
+  }
+  postIds.forEach((id) => set!.add(id))
+  if (!impressionFlushTimer) {
+    impressionFlushTimer = setTimeout(flushFeedImpressions, IMPRESSION_DEBOUNCE_MS)
+  }
+  if (set.size >= IMPRESSION_BATCH_MAX) {
+    if (impressionFlushTimer) clearTimeout(impressionFlushTimer)
+    impressionFlushTimer = null
+    flushFeedImpressions()
+  }
 }
 
 export function usePosts(
@@ -151,23 +366,72 @@ export function usePosts(
     initialPageParam: 0,
     enabled: options?.enabled !== false, // 默认启用
     initialData: options?.initialData,
-    staleTime: 30_000, // 增加到30秒，减少不必要的重新获取
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
     refetchOnMount: false, // 如果数据仍然新鲜，不重新获取
     gcTime: 5 * 60 * 1000, // 5分钟垃圾回收时间（原 cacheTime）
   })
 }
 
-export function useUserPosts(userId: string, status: string | undefined = 'approved', options?: { enabled?: boolean }) {
+export function useUserPosts(
+  userId: string,
+  status: string | undefined = 'approved',
+  options?: { enabled?: boolean; postType?: string }
+) {
   return useInfiniteQuery({
-    queryKey: ['userPosts', userId, status ?? 'all'],
-    queryFn: ({ pageParam = 0 }) => fetchUserPosts(userId, pageParam, status),
+    queryKey: ['userPosts', userId, status ?? 'all', options?.postType],
+    queryFn: ({ pageParam = 0 }) =>
+      fetchUserPosts(userId, pageParam, status, options?.postType),
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < POSTS_PER_PAGE) return undefined
       return allPages.length
     },
     initialPageParam: 0,
     enabled: (options?.enabled !== false) && !!userId,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    gcTime: 5 * 60 * 1000,
+  })
+}
+
+/** 话题页：按话题 ID 分页拉取已审核帖子，可选按 post_type 筛选 */
+export function useTopicPosts(
+  topicId: string | undefined,
+  options?: { enabled?: boolean; postType?: string }
+) {
+  return useInfiniteQuery({
+    queryKey: ['topicPosts', topicId, options?.postType],
+    queryFn: ({ pageParam = 0 }) =>
+      fetchTopicPosts(topicId!, pageParam, options?.postType),
+    getNextPageParam: (lastPage, allPages) => {
+      if (lastPage.length < POSTS_PER_PAGE) return undefined
+      return allPages.length
+    },
+    initialPageParam: 0,
+    enabled: (options?.enabled !== false) && !!topicId,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    gcTime: 5 * 60 * 1000,
+  })
+}
+
+/** 小组页：按小组 ID 分页拉取已审核帖子，可选按 post_type 筛选 */
+export function useGroupPosts(
+  groupId: string | undefined,
+  options?: { enabled?: boolean; postType?: string }
+) {
+  return useInfiniteQuery({
+    queryKey: ['groupPosts', groupId, options?.postType],
+    queryFn: ({ pageParam = 0 }) =>
+      fetchGroupPosts(groupId!, pageParam, options?.postType),
+    getNextPageParam: (lastPage, allPages) => {
+      if (lastPage.length < POSTS_PER_PAGE) return undefined
+      return allPages.length
+    },
+    initialPageParam: 0,
+    enabled: (options?.enabled !== false) && !!groupId,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -183,48 +447,33 @@ export function usePost(postId: string) {
       
       const { data, error } = await supabase
         .from('posts')
-        .select(`
-          *,
-          user:profiles!posts_user_id_fkey (
-            username,
-            display_name,
-            avatar_url
-          ),
-          topics:post_topics (
-            topic:topics (
-              id,
-              name,
-              slug
-            )
-          )
-        `)
+        .select(POST_SELECT)
         .eq('id', postId)
         .single()
 
       if (error) throw error
-
-      // Transform the data
-      const post: Post = {
-        ...data,
-        // Ensure numeric fields have default values
-        like_count: data.like_count ?? 0,
-        comment_count: data.comment_count ?? 0,
-        share_count: data.share_count ?? 0,
-        favorite_count: data.favorite_count ?? 0,
-        tip_amount: data.tip_amount ?? 0,
-        user: data.user ? {
-          username: data.user.username || '',
-          display_name: data.user.display_name || '',
-          avatar_url: data.user.avatar_url,
-        } : undefined,
-        topics: data.topics?.map((pt: any) => pt.topic).filter(Boolean) || [],
-      }
-
-      return post
+      return mapRowToPost(data)
     },
     enabled: !!postId,
     staleTime: 10_000,
     refetchOnWindowFocus: false,
   })
 }
+
+/** 视频流：以某 short_video 为起点的列表与下标；并提供 fetchOlder / fetchNewer 用于加载更多。 */
+export function useVideoStream(postId: string | undefined) {
+  const query = useQuery({
+    queryKey: ['videoStream', postId],
+    queryFn: () => fetchShortVideoAroundPost(postId!, 10, 10),
+    enabled: !!postId,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  })
+  return {
+    ...query,
+    fetchOlder: fetchShortVideoOlderThan,
+    fetchNewer: fetchShortVideoNewerThan,
+  }
+}
+
 

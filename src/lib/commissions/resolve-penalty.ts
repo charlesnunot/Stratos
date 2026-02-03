@@ -45,16 +45,20 @@ export async function resolveCommissionPenalty(
 
     const result = data[0]
 
-    // Send notification to seller if penalties were resolved
+    // Send notification to seller if penalties were resolved (use content_key for i18n)
     if (result.success && result.resolved_penalties > 0) {
       await supabaseAdmin.from('notifications').insert({
         user_id: sellerId,
         type: 'system',
-        title: '惩罚已解除',
-        content: `您的佣金已支付，${result.resolved_penalties} 个惩罚已自动解除，相关功能已恢复。`,
+        title: 'Penalties Resolved',
+        content: `Your commission has been paid. ${result.resolved_penalties} penalty(s) have been automatically resolved.`,
         related_type: 'commission',
         related_id: obligationId,
         link: '/seller/commissions',
+        content_key: 'commission_penalty_resolved',
+        content_params: {
+          resolvedCount: result.resolved_penalties.toString(),
+        },
       })
     }
 

@@ -14,12 +14,17 @@ export default function AuthError({
     console.error('Auth error:', error)
   }, [error])
 
+  const displayMessage =
+    process.env.NODE_ENV === 'production'
+      ? '发生错误，请重试'
+      : (error.message || '认证过程中发生错误')
+
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4 text-center">
         <h1 className="text-2xl font-bold">认证错误</h1>
         <p className="text-gray-600 dark:text-gray-400">
-          {error.message || '认证过程中发生错误'}
+          {displayMessage}
         </p>
         <div className="flex gap-2 justify-center">
           <button

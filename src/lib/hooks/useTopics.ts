@@ -4,6 +4,36 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 
+export interface FollowedTopic {
+  id: string
+  name: string
+  slug: string
+  name_translated?: string | null
+  name_lang?: 'zh' | 'en' | null
+}
+
+export function useFollowedTopics(userId: string | undefined) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['followedTopics', userId],
+    queryFn: async (): Promise<FollowedTopic[]> => {
+      if (!userId) return []
+      const { data, error } = await supabase
+        .from('topic_follows')
+        .select('topics(id, name, slug, name_translated, name_lang)')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return (data || []).flatMap((row: { topics: unknown }) =>
+        Array.isArray(row.topics) ? row.topics : []
+      ) as FollowedTopic[]
+    },
+    enabled: !!userId,
+  })
+}
+
 export function useIsTopicFollowed(topicId?: string) {
   const { user } = useAuth()
   const supabase = createClient()
@@ -52,7 +82,7 @@ export function useToggleTopicFollow() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['isTopicFollowed', user?.id, variables.topicId] })
-      // refresh topic meta (follower_count)
+      queryClient.invalidateQueries({ queryKey: ['followedTopics', user?.id] })
       queryClient.invalidateQueries({ queryKey: ['topic'] })
     },
   })

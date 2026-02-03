@@ -6,12 +6,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkSellerPermission } from '@/lib/auth/check-subscription'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: orderId } = await params
+    if (!orderId) {
+      return NextResponse.json({ error: 'Order ID required' }, { status: 400 })
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -25,10 +31,32 @@ export async function POST(
     const body = await request.json()
     const { tracking_number, logistics_provider } = body
 
-    // Validate required fields
-    if (!tracking_number || !logistics_provider) {
+    // Validate required fields and length (防超长或异常输入)
+    const TRACKING_MAX = 100
+    const PROVIDER_MAX = 50
+    if (!tracking_number || typeof tracking_number !== 'string') {
       return NextResponse.json(
         { error: 'Tracking number and logistics provider are required' },
+        { status: 400 }
+      )
+    }
+    if (!logistics_provider || typeof logistics_provider !== 'string') {
+      return NextResponse.json(
+        { error: 'Tracking number and logistics provider are required' },
+        { status: 400 }
+      )
+    }
+    const tn = tracking_number.trim()
+    const lp = logistics_provider.trim()
+    if (!tn || !lp) {
+      return NextResponse.json(
+        { error: 'Tracking number and logistics provider are required' },
+        { status: 400 }
+      )
+    }
+    if (tn.length > TRACKING_MAX || lp.length > PROVIDER_MAX) {
+      return NextResponse.json(
+        { error: `Tracking number max ${TRACKING_MAX} chars, logistics provider max ${PROVIDER_MAX} chars` },
         { status: 400 }
       )
     }
@@ -50,7 +78,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .select('id, seller_id, order_status, payment_status, order_number, buyer_id')
-      .eq('id', params.id)
+      .eq('id', orderId)
       .single()
 
     if (orderError || !order) {
@@ -90,12 +118,12 @@ export async function POST(
       .from('orders')
       .update({
         order_status: 'shipped',
-        tracking_number,
-        logistics_provider,
+        tracking_number: tn,
+        logistics_provider: lp,
         shipped_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', orderId)
 
     if (updateError) {
       console.error('[orders/ship] Error updating order:', updateError)
@@ -105,18 +133,33 @@ export async function POST(
       )
     }
 
+    logAudit({
+      action: 'ship_order',
+      userId: user.id,
+      resourceId: orderId,
+      resourceType: 'order',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+    })
+
     // Send notification to buyer (async, don't block on failure)
     if (order.buyer_id) {
       try {
         await supabaseAdmin.from('notifications').insert({
           user_id: order.buyer_id,
           type: 'order',
-          title: '订单已发货',
-          content: `您的订单 ${order.order_number} 已发货，物流单号：${tracking_number}`,
+          title: 'Order Shipped',
+          content: `Your order ${order.order_number} has been shipped. Tracking: ${tn}`,
           related_id: order.id,
           related_type: 'order',
           link: `/orders/${order.id}/tracking`,
-          actor_id: user.id, // Seller ID
+          actor_id: user.id,
+          content_key: 'order_shipped',
+          content_params: {
+            orderNumber: order.order_number,
+            trackingNumber: tn,
+            logisticsProvider: lp,
+          },
         })
       } catch (notificationError) {
         // Log error but don't fail the request

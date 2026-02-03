@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +50,8 @@ interface AdminMonitoringClientProps {
 }
 
 export function AdminMonitoringClient({ initialData, initialError }: AdminMonitoringClientProps) {
+  const t = useTranslations('admin')
+  const tCommon = useTranslations('common')
   const [data, setData] = useState<MonitoringData | null>(initialData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(initialError)
@@ -81,11 +84,11 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
   const getHealthBadge = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <Badge className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" />健康</Badge>
+        return <Badge className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" />{t('healthHealthy')}</Badge>
       case 'warning':
-        return <Badge className="bg-yellow-500"><AlertTriangle className="h-3 w-3 mr-1" />警告</Badge>
+        return <Badge className="bg-yellow-500"><AlertTriangle className="h-3 w-3 mr-1" />{t('healthWarning')}</Badge>
       case 'critical':
-        return <Badge className="bg-red-500"><AlertCircle className="h-3 w-3 mr-1" />严重</Badge>
+        return <Badge className="bg-red-500"><AlertCircle className="h-3 w-3 mr-1" />{t('healthCritical')}</Badge>
       default:
         return <Badge>{status}</Badge>
     }
@@ -94,11 +97,11 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
   const getCronStatusBadge = (status: string) => {
     switch (status) {
       case 'success':
-        return <Badge className="bg-green-500">成功</Badge>
+        return <Badge className="bg-green-500">{t('successCount')}</Badge>
       case 'failed':
-        return <Badge className="bg-red-500">失败</Badge>
+        return <Badge className="bg-red-500">{t('statusFailed')}</Badge>
       case 'running':
-        return <Badge className="bg-blue-500">运行中</Badge>
+        return <Badge className="bg-blue-500">{t('statusRunning')}</Badge>
       default:
         return <Badge>{status}</Badge>
     }
@@ -110,7 +113,7 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <Activity className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p>加载监控数据中...</p>
+            <p>{t('loadingMonitoring')}</p>
           </div>
         </div>
       </div>
@@ -122,11 +125,11 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
       <div className="container mx-auto p-6">
         <Card className="border-red-500">
           <CardHeader>
-            <CardTitle className="text-red-500">加载失败</CardTitle>
+            <CardTitle className="text-red-500">{t('loadFailed')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-4">{error}</p>
-            <Button onClick={loadData}>重试</Button>
+            <Button onClick={loadData}>{tCommon('retry')}</Button>
           </CardContent>
         </Card>
       </div>
@@ -139,14 +142,14 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">系统监控</h1>
+          <h1 className="text-3xl font-bold">{t('monitoringTitle')}</h1>
           <p className="text-muted-foreground mt-1">
-            最后更新: {new Date(data.timestamp).toLocaleString('zh-CN')}
+            {t('lastUpdated')}: {new Date(data.timestamp).toLocaleString()}
           </p>
         </div>
         <Button onClick={loadData} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          刷新
+          {t('refresh')}
         </Button>
       </div>
 
@@ -155,14 +158,14 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            系统健康状态
+            {t('systemHealth')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4 mb-4">
             {getHealthBadge(data.health.overall)}
             <span className="text-sm text-muted-foreground">
-              {data.health.issues.length === 0 ? '系统运行正常' : `${data.health.issues.length} 个问题`}
+              {data.health.issues.length === 0 ? t('systemOk') : t('issuesCount', { count: data.health.issues.length })}
             </span>
           </div>
           {data.health.issues.length > 0 && (
@@ -182,49 +185,49 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>总订单数</CardDescription>
+            <CardDescription>{t('totalOrders')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{data.metrics.orders.total.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              过去24小时: {data.metrics.orders.last24h}
+              {t('last24h')}: {data.metrics.orders.last24h}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>待处理订单</CardDescription>
+            <CardDescription>{t('pendingOrders')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
               {data.metrics.orders.pending.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              过期订单: {data.metrics.orders.expired}
+              {t('expiredOrders')}: {data.metrics.orders.expired}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>总用户数</CardDescription>
+            <CardDescription>{t('totalUsers')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{data.metrics.users.total.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              活跃卖家: {data.metrics.users.activeSellers}
+              {t('activeSellers')}: {data.metrics.users.activeSellers}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>总收入</CardDescription>
+            <CardDescription>{t('totalRevenue')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {formatCurrency(data.metrics.revenue.total, 'USD')}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              过去24小时: {formatCurrency(data.metrics.revenue.last24h, 'USD')}
+              {t('last24h')}: {formatCurrency(data.metrics.revenue.last24h, 'USD')}
             </p>
           </CardContent>
         </Card>
@@ -233,24 +236,24 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
       {/* Issues */}
       <Card>
         <CardHeader>
-          <CardTitle>待处理问题</CardTitle>
+          <CardTitle>{t('pendingIssues')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <p className="text-sm text-muted-foreground">待处理退款</p>
+              <p className="text-sm text-muted-foreground">{t('pendingRefunds')}</p>
               <p className="text-2xl font-bold text-yellow-600">
                 {data.metrics.issues.pendingRefunds}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">活跃争议</p>
+              <p className="text-sm text-muted-foreground">{t('activeDisputes')}</p>
               <p className="text-2xl font-bold text-orange-600">
                 {data.metrics.issues.activeDisputes}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">待处理保证金</p>
+              <p className="text-sm text-muted-foreground">{t('pendingDeposits')}</p>
               <p className="text-2xl font-bold text-blue-600">
                 {data.metrics.issues.pendingDeposits}
               </p>
@@ -262,12 +265,12 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
       {/* Cron Jobs Status */}
       <Card>
         <CardHeader>
-          <CardTitle>定时任务状态</CardTitle>
-          <CardDescription>过去24小时的执行情况</CardDescription>
+          <CardTitle>{t('cronStatus')}</CardTitle>
+          <CardDescription>{t('cronStatusDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           {Object.keys(data.metrics.cronJobs).length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无定时任务执行记录</p>
+            <p className="text-sm text-muted-foreground">{t('noCronRecords')}</p>
           ) : (
             <div className="space-y-4">
               {Object.entries(data.metrics.cronJobs).map(([jobName, status]) => (
@@ -278,20 +281,20 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
                       {getCronStatusBadge(status.lastStatus)}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(status.lastExecution).toLocaleString('zh-CN')}
+                      {new Date(status.lastExecution).toLocaleString()}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-4 mt-2 text-sm">
                     <div>
-                      <span className="text-muted-foreground">执行时间: </span>
+                      <span className="text-muted-foreground">{t('executionTime')}: </span>
                       <span>{status.executionTime}ms</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">成功: </span>
+                      <span className="text-muted-foreground">{t('successCount')}: </span>
                       <span className="text-green-600">{status.successCount}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">失败: </span>
+                      <span className="text-muted-foreground">{t('failureCount')}: </span>
                       <span className="text-red-600">{status.failureCount}</span>
                     </div>
                   </div>

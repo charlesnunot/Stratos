@@ -79,7 +79,7 @@ export function RepostDialog({ open, onClose, onConfirm, isLoading = false }: Re
           {/* 评论输入框 */}
           <div className="shrink-0">
             <Textarea
-              placeholder="添加转发评论（可选）..."
+              placeholder={t('addRepostComment')}
               value={repostContent}
               onChange={(e) => setRepostContent(e.target.value)}
               className="w-full min-h-[80px] resize-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-0"
@@ -93,7 +93,7 @@ export function RepostDialog({ open, onClose, onConfirm, isLoading = false }: Re
           {/* 搜索框 */}
           <div className="shrink-0 relative z-10">
             <Input
-              placeholder="搜索用户..."
+              placeholder={t('searchUsers')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-0 focus-visible:border-primary"
@@ -111,7 +111,7 @@ export function RepostDialog({ open, onClose, onConfirm, isLoading = false }: Re
               }`}
             >
               <UserPlus className="inline-block mr-2 h-4 w-4" />
-              关注的人 ({following.length})
+              {t('following')} ({following.length})
             </button>
             <button
               onClick={() => setActiveTab('followers')}
@@ -122,7 +122,7 @@ export function RepostDialog({ open, onClose, onConfirm, isLoading = false }: Re
               }`}
             >
               <Users className="inline-block mr-2 h-4 w-4" />
-              粉丝 ({followers.length})
+              {t('followers')} ({followers.length})
             </button>
           </div>
 
@@ -134,7 +134,7 @@ export function RepostDialog({ open, onClose, onConfirm, isLoading = false }: Re
               </div>
             ) : filteredUsers.length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground">
-                {activeTab === 'following' ? '暂无关注的人' : '暂无粉丝'}
+                {activeTab === 'following' ? t('noFollowing') : t('noFollowers')}
               </div>
             ) : (
               filteredUsers.map((userItem) => {
@@ -188,7 +188,7 @@ export function RepostDialog({ open, onClose, onConfirm, isLoading = false }: Re
           {/* 已选择提示 */}
           {selectedUserIds.length > 0 && (
             <p className="text-xs text-muted-foreground shrink-0">
-              已选择 {selectedUserIds.length} 个用户
+              {t('selectedUsers', { count: selectedUserIds.length })}
             </p>
           )}
         </div>
@@ -204,7 +204,7 @@ export function RepostDialog({ open, onClose, onConfirm, isLoading = false }: Re
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                转发中...
+                {t('reposting')}
               </>
             ) : (
               tCommon('confirm')

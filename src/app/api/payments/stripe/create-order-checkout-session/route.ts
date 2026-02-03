@@ -327,7 +327,8 @@ export async function POST(request: NextRequest) {
         // Session will not be used, webhook will not trigger successfully
         return NextResponse.json(
           {
-            error: '订单暂时无法支付，请联系卖家',
+            error: 'Order cannot be paid at this time, please contact the seller',
+            errorKey: 'order_payment_blocked_deposit',
             requiresDeposit: true,
             sellerId: existingOrder.seller_id,
             requiredAmount: parseFloat(depositCheck.required_amount?.toString() || '0'),

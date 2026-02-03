@@ -126,9 +126,38 @@ export function usePostPage(postId: string): PostPageState {
     }
   }
 
+  // 非 approved 帖子：仅作者或管理员/支持可查看，其他用户视为不可用（避免下架后直链仍可见）
+  const isAuthor = !!user && user.id === post.user_id
+  const isAdminOrSupport =
+    currentUserProfile?.role === 'admin' || currentUserProfile?.role === 'support'
+  if (post.status !== 'approved' && !isAuthor && !isAdminOrSupport) {
+    return {
+      status: 'unavailable',
+      reason: 'permission',
+    }
+  }
+
   // 统一能力计算
   const isApproved = post.status === 'approved'
   const isLoggedIn = !!user
+
+  const canTip =
+    isLoggedIn &&
+    user!.id !== post.user_id &&
+    !isBlockedByAuthor &&
+    !isCurrentUserBannedOrSuspended
+
+  const tipDisabledReason = !canTip
+    ? !isLoggedIn
+      ? '请先登录'
+      : user!.id === post.user_id
+        ? '不能给自己打赏'
+        : isBlockedByAuthor
+          ? '您已被作者拉黑'
+          : isCurrentUserBannedOrSuspended
+            ? '您的账号状态异常'
+            : undefined
+    : undefined
 
   const capabilities: PageCapabilities = {
     canComment:
@@ -141,11 +170,7 @@ export function usePostPage(postId: string): PostPageState {
       isApproved &&
       !isBlockedByAuthor &&
       !isCurrentUserBannedOrSuspended,
-    canTip:
-      isLoggedIn &&
-      user!.id !== post.user_id &&
-      !isBlockedByAuthor &&
-      !isCurrentUserBannedOrSuspended,
+    canTip,
     canRepost:
       isLoggedIn &&
       isApproved &&
@@ -156,6 +181,12 @@ export function usePostPage(postId: string): PostPageState {
       user!.id !== post.user_id &&
       !isCurrentUserBannedOrSuspended,
     canFollowAuthor:
+      isLoggedIn &&
+      user!.id !== post.user_id &&
+      !isBlockedByAuthor &&
+      !isAuthorBannedOrSuspended &&
+      !isCurrentUserBannedOrSuspended,
+    canChat:
       isLoggedIn &&
       user!.id !== post.user_id &&
       !isBlockedByAuthor &&
@@ -173,6 +204,7 @@ export function usePostPage(postId: string): PostPageState {
     author,
     isBlockedByAuthor,
     isAuthorBannedOrSuspended,
+    tipDisabledReason,
   }
 }
 

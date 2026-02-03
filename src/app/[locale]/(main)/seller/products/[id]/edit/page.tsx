@@ -8,13 +8,19 @@ import { useImageUpload } from '@/lib/hooks/useImageUpload'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/lib/hooks/useToast'
 import { createClient } from '@/lib/supabase/client'
+import { logAudit } from '@/lib/api/audit'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { X, Upload, Loader2, Plus, Trash2 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { X, Upload, Loader2, Plus, Trash2, Sparkles } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useTranslations, useLocale } from 'next-intl'
+import type { Currency } from '@/lib/currency/detect-currency'
+import { useAiTask } from '@/lib/ai/useAiTask'
+
+const CURRENCIES: Currency[] = ['USD', 'CNY', 'EUR', 'GBP', 'JPY', 'KRW', 'SGD', 'HKD', 'AUD', 'CAD']
 
 export default function EditProductPage() {
   const router = useRouter()
@@ -26,11 +32,16 @@ export default function EditProductPage() {
   const queryClient = useQueryClient()
   const t = useTranslations('seller')
   const tCommon = useTranslations('common')
+  const tAi = useTranslations('ai')
+  const locale = useLocale()
+  const contentLang = locale === 'zh' ? 'zh' : 'en'
+  const { runTask, loading: aiLoading } = useAiTask()
   
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
+    currency: 'USD' as Currency,
     stock: '0',
     category: '',
     allow_affiliate: false,
@@ -97,6 +108,7 @@ export default function EditProductPage() {
         name: product.name || '',
         description: product.description || '',
         price: product.price?.toString() || '',
+        currency: (product.currency && CURRENCIES.includes(product.currency as Currency)) ? (product.currency as Currency) : 'USD',
         stock: product.stock?.toString() || '0',
         category: product.category || '',
         allow_affiliate: product.allow_affiliate || false,
@@ -186,18 +198,19 @@ export default function EditProductPage() {
     if (!validateForm()) {
       return
     }
-
     setLoading(true)
 
     try {
       // Upload new images (uploadImages already includes existing images)
       const allImageUrls = await uploadImages()
 
-      // Prepare product data
+      // Prepare product data（content_lang 先用页面语言，审核通过时翻译接口会检测并修正）
       const productData: any = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
+        content_lang: (formData.name.trim() || formData.description.trim()) ? contentLang : null,
         price: parseFloat(formData.price),
+        currency: formData.currency,
         stock: parseInt(formData.stock) || 0,
         category: formData.category.trim() || null,
         images: allImageUrls,
@@ -224,6 +237,17 @@ export default function EditProductPage() {
         .eq('id', productId)
 
       if (updateError) throw updateError
+
+      logAudit({
+        action: 'update_product',
+        userId: user!.id,
+        resourceId: productId,
+        resourceType: 'product',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+      })
+
+      // 自动翻译改为审核通过后触发，避免未通过审核时浪费 AI 资源
 
       // Invalidate related queries to refresh cache
       queryClient.invalidateQueries({ queryKey: ['sellerProducts', user?.id] })
@@ -273,6 +297,11 @@ export default function EditProductPage() {
             rows={4}
           />
         </Card>
+
+        <Alert className="text-sm text-muted-foreground">
+          <Sparkles className="h-4 w-4" />
+          <AlertDescription>{t('autoTranslateHint')}</AlertDescription>
+        </Alert>
 
         {/* Product Details */}
         <Card className="p-4">
@@ -363,8 +392,8 @@ export default function EditProductPage() {
           </p>
         </Card>
 
-        {/* Price and Stock */}
-        <div className="grid gap-4 md:grid-cols-2">
+        {/* Price, Currency and Stock */}
+        <div className="grid gap-4 md:grid-cols-3">
           <Card className="p-4">
             <label className="mb-2 block text-sm font-medium">
               {t('productPrice')} <span className="text-destructive">*</span>
@@ -378,7 +407,24 @@ export default function EditProductPage() {
               placeholder="0.00"
               className={errors.price ? 'border-destructive' : ''}
             />
+            <p className="mt-1 text-xs text-muted-foreground">{t('priceUnitHint')}</p>
             {errors.price && <p className="mt-1 text-sm text-destructive">{errors.price}</p>}
+          </Card>
+
+          <Card className="p-4">
+            <label className="mb-2 block text-sm font-medium">{t('currency')}</label>
+            <select
+              value={formData.currency}
+              onChange={(e) => setFormData({ ...formData, currency: e.target.value as Currency })}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {CURRENCIES.map((curr) => (
+                <option key={curr} value={curr}>
+                  {curr}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">{t('currencyHint')}</p>
           </Card>
 
           <Card className="p-4">
@@ -397,7 +443,31 @@ export default function EditProductPage() {
 
         {/* Category */}
         <Card className="p-4">
-          <label className="mb-2 block text-sm font-medium">{t('category')}</label>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <label className="text-sm font-medium">{t('category')}</label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!(formData.name.trim() || formData.description.trim()) || aiLoading}
+              onClick={async () => {
+                const input = [formData.name, formData.description].filter(Boolean).join('\n')
+                if (!input.trim()) return
+                try {
+                  const { result } = await runTask({ task: 'suggest_category', input })
+                  if (result?.trim()) {
+                    setFormData((prev) => ({ ...prev, category: result.trim() }))
+                    toast({ variant: 'success', title: tCommon('success') })
+                  }
+                } catch {
+                  toast({ variant: 'destructive', title: tCommon('error'), description: tAi('failed') })
+                }
+              }}
+            >
+              {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
+              {tAi('suggestCategory')}
+            </Button>
+          </div>
           <Input
             type="text"
             value={formData.category}

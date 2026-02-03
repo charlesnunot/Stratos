@@ -1,11 +1,17 @@
 /**
  * Unified service layer for processing order payments
  * Handles inventory updates, commission calculations, and notifications
+ * 
+ * 审计日志规范：
+ * - 记录订单支付处理操作
+ * - 记录库存扣减、佣金计算、通知发送
+ * - 不记录敏感支付信息（卡号、密钥等）
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
 import { logPaymentSuccess, logPaymentFailure, logIdempotencyHit, logPayment, LogLevel } from './logger'
 import { createPaymentError, logPaymentError } from './error-handler'
+import { logAudit } from '@/lib/api/audit'
 
 interface ProcessOrderPaymentParams {
   orderId: string
@@ -160,28 +166,58 @@ export async function processOrderPayment({
     // Note: For other payment methods (PayPal, Alipay, WeChat), similar direct payment
     // mechanisms should be used. Bank transfers still require manual processing.
 
-    // Create notification
-    await supabaseAdmin.from('notifications').insert({
+    // Create notification (use content_key for i18n, title/content as fallback)
+    const { error: notifBuyerError } = await supabaseAdmin.from('notifications').insert({
       user_id: order.buyer_id,
       type: 'order',
-      title: '订单支付成功',
-      content: `您的订单已成功支付`,
+      title: 'Order Payment Successful', // English fallback
+      content: `Your order has been paid successfully`,
       related_id: orderId,
       related_type: 'order',
       link: `/orders/${orderId}`,
+      content_key: 'order_paid',
+      content_params: { orderId: orderId.substring(0, 8) + '...' },
     })
+    if (notifBuyerError) {
+      console.error('[process-order-payment] Buyer notification insert failed:', notifBuyerError.message)
+    } else {
+      logAudit({
+        action: 'send_notification',
+        userId: order.buyer_id,
+        resourceId: orderId,
+        resourceType: 'order',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+        meta: { notificationType: 'order_paid', recipient: 'buyer' },
+      })
+    }
 
     // Notify seller of new order
     if (order.seller_id) {
-      await supabaseAdmin.from('notifications').insert({
+      const { error: notifSellerError } = await supabaseAdmin.from('notifications').insert({
         user_id: order.seller_id,
         type: 'order',
-        title: '新订单',
-        content: `您收到了一个新订单`,
+        title: 'New Order Received', // English fallback
+        content: `You have received a new paid order`,
         related_id: orderId,
         related_type: 'order',
         link: `/seller/orders/${orderId}`,
+        content_key: 'seller_new_order',
+        content_params: { orderId: orderId.substring(0, 8) + '...' },
       })
+      if (notifSellerError) {
+        console.error('[process-order-payment] Seller notification insert failed:', notifSellerError.message)
+      } else {
+        logAudit({
+          action: 'send_notification',
+          userId: order.seller_id,
+          resourceId: orderId,
+          resourceType: 'order',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: { notificationType: 'seller_new_order', recipient: 'seller' },
+        })
+      }
     }
 
     logPaymentSuccess('order', {
@@ -190,6 +226,21 @@ export async function processOrderPayment({
       amount: order.total_amount,
       currency: orderPaymentInfo?.currency || 'USD',
       paymentMethod: orderPaymentInfo?.payment_method || 'unknown',
+    })
+
+    // 记录订单支付处理完成审计日志
+    logAudit({
+      action: 'process_order_payment',
+      userId: order.buyer_id,
+      resourceId: orderId,
+      resourceType: 'order',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: {
+        sellerId: order.seller_id?.substring(0, 8) + '...',
+        hasAffiliate: !!order.affiliate_id,
+        paymentMethod: orderPaymentInfo?.payment_method || 'unknown',
+      },
     })
 
     return { success: true }

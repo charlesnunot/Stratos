@@ -169,19 +169,16 @@ export function useImageUpload({
 
     setUploading(true)
     const uploadedUrls: string[] = [...existingUrls]
+    const uploadedPaths: string[] = []
 
     try {
-      // ✅ 修复 P1-6: 再次验证图片大小和类型（后端验证）
       const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
       const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
       
       for (const image of images) {
-        // 验证文件类型
         if (!ALLOWED_TYPES.includes(image.type)) {
           throw new Error(`文件 ${image.name} 不是有效的图片格式`)
         }
-        
-        // 验证文件大小
         if (image.size > MAX_FILE_SIZE) {
           throw new Error(`文件 ${image.name} 超过 5MB 限制`)
         }
@@ -201,6 +198,7 @@ export function useImageUpload({
           throw uploadError
         }
 
+        uploadedPaths.push(filePath)
         const { data } = supabase.storage.from(bucket).getPublicUrl(filePath)
         uploadedUrls.push(data.publicUrl)
       }
@@ -209,9 +207,16 @@ export function useImageUpload({
         onUploadComplete(uploadedUrls)
       }
 
-      // Clear local images after successful upload
       clearImages()
     } catch (error) {
+      // 清理已上传的孤儿文件
+      if (uploadedPaths.length > 0) {
+        try {
+          await supabase.storage.from(bucket).remove(uploadedPaths)
+        } catch (cleanupErr) {
+          console.error('Failed to cleanup orphaned uploads:', cleanupErr)
+        }
+      }
       console.error('Image upload error:', error)
       throw error
     } finally {

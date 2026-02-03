@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useFormatter } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ReportDialog } from '@/components/social/ReportDialog'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { showInfo } from '@/lib/utils/toast'
-import { Flag, MoreVertical } from 'lucide-react'
+import { showInfo, showError } from '@/lib/utils/toast'
+import { useTranslations, useLocale } from 'next-intl'
+import { useAiTask } from '@/lib/ai/useAiTask'
+import { Flag, MoreVertical, Languages } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import {
   DropdownMenu,
@@ -16,11 +18,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
+type GroupMemberForBubble = {
+  id: string
+  username: string | null
+  display_name: string | null
+  avatar_url?: string | null
+}
+
 interface MessageBubbleProps {
   message: {
     id: string
     content: string
+    /** DB column is message_type (snake_case); Realtime/API may return messageType (camelCase) */
     message_type?: string
+    messageType?: string
     sender_id: string
     created_at: string
     sender?: {
@@ -29,6 +40,8 @@ interface MessageBubbleProps {
     }
   }
   isOwn: boolean
+  /** For group chat: used to render @username as profile links */
+  groupMembers?: GroupMemberForBubble[]
 }
 
 type CardPayload =
@@ -65,22 +78,85 @@ function safeParseCardPayload(raw: string): CardPayload | null {
   }
 }
 
-export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
+const MENTION_REGEX = /@([\w.-]+)/g
+
+function renderTextWithMentions(
+  content: string,
+  groupMembers: GroupMemberForBubble[] | undefined,
+  isOwn: boolean
+): ReactNode {
+  if (!groupMembers?.length) {
+    return content
+  }
+  const parts: ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  MENTION_REGEX.lastIndex = 0
+  while ((match = MENTION_REGEX.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index))
+    }
+    const username = match[1]
+    const member = groupMembers.find((m) => m.username === username || m.display_name === username)
+    if (member) {
+      parts.push(
+        <Link
+          key={match.index}
+          href={`/profile/${member.id}`}
+          className={isOwn ? 'underline text-primary-foreground/90' : 'underline text-primary'}
+        >
+          @{username}
+        </Link>
+      )
+    } else {
+      parts.push('@' + username)
+    }
+    lastIndex = MENTION_REGEX.lastIndex
+  }
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex))
+  }
+  return parts.length ? parts : content
+}
+
+export function MessageBubble({ message, isOwn, groupMembers }: MessageBubbleProps) {
   const format = useFormatter()
   const { user } = useAuth()
+  const tAi = useTranslations('ai')
+  const tMessages = useTranslations('messages')
+  const locale = useLocale()
+  const { runTask, loading: translateLoading } = useAiTask()
   const [showReportDialog, setShowReportDialog] = useState(false)
+  const [translatedText, setTranslatedText] = useState<string | null>(null)
+  const [showTranslated, setShowTranslated] = useState(false)
   
   const formattedTime = format.dateTime(new Date(message.created_at), {
     hour: 'numeric',
     minute: '2-digit',
   })
 
-  const isCard = message.message_type === 'post' || message.message_type === 'product'
+  const msgType = (message.message_type ?? message.messageType ?? 'text') as string
+  const isCard = msgType === 'post' || msgType === 'product'
   const cardPayload = isCard ? safeParseCardPayload(message.content) : null
+  const looksLikeImageUrl = (s: string) => {
+    const t = (s ?? '').trim()
+    if (!t || /\s/.test(t)) return false
+    try {
+      const u = new URL(t)
+      return u.protocol === 'https:' || u.protocol === 'http:'
+    } catch {
+      return false
+    }
+  }
+  const isImage =
+    msgType === 'image' ||
+    ((msgType === 'text' || msgType === '') &&
+      looksLikeImageUrl(message.content ?? '') &&
+      !cardPayload)
 
   const handleReport = () => {
     if (!user) {
-      showInfo('请先登录后再举报')
+      showInfo(tMessages('loginToReport'))
       return
     }
     setShowReportDialog(true)
@@ -134,8 +210,39 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
                     </div>
                   </div>
                 </Link>
+              ) : isImage ? (
+                <a
+                  href={message.content}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded overflow-hidden max-w-full"
+                >
+                  <img
+                    src={message.content}
+                    alt=""
+                    className="max-h-64 max-w-full rounded object-contain"
+                  />
+                </a>
               ) : (
-                <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
+                <>
+                  <p className="text-sm break-words whitespace-pre-wrap">
+                    {showTranslated && translatedText
+                      ? translatedText
+                      : groupMembers?.length
+                        ? renderTextWithMentions(message.content ?? '', groupMembers, isOwn)
+                        : message.content}
+                  </p>
+                  {translatedText && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`mt-1 h-6 text-xs ${isOwn ? 'text-primary-foreground/70 hover:text-primary-foreground' : ''}`}
+                      onClick={() => setShowTranslated((s) => !s)}
+                    >
+                      {showTranslated ? tAi('showOriginal') : tAi('showTranslation')}
+                    </Button>
+                  )}
+                </>
               )}
               <div className="flex items-center justify-between mt-1">
                 <p className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
@@ -153,9 +260,38 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {!isCard && !isImage && message.content?.trim() && (
+                        <DropdownMenuItem
+                          disabled={translateLoading}
+                          onClick={async () => {
+                            try {
+                              const targetLang = locale === 'zh' ? 'English' : '中文'
+                              const { result } = await runTask({
+                                task: 'translate_message',
+                                input: message.content,
+                                targetLanguage: targetLang,
+                              })
+                              if (result?.trim()) {
+                                setTranslatedText(result.trim())
+                                setShowTranslated(true)
+                              }
+                            } catch (e) {
+                              const msg = e instanceof Error ? e.message : ''
+                              if (msg === 'TRANSLATION_LIMIT') {
+                                showError(tAi('translationLimitReached'))
+                              } else {
+                                showError(tAi('failed'))
+                              }
+                            }
+                          }}
+                        >
+                          <Languages className="mr-2 h-4 w-4" />
+                          {translateLoading ? tAi('loading') : tAi('translate')}
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={handleReport}>
                         <Flag className="mr-2 h-4 w-4" />
-                        举报
+                        {tMessages('report')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

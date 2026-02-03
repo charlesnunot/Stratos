@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@/i18n/navigation'
 import { Card } from '@/components/ui/card'
@@ -20,13 +20,15 @@ import {
   CheckSquare,
   Square
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useToggleFavorite, type Favorite } from '@/lib/hooks/useFavorites'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { showSuccess, showError } from '@/lib/utils/toast'
 import { FavoriteNotesDialog } from './FavoriteNotesDialog'
 import Image from 'next/image'
+import { formatPriceWithConversion } from '@/lib/currency/format-currency'
+import { detectCurrency, type Currency } from '@/lib/currency/detect-currency'
 
 interface FavoriteItemProps {
   favorite: Favorite
@@ -39,6 +41,8 @@ export function FavoriteItem({ favorite, selected = false, onSelect }: FavoriteI
   const supabase = createClient()
   const t = useTranslations('favorites')
   const tCommon = useTranslations('common')
+  const locale = useLocale()
+  const userCurrency = useMemo(() => detectCurrency({ browserLocale: locale }), [locale])
   const [showNotesDialog, setShowNotesDialog] = useState(false)
   const toggleFavorite = useToggleFavorite()
 
@@ -54,6 +58,7 @@ export function FavoriteItem({ favorite, selected = false, onSelect }: FavoriteI
             content,
             image_urls,
             created_at,
+            status,
             user:profiles!posts_user_id_fkey(id, username, display_name, avatar_url)
           `)
           .eq('id', favorite.item_id)
@@ -68,6 +73,7 @@ export function FavoriteItem({ favorite, selected = false, onSelect }: FavoriteI
             name,
             description,
             price,
+            currency,
             images,
             created_at,
             seller:profiles!products_seller_id_fkey(id, username, display_name, avatar_url)
@@ -185,6 +191,30 @@ export function FavoriteItem({ favorite, selected = false, onSelect }: FavoriteI
     )
   }
 
+  // 帖子已下架/未通过审核：展示占位，不提供跳转详情
+  if (content.type === 'post' && (content.data as { status?: string }).status !== 'approved') {
+    return (
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {getItemIcon()}
+            <span className="text-sm text-muted-foreground">
+              {t('filterPosts')} (已下架)
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRemove}
+            disabled={toggleFavorite.isPending}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <>
       <Card className={`p-4 ${selected ? 'ring-2 ring-primary' : ''}`}>
@@ -240,6 +270,7 @@ export function FavoriteItem({ favorite, selected = false, onSelect }: FavoriteI
                 images?: string[]
                 name?: string
                 price?: number
+                currency?: string
                 seller?: { display_name?: string; username?: string }
               }
               return (
@@ -260,9 +291,10 @@ export function FavoriteItem({ favorite, selected = false, onSelect }: FavoriteI
                       <Badge variant="secondary">{t('filterProducts')}</Badge>
                     </div>
                     <p className="font-medium">{productData.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      ¥{productData.price?.toFixed(2)}
-                    </p>
+                    {(() => {
+                      const pd = formatPriceWithConversion(productData.price ?? 0, (productData.currency as Currency) || 'USD', userCurrency)
+                      return <p className="text-sm text-muted-foreground">{pd.main}</p>
+                    })()}
                     <p className="mt-1 text-xs text-muted-foreground">
                       {productData.seller?.display_name || productData.seller?.username}
                     </p>

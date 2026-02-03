@@ -1,0 +1,108 @@
+-- 为 avatars storage bucket 添加 RLS 策略
+-- 文件路径格式：avatars/${user.id}/${timestamp}-random.ext
+-- 实际存储路径：在 'avatars' bucket 中，文件路径为 'avatars/${user.id}/...'
+--
+-- ⚠️ 重要提示：Storage bucket 和 RLS 策略必须通过 Supabase Dashboard 手动配置
+-- 无法通过 SQL 迁移直接创建，因为 storage.buckets 和 storage.objects 是系统表
+--
+-- ============================================
+-- 配置步骤（必须在 Dashboard 中完成）
+-- ============================================
+--
+-- 步骤 1: 创建 avatars bucket（如果不存在）
+-- 1. 进入 Supabase Dashboard
+-- 2. 选择左侧菜单的 "Storage"
+-- 3. 点击 "New bucket"（如果 avatars bucket 不存在）
+-- 4. 填写以下信息：
+--    - Name: avatars
+--    - Public bucket: ✅ 勾选（头像需要公开显示）
+--    - File size limit: 5242880 (5MB)
+--    - Allowed MIME types: image/jpeg, image/jpg, image/png, image/gif, image/webp
+-- 5. 点击 "Create bucket"
+--
+-- 步骤 2: 配置 Storage RLS 策略
+-- 1. 在 Storage 页面，点击 "avatars" bucket
+-- 2. 点击 "Policies" 标签
+-- 3. 删除所有现有策略（如果有）
+-- 4. 点击 "New Policy"
+-- 5. 按照下面的策略定义创建 4 个策略
+--
+-- ============================================
+-- 策略配置详情（重要：请仔细复制）
+-- ============================================
+--
+-- 策略 1: 允许认证用户上传到 avatars/${user.id}/ 文件夹（INSERT）
+-- Policy Name: "Users can upload to own avatars folder"
+-- Target roles: authenticated
+-- Operation: INSERT
+-- Policy definition（完整复制，包括所有括号）:
+-- (
+--   bucket_id = 'avatars' AND
+--   (
+--     (storage.foldername(name))[1] = 'avatars' AND
+--     (storage.foldername(name))[2] = (auth.uid())::text
+--   )
+-- )
+--
+-- 策略 2: 允许所有人查看 avatars bucket 中的文件（SELECT）
+-- Policy Name: "Anyone can view avatars"
+-- Target roles: public（或留空表示所有人）
+-- Operation: SELECT
+-- Policy definition:
+-- bucket_id = 'avatars'
+--
+-- 策略 3: 允许用户删除自己的文件（DELETE）
+-- Policy Name: "Users can delete own avatar files"
+-- Target roles: authenticated
+-- Operation: DELETE
+-- Policy definition:
+-- (
+--   bucket_id = 'avatars' AND
+--   (
+--     (storage.foldername(name))[1] = 'avatars' AND
+--     (storage.foldername(name))[2] = (auth.uid())::text
+--   )
+-- )
+--
+-- 策略 4: 允许用户更新自己的文件（UPDATE）
+-- Policy Name: "Users can update own avatar files"
+-- Target roles: authenticated
+-- Operation: UPDATE
+-- Policy definition:
+-- (
+--   bucket_id = 'avatars' AND
+--   (
+--     (storage.foldername(name))[1] = 'avatars' AND
+--     (storage.foldername(name))[2] = (auth.uid())::text
+--   )
+-- )
+--
+-- ============================================
+-- 如果上述策略仍然失败，尝试更宽松的策略（用于调试）
+-- ============================================
+-- 如果上面的策略仍然报错，可以先创建一个临时策略来测试：
+--
+-- 临时策略（仅用于调试，测试后应删除）:
+-- Policy Name: "Debug: Allow authenticated users to upload to avatars"
+-- Target roles: authenticated
+-- Operation: INSERT
+-- Policy definition:
+-- bucket_id = 'avatars' AND (storage.foldername(name))[1] = 'avatars'
+--
+-- 如果这个临时策略可以工作，说明问题在于用户 ID 匹配。
+-- 如果这个临时策略也不行，说明 bucket 名称或路径结构有问题。
+--
+-- ============================================
+-- 验证配置
+-- ============================================
+-- 配置完成后，在 profile 编辑页面尝试上传头像，应该可以正常工作。
+-- 如果仍然报错，请检查：
+-- 1. bucket 名称是否为 'avatars'（区分大小写，必须完全匹配）
+-- 2. 策略定义是否正确复制（注意括号和引号）
+-- 3. 用户是否已登录（authenticated 角色）
+-- 4. 文件路径格式是否为 'avatars/${user.id}/...'
+--
+-- 调试技巧：
+-- 1. 在浏览器控制台查看实际的文件路径
+-- 2. 在 Supabase Dashboard > Storage > avatars 中查看已上传的文件路径
+-- 3. 确认 storage.foldername(name)[1] 和 [2] 的值是否正确

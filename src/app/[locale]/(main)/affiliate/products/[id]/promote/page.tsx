@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input'
 import { ImageUpload } from '@/components/ui/ImageUpload'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { formatCurrency } from '@/lib/currency/format-currency'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 export default function PromoteProductPage() {
   const params = useParams()
@@ -57,7 +59,7 @@ export default function PromoteProductPage() {
   })
 
   // Check user's affiliate subscription status
-  const { data: profile } = useQuery({
+  const { data: profile, isFetched: profileFetched } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user) return null
@@ -77,6 +79,13 @@ export default function PromoteProductPage() {
   const hasActiveAffiliateSubscription = profile?.subscription_type === 'affiliate' &&
     profile?.subscription_expires_at &&
     new Date(profile.subscription_expires_at) > new Date()
+
+  // Redirect to subscription page when logged in but no active affiliate subscription
+  useEffect(() => {
+    if (!authLoading && user && profileFetched && !hasActiveAffiliateSubscription) {
+      router.push('/subscription/affiliate')
+    }
+  }, [authLoading, user, profileFetched, hasActiveAffiliateSubscription, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,12 +130,14 @@ export default function PromoteProductPage() {
         description: t('affiliatePostCreated'),
       })
       router.push(`/post/${result.post_id}`)
-    } catch (error: any) {
-      console.error('Create affiliate post error:', error)
+    } catch (error: unknown) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Create affiliate post error:', error)
+      }
       toast({
         variant: 'destructive',
         title: '错误',
-        description: t('createFailed') + ': ' + error.message,
+        description: t('createFailed') + ': ' + (error instanceof Error ? error.message : String(error)),
       })
     } finally {
       setLoading(false)
@@ -198,7 +209,7 @@ export default function PromoteProductPage() {
               {product.description}
             </p>
             <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-              <span className="text-lg font-bold">¥{product.price.toFixed(2)}</span>
+              <span className="text-lg font-bold">{formatCurrency(product.price, (product.currency as Currency) || 'USD')}</span>
               <span className="text-sm text-primary">
                 {t('commission')}: {commissionRate}%
               </span>

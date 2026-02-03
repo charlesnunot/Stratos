@@ -1,6 +1,6 @@
 /**
  * Unified service layer for processing subscription payments
- * Supports tiered seller subscriptions, affiliate subscriptions, and tip feature subscriptions
+ * Supports tiered seller subscriptions, affiliate subscriptions, and tip feature subscriptions.
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
@@ -9,6 +9,7 @@ import { logPaymentSuccess, logPaymentFailure, logIdempotencyHit, logPayment, Lo
 import { createPaymentError, logPaymentError } from './error-handler'
 import { convertCurrency } from '@/lib/currency/convert-currency'
 import type { Currency } from '@/lib/currency/detect-currency'
+import { logAudit } from '@/lib/api/audit'
 
 interface ProcessSubscriptionPaymentParams {
   userId: string
@@ -36,7 +37,7 @@ export async function processSubscriptionPayment({
     const depositCredit = subscriptionType === 'seller' && subscriptionTier ? subscriptionTier : null
 
     // Create subscription record
-    const { error: subError } = await supabaseAdmin.from('subscriptions').insert({
+    const { data: newSub, error: subError } = await supabaseAdmin.from('subscriptions').insert({
       user_id: userId,
       subscription_type: subscriptionType,
       subscription_tier: subscriptionTier || null,
@@ -48,6 +49,8 @@ export async function processSubscriptionPayment({
       starts_at: new Date().toISOString(),
       expires_at: expiresAt.toISOString(),
     })
+      .select('id')
+      .single()
 
     if (subError) {
       // Check if it's a duplicate (idempotency)
@@ -95,24 +98,19 @@ export async function processSubscriptionPayment({
       await enableSellerPayment(userId, supabaseAdmin)
     }
 
-    // Create notification
-    const tierText = subscriptionTier ? ` (${subscriptionTier} USD档位)` : ''
-    let subscriptionName = '订阅'
-    if (subscriptionType === 'seller') {
-      subscriptionName = '卖家订阅'
-    } else if (subscriptionType === 'affiliate') {
-      subscriptionName = '带货者订阅'
-    } else if (subscriptionType === 'tip') {
-      subscriptionName = '打赏功能订阅'
-    }
-    
+    // Create notification (use content_key for i18n)
     await supabaseAdmin.from('notifications').insert({
       user_id: userId,
       type: 'system',
-      title: '订阅激活成功',
-      content: `您的${subscriptionName}已成功激活${tierText}`,
+      title: 'Subscription Activated',
+      content: `Your ${subscriptionType} subscription has been activated successfully`,
       related_type: 'user',
       link: '/subscription/manage',
+      content_key: 'subscription_renewed',
+      content_params: {
+        subscriptionType,
+        subscriptionTier: subscriptionTier?.toString() || '',
+      },
     })
 
     logPaymentSuccess('subscription', {
@@ -122,6 +120,21 @@ export async function processSubscriptionPayment({
       currency,
       paymentMethod,
       subscriptionTier: subscriptionTier?.toString(),
+    })
+
+    logAudit({
+      action: 'subscription_payment_success',
+      userId,
+      resourceId: newSub?.id,
+      resourceType: 'subscription',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: {
+        subscriptionType,
+        subscriptionTier: subscriptionTier?.toString() ?? undefined,
+        amount,
+        currency,
+      },
     })
 
     return { success: true }
@@ -233,20 +246,19 @@ export async function activatePendingSubscription({
       await enableSellerPayment(sub.user_id, supabaseAdmin)
     }
 
-    const tierText = sub.subscription_tier ? ` (${sub.subscription_tier} USD档位)` : ''
-    const nameMap: Record<string, string> = {
-      seller: '卖家订阅',
-      affiliate: '带货者订阅',
-      tip: '打赏功能订阅',
-    }
-    const subName = nameMap[sub.subscription_type] || '订阅'
+    // Create notification (use content_key for i18n)
     await supabaseAdmin.from('notifications').insert({
       user_id: sub.user_id,
       type: 'system',
-      title: '订阅激活成功',
-      content: `您的${subName}已成功激活${tierText}`,
+      title: 'Subscription Activated',
+      content: `Your ${sub.subscription_type} subscription has been activated successfully`,
       related_type: 'user',
       link: '/subscription/manage',
+      content_key: 'subscription_renewed',
+      content_params: {
+        subscriptionType: sub.subscription_type,
+        subscriptionTier: sub.subscription_tier?.toString() || '',
+      },
     })
 
     logPaymentSuccess('subscription', {
@@ -257,6 +269,22 @@ export async function activatePendingSubscription({
       currency,
       paymentMethod: provider,
     })
+
+    logAudit({
+      action: 'subscription_payment_success',
+      userId: sub.user_id,
+      resourceId: subscriptionId,
+      resourceType: 'subscription',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: {
+        planId: sub.subscription_type,
+        subscriptionTier: sub.subscription_tier?.toString() ?? undefined,
+        amount: paidAmount,
+        currency,
+      },
+    })
+
     return { success: true }
   } catch (e: any) {
     logPayment(LogLevel.ERROR, 'activatePendingSubscription error', {

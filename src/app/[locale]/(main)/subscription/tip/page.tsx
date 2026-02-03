@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { SubscriptionCard } from '@/components/subscription/SubscriptionCard'
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector'
 import { PayPalButton } from '@/components/payments/PayPalButton'
@@ -25,7 +26,11 @@ export default function TipSubscriptionPage() {
   const router = useRouter()
   const supabase = createClient()
   const { toast } = useToast()
+  const t = useTranslations('subscription')
+  const tCommon = useTranslations('common')
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank'>('stripe')
+
+  const SUBSCRIPTION_TIMEOUT_MS = 25000
 
   useEffect(() => {
     setCurrency(getCurrencyFromBrowser())
@@ -44,6 +49,8 @@ export default function TipSubscriptionPage() {
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
       if (paymentMethod === 'stripe') {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), SUBSCRIPTION_TIMEOUT_MS)
         const response = await fetch('/api/payments/stripe/create-checkout-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -55,7 +62,9 @@ export default function TipSubscriptionPage() {
             successUrl: `${window.location.origin}/subscription/success?type=tip`,
             cancelUrl: `${window.location.origin}/subscription/tip`,
           }),
+          signal: controller.signal,
         })
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
           const error = await response.json()
@@ -67,6 +76,8 @@ export default function TipSubscriptionPage() {
       } else if (paymentMethod === 'paypal') {
         return
       } else if (paymentMethod === 'alipay' || paymentMethod === 'wechat') {
+        const c1 = new AbortController()
+        const t1 = setTimeout(() => c1.abort(), SUBSCRIPTION_TIMEOUT_MS)
         const pendingRes = await fetch('/api/subscriptions/create-pending', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -75,17 +86,23 @@ export default function TipSubscriptionPage() {
             paymentMethod,
             currency: payCurrency,
           }),
+          signal: c1.signal,
         })
+        clearTimeout(t1)
         if (!pendingRes.ok) {
           const err = await pendingRes.json()
           throw new Error(err.error || 'Failed to create pending subscription')
         }
         const { subscriptionId } = await pendingRes.json()
+        const c2 = new AbortController()
+        const t2 = setTimeout(() => c2.abort(), SUBSCRIPTION_TIMEOUT_MS)
         const payRes = await fetch('/api/subscriptions/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subscriptionId, paymentMethod }),
+          signal: c2.signal,
         })
+        clearTimeout(t2)
         if (!payRes.ok) {
           const err = await payRes.json()
           throw new Error(err.error || 'Failed to create payment')
@@ -109,11 +126,13 @@ export default function TipSubscriptionPage() {
         if (paymentMethod === 'wechat' && result.codeUrl) {
           setWechatCodeUrl(result.codeUrl)
           setWechatSubscriptionId(result.subscriptionId || subscriptionId)
-          toast({ variant: 'default', title: '请使用微信扫码支付', description: '支付成功后请刷新订阅管理页' })
+          toast({ variant: 'default', title: t('wechatScanPay'), description: t('wechatScanPayHint') })
           return
         }
         throw new Error('Unexpected payment response')
       } else {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), SUBSCRIPTION_TIMEOUT_MS)
         const response = await fetch('/api/subscriptions/create-pending', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -122,20 +141,25 @@ export default function TipSubscriptionPage() {
             paymentMethod,
             currency: payCurrency,
           }),
+          signal: controller.signal,
         })
+        clearTimeout(timeoutId)
         if (!response.ok) {
           const error = await response.json()
           throw new Error(error.error || 'Failed to create pending subscription')
         }
-        toast({ variant: 'success', title: '成功', description: '订阅已创建，请完成支付' })
+        toast({ variant: 'success', title: tCommon('success'), description: t('subscriptionCreated') })
         router.push('/subscription/manage')
       }
-    } catch (error: any) {
-      console.error('Subscription error:', error)
+    } catch (error: unknown) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Subscription error:', error)
+      }
+      const isAbort = error instanceof Error && error.name === 'AbortError'
       toast({
         variant: 'destructive',
-        title: '错误',
-        description: error?.message || '订阅失败，请重试',
+        title: tCommon('error'),
+        description: isAbort ? t('requestTimeoutRetry') : (error instanceof Error ? error.message : t('subscriptionFailed')),
       })
     } finally {
       setLoading(false)
@@ -144,7 +168,7 @@ export default function TipSubscriptionPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <h1 className="text-3xl font-bold">开通打赏功能</h1>
+      <h1 className="text-3xl font-bold">{t('tipTitle')}</h1>
       
       <SubscriptionCard
         type="tip"
@@ -159,10 +183,16 @@ export default function TipSubscriptionPage() {
         ]}
         onSubscribe={handleSubscribe}
         loading={loading || !!wechatCodeUrl}
+        hideSubscribeButton={paymentMethod === 'paypal'}
+        usePayPalHint={paymentMethod === 'paypal' ? t('usePayPalBelow') : undefined}
+        title={t('tipSubscription')}
+        description={t('tipDescriptionShort')}
+        subscribeLabel={t('subscribeNow')}
+        processingLabel={t('processing')}
       />
 
       <Card className="p-6">
-        <h2 className="mb-4 text-lg font-semibold">选择支付方式</h2>
+        <h2 className="mb-4 text-lg font-semibold">{t('selectPayment')}</h2>
         <PaymentMethodSelector
           selectedMethod={paymentMethod}
           onSelect={setPaymentMethod}
@@ -171,14 +201,14 @@ export default function TipSubscriptionPage() {
 
       {wechatCodeUrl && (
         <Card className="p-6">
-          <h3 className="mb-4 text-sm font-semibold">微信扫码支付</h3>
+          <h3 className="mb-4 text-sm font-semibold">{t('wechatScanPay')}</h3>
           <div className="flex flex-col items-center gap-4">
             <img
               src={getWeChatQRCodeUrl(wechatCodeUrl)}
               alt="微信支付二维码"
               className="h-48 w-48"
             />
-            <p className="text-sm text-muted-foreground">支付成功后请刷新订阅管理页</p>
+            <p className="text-sm text-muted-foreground">{t('wechatScanPayHint')}</p>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -187,10 +217,10 @@ export default function TipSubscriptionPage() {
                   setWechatSubscriptionId(null)
                 }}
               >
-                返回重选
+                {t('backToRetry')}
               </Button>
               <Button asChild>
-                <Link href="/subscription/manage">前往订阅管理</Link>
+                <Link href="/subscription/manage">{t('goToManage')}</Link>
               </Button>
             </div>
           </div>
@@ -199,7 +229,7 @@ export default function TipSubscriptionPage() {
 
       {paymentMethod === 'paypal' && (
         <Card className="p-6">
-          <h3 className="mb-4 text-sm font-semibold">使用PayPal支付</h3>
+          <h3 className="mb-4 text-sm font-semibold">{t('usePayPal')}</h3>
           <PayPalButton
             amount={amount}
             currency={payCurrency}
@@ -213,8 +243,8 @@ export default function TipSubscriptionPage() {
             onError={(error) => {
               toast({
                 variant: 'destructive',
-                title: '错误',
-                description: `PayPal支付失败: ${error.message}`,
+                title: tCommon('error'),
+                description: `${t('paypalFailed')}: ${error.message}`,
               })
             }}
           />

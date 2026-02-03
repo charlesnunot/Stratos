@@ -71,6 +71,18 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // 订单支付：强制使用服务端订单金额，防止前端篡改
+      const orderTotalAmount = typeof order.total_amount === 'number' ? order.total_amount : parseFloat(String(order.total_amount))
+      if (isNaN(orderTotalAmount) || orderTotalAmount <= 0) {
+        return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 })
+      }
+      if (Math.abs(numericAmount - orderTotalAmount) > 0.01) {
+        return NextResponse.json(
+          { error: 'Amount does not match order total' },
+          { status: 400 }
+        )
+      }
+
       // Validate shipping address
       if (!order.shipping_address) {
         return NextResponse.json(
@@ -134,8 +146,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Create PayPal order FIRST (before deposit check)
-      const paypalOrder = await createPayPalOrder(numericAmount, currency, metadata)
+      // Create PayPal order FIRST (before deposit check)，使用服务端订单金额
+      const paypalOrder = await createPayPalOrder(orderTotalAmount, currency, metadata)
 
       // NOW check deposit requirement AFTER payment session creation
       if (order.seller_id && order.total_amount) {

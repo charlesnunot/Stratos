@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   Dialog,
@@ -17,10 +17,12 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { showSuccess, showError } from '@/lib/utils/toast'
 import { Link } from '@/i18n/navigation'
 
+const DEBOUNCE_MS = 500
+
 interface ReportDialogProps {
   open: boolean
   onClose: () => void
-  reportedType: 'post' | 'product' | 'user' | 'comment' | 'order' | 'affiliate_post' | 'tip' | 'message'
+  reportedType: 'post' | 'product' | 'user' | 'comment' | 'product_comment' | 'order' | 'affiliate_post' | 'tip' | 'message'
   reportedId: string
 }
 
@@ -43,6 +45,7 @@ export function ReportDialog({
   const [reason, setReason] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const reasons = [
     { value: 'spam', label: t('reportReasons.spam') },
@@ -53,7 +56,7 @@ export function ReportDialog({
     { value: 'other', label: t('reportReasons.other') },
   ]
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!user) {
       showError('请先登录')
       return
@@ -69,29 +72,38 @@ export function ReportDialog({
       return
     }
 
-    setLoading(true)
-
-    try {
-      const { error } = await supabase.from('reports').insert({
-        reporter_id: user.id,
-        reported_type: reportedType,
-        reported_id: reportedId,
-        reason: reason,
-        description: description.trim() || null,
-        status: 'pending',
-      })
-
-      if (error) throw error
-
-      showSuccess(t('reportSubmitted'))
-      handleClose()
-    } catch (error: any) {
-      console.error('Report error:', error)
-      showError(t('reportFailed'))
-    } finally {
-      setLoading(false)
+    if (loading) return // 防止重复提交
+    
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
     }
-  }
+    
+    debounceTimerRef.current = setTimeout(async () => {
+      debounceTimerRef.current = null
+      setLoading(true)
+
+      try {
+        const { error } = await supabase.from('reports').insert({
+          reporter_id: user.id,
+          reported_type: reportedType,
+          reported_id: reportedId,
+          reason: reason,
+          description: description.trim() || null,
+          status: 'pending',
+        })
+
+        if (error) throw error
+
+        showSuccess(t('reportSubmitted'))
+        handleClose()
+      } catch (error: any) {
+        console.error('Report error:', error)
+        showError(t('reportFailed'))
+      } finally {
+        setLoading(false)
+      }
+    }, DEBOUNCE_MS)
+  }, [user, reason, supabase, loading, reportedType, reportedId, description, t])
 
   const handleClose = () => {
     setReason('')

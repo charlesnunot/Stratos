@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
+import { useLocale, useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { MasonryGrid } from '@/components/layout/MasonryGrid'
 import { PostCard } from '@/components/social/PostCard'
@@ -9,27 +11,67 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { usePosts } from '@/lib/hooks/usePosts'
+import { useTopicPosts } from '@/lib/hooks/usePosts'
 import { useIsTopicFollowed, useToggleTopicFollow } from '@/lib/hooks/useTopics'
 import { showInfo, showSuccess, showError } from '@/lib/utils/toast'
+import { validateTopicParam } from '@/lib/utils/search'
+
+function getDisplayTopicName(
+  topic: { name: string; name_translated?: string | null; name_lang?: string | null },
+  locale: string
+): string {
+  const lang = topic.name_lang ?? 'zh'
+  return locale === lang ? topic.name : (topic.name_translated ?? topic.name)
+}
+
+function decodeTopicParam(raw: string | undefined): string {
+  if (!raw) return ''
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw ?? ''
+  }
+}
+
+const POST_TYPE_FILTER_OPTIONS = [
+  { value: '', labelKey: 'filterAll' },
+  { value: 'normal', labelKey: 'filterPostTypeNormal' },
+  { value: 'story', labelKey: 'filterPostTypeStory' },
+  { value: 'music', labelKey: 'filterPostTypeMusic' },
+  { value: 'short_video', labelKey: 'filterPostTypeShortVideo' },
+]
 
 export default function TopicPage() {
   const params = useParams()
-  const topicSlug = params.topic as string
+  const rawTopic = params.topic as string | undefined
+  const topicSlug = validateTopicParam(decodeTopicParam(rawTopic))
+  const locale = useLocale()
+  const tCommon = useTranslations('common')
   const { user } = useAuth()
   const supabase = createClient()
+  const [postTypeFilter, setPostTypeFilter] = useState<string>('')
 
   const { data: topic, isLoading: topicLoading } = useQuery({
     queryKey: ['topic', topicSlug],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!topicSlug) return null
+      const { data: bySlug, error: slugError } = await supabase
         .from('topics')
         .select('*')
         .eq('slug', topicSlug)
-        .single()
+        .maybeSingle()
 
-      if (error) throw error
-      return data
+      if (slugError) throw slugError
+      if (bySlug) return bySlug
+
+      const { data: byName, error: nameError } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('name', topicSlug)
+        .maybeSingle()
+
+      if (nameError) throw nameError
+      return byName ?? null
     },
     enabled: !!topicSlug,
   })
@@ -37,13 +79,24 @@ export default function TopicPage() {
   const { data: isFollowed } = useIsTopicFollowed(topic?.id)
   const toggleFollowMutation = useToggleTopicFollow()
 
-  // Get posts for this topic
-  const { data: postsData, isLoading: postsLoading } = usePosts('approved')
-  const topicPosts = postsData?.pages
-    .flatMap((page) => page)
-    .filter((post) => post.topics?.some((t) => t.slug === topicSlug)) || []
+  // 按话题 ID 分页拉取已审核帖子，支持按 post_type 筛选
+  const {
+    data: postsData,
+    isLoading: postsLoading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useTopicPosts(topic?.id, { enabled: !!topic?.id, postType: postTypeFilter || undefined })
+  const topicPosts = postsData?.pages.flatMap((page) => page) ?? []
 
-  if (topicLoading) {
+  if (!topicSlug || topicLoading) {
+    if (!topicSlug) {
+      return (
+        <div className="py-12 text-center">
+          <p className="text-destructive">话题不存在</p>
+        </div>
+      )
+    }
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -65,7 +118,7 @@ export default function TopicPage() {
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">#{topic.name}</h1>
+            <h1 className="text-3xl font-bold">#{getDisplayTopicName(topic, locale)}</h1>
             {topic.description && (
               <p className="mt-2 text-muted-foreground">{topic.description}</p>
             )}
@@ -110,9 +163,23 @@ export default function TopicPage() {
         </div>
       </Card>
 
-      {/* Posts */}
+      {/* Posts + 阶段4：按 post_type 筛选 */}
       <div>
-        <h2 className="mb-4 text-xl font-bold">相关帖子</h2>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <h2 className="text-xl font-bold mr-4">相关帖子</h2>
+          <div className="flex flex-wrap gap-1">
+            {POST_TYPE_FILTER_OPTIONS.map(({ value, labelKey }) => (
+              <Button
+                key={value || 'all'}
+                variant={postTypeFilter === value ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPostTypeFilter(value)}
+              >
+                {tCommon(labelKey)}
+              </Button>
+            ))}
+          </div>
+        </div>
         {postsLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -126,6 +193,24 @@ export default function TopicPage() {
                 <PostCard key={post.id} post={post} />
               ))}
             </MasonryGrid>
+            {hasNextPage && (
+              <div className="mt-6 flex justify-center">
+                <Button
+                  variant="outline"
+                  disabled={isFetchingNextPage}
+                  onClick={() => fetchNextPage()}
+                >
+                  {isFetchingNextPage ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      加载中…
+                    </>
+                  ) : (
+                    '加载更多'
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

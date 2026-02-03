@@ -67,13 +67,23 @@ export async function updateSession(request: NextRequest) {
     if (profile?.status === 'banned' || profile?.status === 'suspended') {
       const url = new URL(request.url)
       const bannedUrl = new URL('/banned', url.origin)
-      // Preserve locale if present (support all routing locales: en, zh, es, pt, ja, ar)
       const pathname = url.pathname
       const localeMatch = pathname.match(/^\/(en|zh|es|pt|ja|ar)(\/|$)/)
       if (localeMatch) {
         bannedUrl.pathname = `/${localeMatch[1]}/banned`
       }
       return NextResponse.redirect(bannedUrl)
+    }
+    // Redirect deleted users to recover-account (except when already on that page)
+    if (profile?.status === 'deleted') {
+      const pathname = request.nextUrl.pathname
+      if (!pathname.includes('recover-account')) {
+        const url = new URL(request.url)
+        const localeMatch = pathname.match(/^\/(en|zh|es|pt|ja|ar)(\/|$)/)
+        const locale = localeMatch ? localeMatch[1] : 'en'
+        const recoverUrl = new URL(`/${locale}/recover-account`, url.origin)
+        return NextResponse.redirect(recoverUrl)
+      }
     }
     // Removed tip subscription check: it only logged inconsistency, never blocked.
     // Pages validate tip/subscription; cron syncs profile. Saves 1 DB query per tip user.

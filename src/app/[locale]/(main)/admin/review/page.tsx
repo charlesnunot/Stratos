@@ -4,8 +4,10 @@ import { ContentReview } from '@/components/admin/ContentReview'
 import { Card } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
+import { getTranslations } from 'next-intl/server'
 
 export default async function AdminReviewPage() {
+  const t = await getTranslations('admin')
   const supabase = await createClient()
   const {
     data: { user },
@@ -38,19 +40,19 @@ export default async function AdminReviewPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">内容审核</h1>
+        <h1 className="text-3xl font-bold">{t('contentReview')}</h1>
         <Button variant="outline" asChild>
-          <Link href="/admin/dashboard">返回管理后台</Link>
+          <Link href="/admin/dashboard">{t('backToDashboard')}</Link>
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">待审核帖子</p>
+          <p className="text-sm text-muted-foreground">{t('pendingPosts')}</p>
           <p className="text-2xl font-bold">{pendingPosts || 0}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">待审核商品</p>
+          <p className="text-sm text-muted-foreground">{t('pendingProducts')}</p>
           <p className="text-2xl font-bold">{pendingProducts || 0}</p>
         </Card>
       </div>

@@ -30,6 +30,8 @@ const requiredEnvVars = {
   
   // Cron
   CRON_SECRET: process.env.CRON_SECRET,
+  // App URL (recommended for production)
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
 } as const
 
 export interface EnvValidationResult {
@@ -59,9 +61,10 @@ export function validateEnv(): EnvValidationResult {
     }
   }
 
-  // Optional but recommended
+  // Optional but recommended for production
   const recommended = [
     'CRON_SECRET',
+    'NEXT_PUBLIC_APP_URL',
   ]
 
   for (const key of recommended) {

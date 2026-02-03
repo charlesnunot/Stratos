@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,9 @@ interface ViolationRecord {
 }
 
 export function AdminViolationPenaltiesClient() {
+  const t = useTranslations('admin')
+  const tCommon = useTranslations('common')
+  const tSeller = useTranslations('seller')
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [violations, setViolations] = useState<ViolationRecord[]>([])
@@ -104,7 +108,7 @@ export function AdminViolationPenaltiesClient() {
 
   const handleDeduct = async () => {
     if (!sellerId || !amount || !violationType || !violationReason) {
-      alert('请填写所有必填字段')
+      alert(t('fillRequiredFields'))
       return
     }
     setLoading(true)
@@ -123,9 +127,12 @@ export function AdminViolationPenaltiesClient() {
         }),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Failed to deduct')
+      if (!res.ok) throw new Error(result.error || t('penaltyFailed'))
       if (result.success) {
-        alert(`违规扣款成功！扣除金额: ${formatCurrency(result.deductedAmount, result.deductedAmountCurrency)}，剩余保证金: ${formatCurrency(result.remainingBalance, result.deductedAmountCurrency)}`)
+        alert(t('penaltySuccess', {
+          amount: formatCurrency(result.deductedAmount, result.deductedAmountCurrency),
+          remaining: formatCurrency(result.remainingBalance, result.deductedAmountCurrency),
+        }))
         setShowForm(false)
         setSellerId('')
         setAmount('')
@@ -134,9 +141,9 @@ export function AdminViolationPenaltiesClient() {
         setRelatedOrderId('')
         setRelatedDisputeId('')
         loadViolations()
-      } else throw new Error(result.error || '扣款失败')
+      } else throw new Error(result.error || t('penaltyFailed'))
     } catch (e: any) {
-      alert(e?.message || '违规扣款失败')
+      alert(e?.message || t('penaltyFailed'))
     } finally {
       setLoading(false)
     }
@@ -145,11 +152,11 @@ export function AdminViolationPenaltiesClient() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-green-500"><CheckCircle className="mr-1 h-3 w-3" />已完成</Badge>
+        return <Badge className="bg-green-500"><CheckCircle className="mr-1 h-3 w-3" />{t('statusCompleted')}</Badge>
       case 'pending':
-        return <Badge className="bg-yellow-500">待处理</Badge>
+        return <Badge className="bg-yellow-500">{t('statusPending')}</Badge>
       case 'failed':
-        return <Badge className="bg-red-500"><XCircle className="mr-1 h-3 w-3" />失败</Badge>
+        return <Badge className="bg-red-500"><XCircle className="mr-1 h-3 w-3" />{t('statusFailed')}</Badge>
       default:
         return <Badge>{status}</Badge>
     }
@@ -168,33 +175,33 @@ export function AdminViolationPenaltiesClient() {
     <div className="container mx-auto space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">违规扣款管理</h1>
-          <p className="mt-1 text-muted-foreground">从卖家保证金中扣除违规罚款</p>
+          <h1 className="text-3xl font-bold">{t('penaltyTitle')}</h1>
+          <p className="mt-1 text-muted-foreground">{t('penaltySubtitle')}</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
           <AlertTriangle className="mr-2 h-4 w-4" />
-          {showForm ? '取消' : '执行扣款'}
+          {showForm ? tCommon('cancel') : t('executeDeduct')}
         </Button>
       </div>
 
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>执行违规扣款</CardTitle>
-            <CardDescription>从卖家保证金中扣除违规罚款</CardDescription>
+            <CardTitle>{t('executeDeduct')}</CardTitle>
+            <CardDescription>{t('penaltySubtitle')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <Label htmlFor="sellerId">卖家ID *</Label>
-                <Input id="sellerId" value={sellerId} onChange={(e) => setSellerId(e.target.value)} placeholder="输入卖家ID" />
+                <Label htmlFor="sellerId">{t('sellerIdLabel')}</Label>
+                <Input id="sellerId" value={sellerId} onChange={(e) => setSellerId(e.target.value)} placeholder={t('sellerIdPlaceholder')} />
               </div>
               <div>
-                <Label htmlFor="amount">扣款金额 *</Label>
+                <Label htmlFor="amount">{t('amountLabel')}</Label>
                 <Input id="amount" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
               </div>
               <div>
-                <Label htmlFor="currency">币种</Label>
+                <Label htmlFor="currency">{tSeller('currency')}</Label>
                 <Select value={currency} onValueChange={(v) => setCurrency(v as Currency)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -206,34 +213,34 @@ export function AdminViolationPenaltiesClient() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="violationType">违规类型 *</Label>
+                <Label htmlFor="violationType">{t('violationTypeLabel')}</Label>
                 <Select value={violationType} onValueChange={setViolationType}>
-                  <SelectTrigger><SelectValue placeholder="选择违规类型" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('violationTypePlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="fraud">欺诈行为</SelectItem>
-                    <SelectItem value="quality">质量问题</SelectItem>
-                    <SelectItem value="shipping">物流问题</SelectItem>
-                    <SelectItem value="service">服务问题</SelectItem>
-                    <SelectItem value="policy">违反政策</SelectItem>
-                    <SelectItem value="other">其他</SelectItem>
+                    <SelectItem value="fraud">{t('violationTypeFraud')}</SelectItem>
+                    <SelectItem value="quality">{t('violationTypeQuality')}</SelectItem>
+                    <SelectItem value="shipping">{t('violationTypeShipping')}</SelectItem>
+                    <SelectItem value="service">{t('violationTypeService')}</SelectItem>
+                    <SelectItem value="policy">{t('violationTypePolicy')}</SelectItem>
+                    <SelectItem value="other">{t('violationTypeOther')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="relatedOrderId">关联订单ID（可选）</Label>
-                <Input id="relatedOrderId" value={relatedOrderId} onChange={(e) => setRelatedOrderId(e.target.value)} placeholder="输入订单ID" />
+                <Label htmlFor="relatedOrderId">{t('relatedOrderIdLabel')}</Label>
+                <Input id="relatedOrderId" value={relatedOrderId} onChange={(e) => setRelatedOrderId(e.target.value)} placeholder={t('relatedOrderIdPlaceholder')} />
               </div>
               <div>
-                <Label htmlFor="relatedDisputeId">关联争议ID（可选）</Label>
-                <Input id="relatedDisputeId" value={relatedDisputeId} onChange={(e) => setRelatedDisputeId(e.target.value)} placeholder="输入争议ID" />
+                <Label htmlFor="relatedDisputeId">{t('relatedDisputeIdLabel')}</Label>
+                <Input id="relatedDisputeId" value={relatedDisputeId} onChange={(e) => setRelatedDisputeId(e.target.value)} placeholder={t('relatedDisputeIdPlaceholder')} />
               </div>
             </div>
             <div>
-              <Label htmlFor="violationReason">违规原因 *</Label>
-              <Input id="violationReason" value={violationReason} onChange={(e) => setViolationReason(e.target.value)} placeholder="详细描述违规原因" />
+              <Label htmlFor="violationReason">{t('violationReasonLabel')}</Label>
+              <Input id="violationReason" value={violationReason} onChange={(e) => setViolationReason(e.target.value)} placeholder={t('violationReasonPlaceholder')} />
             </div>
             <Button onClick={handleDeduct} disabled={loading} className="w-full">
-              {loading ? '处理中...' : '执行扣款'}
+              {loading ? t('processingDeduct') : t('executeDeduct')}
             </Button>
           </CardContent>
         </Card>
@@ -241,20 +248,20 @@ export function AdminViolationPenaltiesClient() {
 
       <Card>
         <CardHeader>
-          <CardTitle>扣款记录</CardTitle>
-          <CardDescription>查看所有违规扣款记录</CardDescription>
+          <CardTitle>{t('deductRecord')}</CardTitle>
+          <CardDescription>{t('deductRecordDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-4">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="搜索卖家ID、用户名..." value={searchSellerId} onChange={(e) => setSearchSellerId(e.target.value)} className="pl-8" />
+              <Input placeholder={t('searchSellerPlaceholder')} value={searchSellerId} onChange={(e) => setSearchSellerId(e.target.value)} className="pl-8" />
             </div>
           </div>
           {loadingViolations ? (
-            <div className="py-8 text-center text-muted-foreground">加载中...</div>
+            <div className="py-8 text-center text-muted-foreground">{tCommon('loading')}</div>
           ) : filtered.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">暂无记录</div>
+            <div className="py-8 text-center text-muted-foreground">{t('noRecords')}</div>
           ) : (
             <div className="space-y-4">
               {filtered.map((v) => (
@@ -270,8 +277,8 @@ export function AdminViolationPenaltiesClient() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>创建时间: {new Date(v.created_at).toLocaleString('zh-CN')}</span>
-                    {v.deducted_at && <span>扣款时间: {new Date(v.deducted_at).toLocaleString('zh-CN')}</span>}
+                    <span>{t('createdAt')}: {new Date(v.created_at).toLocaleString()}</span>
+                    {v.deducted_at && <span>{t('deductedAt')}: {new Date(v.deducted_at).toLocaleString()}</span>}
                   </div>
                 </div>
               ))}

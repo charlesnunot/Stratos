@@ -4,30 +4,53 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
-import { MessageSquare, List } from 'lucide-react'
+import { MessageSquare, List, FileText } from 'lucide-react'
 
 export default function HelpPage() {
-  const t = useTranslations('menu')
+  const t = useTranslations('help')
+  const tMenu = useTranslations('menu')
   const tSupport = useTranslations('support')
+  const tPolicies = useTranslations('policies')
 
   return (
     <div className="mx-auto max-w-7xl px-2 sm:px-4">
-      <h1 className="mb-6 text-2xl font-bold">{t('help')}</h1>
+      <h1 className="mb-6 text-2xl font-bold">{t('pageTitle')}</h1>
       <Card className="p-6 space-y-4">
         <div>
-          <h2 className="text-xl font-semibold mb-2">帮助与客服</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('subtitle')}</h2>
           <p className="text-muted-foreground mb-4">
-            如果您遇到任何问题或需要帮助，请通过以下方式联系我们。
+            {t('intro')}
           </p>
           <div className="space-y-3 text-muted-foreground">
-            <h3 className="text-lg font-semibold text-foreground mt-4 mb-2">常见问题</h3>
+            <h3 className="text-lg font-semibold text-foreground mt-4 mb-2">{t('policiesTitle')}</h3>
+            <p className="mb-2">{t('policiesIntro')}</p>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/privacy">
+                <Button variant="outline" size="sm">
+                  <FileText className="mr-2 h-4 w-4" />
+                  {tPolicies('privacyLink')}
+                </Button>
+              </Link>
+              <Link href="/policies">
+                <Button variant="outline" size="sm">
+                  <FileText className="mr-2 h-4 w-4" />
+                  {tPolicies('pageTitle')}
+                </Button>
+              </Link>
+              <Link href="/seller/deposit/policy">
+                <Button variant="outline" size="sm">
+                  <FileText className="mr-2 h-4 w-4" />
+                  {tPolicies('depositLink')}
+                </Button>
+              </Link>
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mt-4 mb-2">{t('faqTitle')}</h3>
             <p>
-              我们正在整理常见问题解答，敬请期待。
+              {t('faqPlaceholder')}
             </p>
-            <h3 className="text-lg font-semibold text-foreground mt-4 mb-2">联系我们</h3>
+            <h3 className="text-lg font-semibold text-foreground mt-4 mb-2">{t('contactTitle')}</h3>
             <p className="mb-4">
-              如果您需要帮助，请通过应用内的客服工单系统联系我们。
-              您可以在导航菜单的「更多」中找到「{t('supportTickets')}」，或直接使用下方按钮。
+              {t('contactIntro')}
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/support/tickets/create">
@@ -39,7 +62,7 @@ export default function HelpPage() {
               <Link href="/support/tickets">
                 <Button variant="outline">
                   <List className="mr-2 h-4 w-4" />
-                  {t('supportTickets')}
+                  {tMenu('supportTickets')}
                 </Button>
               </Link>
             </div>

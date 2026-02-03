@@ -39,6 +39,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true }) // Acknowledge but don't process
     }
 
+    // P3：支付回调统一结构化审计日志（不含敏感字段）
+    try {
+      const { logAudit } = await import('@/lib/api/audit')
+      logAudit({
+        action: 'alipay_callback',
+        resourceId: trade_no,
+        resourceType: 'payment_callback',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+        meta: { out_trade_no, trade_status, total_amount },
+      })
+    } catch (_) {
+      // 忽略审计日志失败，不影响主流程
+    }
+
     // Use service role client for admin operations
     const { createClient: createAdminClient } = await import('@supabase/supabase-js')
     const supabaseAdmin = createAdminClient(
@@ -118,17 +133,19 @@ export async function POST(request: NextRequest) {
             })
             .eq('id', txByMetadata.id)
 
-          // Create notification
+          // Create notification (use content_key for i18n)
           const paidAmount = parseFloat(total_amount)
-          const reason = (txByMetadata.metadata as any)?.reason || '平台服务费'
+          const reason = (txByMetadata.metadata as any)?.reason || 'Platform service fee'
           await supabaseAdmin.from('notifications').insert({
             user_id: userId,
             type: 'system',
-            title: '平台服务费支付成功',
-            content: `您已成功支付平台服务费 ${paidAmount.toFixed(2)} CNY。原因：${reason}`,
+            title: 'Platform Fee Payment Successful',
+            content: `Platform fee of ${paidAmount.toFixed(2)} CNY paid successfully.`,
             related_type: 'order',
             related_id: txByMetadata.id,
             link: '/orders',
+            content_key: 'platform_fee_paid',
+            content_params: { amount: paidAmount.toFixed(2), currency: 'CNY', reason },
           })
         }
       } else {
@@ -141,17 +158,19 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', transaction.id)
 
-        // Create notification
+        // Create notification (use content_key for i18n)
         const paidAmount = parseFloat(total_amount)
-        const reason = (transaction.metadata as any)?.reason || '平台服务费'
+        const reason = (transaction.metadata as any)?.reason || 'Platform service fee'
         await supabaseAdmin.from('notifications').insert({
           user_id: userId,
           type: 'system',
-          title: '平台服务费支付成功',
-          content: `您已成功支付平台服务费 ${paidAmount.toFixed(2)} CNY。原因：${reason}`,
+          title: 'Platform Fee Payment Successful',
+          content: `Platform fee of ${paidAmount.toFixed(2)} CNY paid successfully.`,
           related_type: 'order',
           related_id: transaction.id,
           link: '/orders',
+          content_key: 'platform_fee_paid',
+          content_params: { amount: paidAmount.toFixed(2), currency: 'CNY', reason },
         })
       }
       return NextResponse.json({ success: true })

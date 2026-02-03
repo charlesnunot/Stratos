@@ -101,6 +101,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // 仅允许卖家创建收款账户
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
+    if (!sellerCheck.hasPermission) {
+      return NextResponse.json(
+        { error: sellerCheck.reason || 'Seller subscription required' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const {
       accountType,
@@ -272,12 +286,31 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (updateError) {
+      const { logAudit } = await import('@/lib/api/audit')
+      logAudit({
+        action: 'payment_account_update',
+        userId: user.id,
+        resourceId: id,
+        resourceType: 'payment_account',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: updateError.message },
+      })
       return NextResponse.json(
         { error: `Failed to update account: ${updateError.message}` },
         { status: 500 }
       )
     }
 
+    const { logAudit } = await import('@/lib/api/audit')
+    logAudit({
+      action: 'payment_account_update',
+      userId: user.id,
+      resourceId: id,
+      resourceType: 'payment_account',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+    })
     return NextResponse.json({ account: updatedAccount })
   } catch (error: any) {
     console.error('Update payment account error:', error)
@@ -352,12 +385,31 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id)
 
     if (deleteError) {
+      const { logAudit } = await import('@/lib/api/audit')
+      logAudit({
+        action: 'payment_account_delete',
+        userId: user.id,
+        resourceId: id,
+        resourceType: 'payment_account',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: deleteError.message },
+      })
       return NextResponse.json(
         { error: `Failed to delete account: ${deleteError.message}` },
         { status: 500 }
       )
     }
 
+    const { logAudit } = await import('@/lib/api/audit')
+    logAudit({
+      action: 'payment_account_delete',
+      userId: user.id,
+      resourceId: id,
+      resourceType: 'payment_account',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+    })
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Delete payment account error:', error)

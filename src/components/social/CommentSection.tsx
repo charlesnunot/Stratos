@@ -6,16 +6,9 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient, InfiniteData } from '@tanstack/react-query'
-import Link from 'next/link'
 import { Link as I18nLink } from '@/i18n/navigation'
 import { Trash2, Edit2, Reply, ChevronDown, ChevronUp, Flag, Image as ImageIcon, X } from 'lucide-react'
 import { ReportDialog } from './ReportDialog'
-import { showInfo, showError, showSuccess, showWarning } from '@/lib/utils/toast'
-import { handleError } from '@/lib/utils/handleError'
-import { CommentLikeButton } from './CommentLikeButton'
-import { useImageUpload } from '@/lib/hooks/useImageUpload'
-import { EmojiPicker } from '@/components/ui/EmojiPicker'
-import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -24,57 +17,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-// ✅ 修复 P0-3: 添加 XSS 防护
-// 简单的 HTML 转义函数（作为 DOMPurify 的后备）
-function escapeHtml(text: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  }
-  return text.replace(/[&<>"']/g, (m) => map[m])
-}
-
-// 动态加载 DOMPurify（如果可用）
-let DOMPurifyPromise: Promise<any> | null = null
-
-async function loadDOMPurify(): Promise<any> {
-  if (typeof window === 'undefined') return null
-  
-  if (!DOMPurifyPromise) {
-    DOMPurifyPromise = import('dompurify')
-      .then((mod) => mod.default)
-      .catch(() => null)
-  }
-  
-  return DOMPurifyPromise
-}
-
-// Sanitize 函数：优先使用 DOMPurify，否则使用简单转义
-function sanitizeContent(content: string): string {
-  if (typeof window === 'undefined') return escapeHtml(content)
-  
-  // 同步情况下使用简单转义（DOMPurify 是异步加载的）
-  // 如果需要 DOMPurify，应该使用异步版本
-  return escapeHtml(content)
-}
-
-// 异步版本的 sanitize（使用 DOMPurify）
-async function sanitizeContentAsync(content: string): Promise<string> {
-  if (typeof window === 'undefined') return escapeHtml(content)
-  
-  const DOMPurify = await loadDOMPurify()
-  if (DOMPurify) {
-    return DOMPurify.sanitize(content, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })
-  }
-  return escapeHtml(content)
-}
+import { showInfo, showError, showSuccess, showWarning } from '@/lib/utils/toast'
+import { handleError } from '@/lib/utils/handleError'
+import { CommentLikeButton } from './CommentLikeButton'
+import { useImageUpload } from '@/lib/hooks/useImageUpload'
+import { EmojiPicker } from '@/components/ui/EmojiPicker'
+import { useTranslations, useLocale } from 'next-intl'
+import { getDisplayContent } from '@/lib/ai/display-translated'
+import { sanitizeContent } from '@/lib/utils/sanitize-content'
+import { logAudit } from '@/lib/api/audit'
 
 interface Comment {
   id: string
   content: string
+  content_lang?: 'zh' | 'en' | null
+  content_translated?: string | null
   user_id: string
   parent_id: string | null
   like_count?: number
@@ -102,6 +59,8 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
   const t = useTranslations('posts')
   const tCommon = useTranslations('common')
   const tMessages = useTranslations('messages')
+  const locale = useLocale()
+  const contentLang = locale === 'zh' ? 'zh' : 'en'
   const [newComment, setNewComment] = useState('')
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
@@ -319,6 +278,7 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
           post_id: postId,
           user_id: user.id,
           content: sanitizedContent || '',
+          content_lang: (sanitizedContent || '').trim() ? contentLang : null,
           parent_id: parentId || null,
           image_urls: uploadedImageUrls,
           status: commentStatus, // 由调用方决定是 approved 还是 pending
@@ -330,6 +290,7 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
         .single()
 
       if (error) throw error
+      // 评论翻译改为在帖子审核通过时统一触发，不在此处消费 AI
       return data
     },
     onMutate: async (variables) => {
@@ -391,7 +352,18 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
 
       return { previousComments, didOptimistic: true }
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
+      if (user && data?.id) {
+        logAudit({
+          action: 'create_comment',
+          userId: user.id,
+          resourceId: data.id,
+          resourceType: 'comment',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: { postId, parentId: variables.parentId || null },
+        })
+      }
       setNewComment('')
       setReplyContent('')
       setReplyingToId(null)
@@ -455,7 +427,18 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
 
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: (_data, commentId) => {
+      if (user) {
+        logAudit({
+          action: 'delete_comment',
+          userId: user.id,
+          resourceId: commentId,
+          resourceType: 'comment',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: { postId },
+        })
+      }
       queryClient.invalidateQueries({ queryKey: ['comments', postId] })
       queryClient.invalidateQueries({ queryKey: ['post', postId] })
       showSuccess(t('commentDeleted'))
@@ -521,10 +504,12 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
         }
       }
 
+      const safeContent = sanitizeContent(trimmedContent) || ''
       const { error } = await supabase
         .from('comments')
-        .update({ 
-          content: trimmedContent || '',
+        .update({
+          content: safeContent,
+          content_lang: safeContent ? contentLang : null,
           image_urls: uploadedImageUrls,
         })
         .eq('id', commentId)
@@ -532,6 +517,17 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
       if (error) throw error
     },
     onSuccess: (_data, variables) => {
+      if (user) {
+        logAudit({
+          action: 'update_comment',
+          userId: user.id,
+          resourceId: variables.commentId,
+          resourceType: 'comment',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: { postId },
+        })
+      }
       setEditingCommentId(null)
       setEditingContent('')
       // Clear editing image state for this comment
@@ -726,6 +722,25 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
   }
 
   const handleCancelEdit = () => {
+    if (editingCommentId) {
+      setEditingImagePreviews((prev) => {
+        const previews = prev[editingCommentId] || []
+        previews.forEach((url) => URL.revokeObjectURL(url))
+        const newState = { ...prev }
+        delete newState[editingCommentId]
+        return newState
+      })
+      setEditingImageFiles((prev) => {
+        const newState = { ...prev }
+        delete newState[editingCommentId]
+        return newState
+      })
+      setEditingExistingImages((prev) => {
+        const newState = { ...prev }
+        delete newState[editingCommentId]
+        return newState
+      })
+    }
     setEditingCommentId(null)
     setEditingContent('')
   }
@@ -782,6 +797,19 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
   const getReplies = (parentId: string): Comment[] => {
     return comments
       .filter(c => c.parent_id === parentId)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  }
+
+  // 获取某条根评论下的所有后代回复（不限层数），按时间排序；UI 上统一按第 2 层展示
+  const getRepliesFlattened = (rootId: string): Comment[] => {
+    const collectDescendantIds = (parentId: string): string[] => {
+      const direct = comments.filter(c => c.parent_id === parentId).map(c => c.id)
+      const nested = direct.flatMap(id => collectDescendantIds(id))
+      return [...direct, ...nested]
+    }
+    const descendantIds = new Set(collectDescendantIds(rootId))
+    return comments
+      .filter(c => descendantIds.has(c.id))
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   }
 
@@ -909,11 +937,14 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
                 if (id === '') {
                   setReplyingToId(null)
                 } else {
+                  setReplyContent('')
+                  replyImageUpload.clearImages()
                   setReplyingToId(id)
                 }
               }}
               onSaveEdit={handleSaveEdit}
               onCancelEdit={handleCancelEdit}
+              isSavingEdit={updateCommentMutation.isPending}
               editingCommentId={editingCommentId}
               editingContent={editingContent}
               setEditingContent={setEditingContent}
@@ -922,6 +953,7 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
               setReplyContent={setReplyContent}
               onReplySubmit={handleReplySubmit}
               getReplies={getReplies}
+              getRepliesFlattened={getRepliesFlattened}
               getParentCommentUser={getParentCommentUser}
               comments={comments}
               postId={postId}
@@ -982,8 +1014,12 @@ export function CommentSection({ postId, enabled = true, reasonDisabled }: Comme
             }}>
               {tCommon('cancel')}
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              {tCommon('delete')}
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteCommentMutation.isPending}
+            >
+              {deleteCommentMutation.isPending ? tCommon('loading') : tCommon('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1002,6 +1038,7 @@ interface CommentItemProps {
   onReply: (id: string) => void
   onSaveEdit: (id: string) => void
   onCancelEdit: () => void
+  isSavingEdit?: boolean
   editingCommentId: string | null
   editingContent: string
   setEditingContent: (content: string) => void
@@ -1010,6 +1047,7 @@ interface CommentItemProps {
   setReplyContent: (content: string) => void
   onReplySubmit: (e: React.FormEvent, parentId: string) => void
   getReplies: (parentId: string) => Comment[]
+  getRepliesFlattened: (rootId: string) => Comment[]
   getParentCommentUser: (parentId: string | null) => { display_name?: string; username?: string; user_id?: string } | null
   comments: Comment[]
   postId: string
@@ -1038,6 +1076,7 @@ function CommentItem({
   onReply,
   onSaveEdit,
   onCancelEdit,
+  isSavingEdit = false,
   editingCommentId,
   editingContent,
   setEditingContent,
@@ -1046,6 +1085,7 @@ function CommentItem({
   setReplyContent,
   onReplySubmit,
   getReplies,
+  getRepliesFlattened,
   getParentCommentUser,
   comments,
   postId,
@@ -1066,13 +1106,20 @@ function CommentItem({
   const t = useTranslations('posts')
   const tCommon = useTranslations('common')
   const tMessages = useTranslations('messages')
+  const locale = useLocale()
+  const displayContent = getDisplayContent(
+    locale,
+    comment.content_lang ?? null,
+    comment.content,
+    comment.content_translated
+  )
   const isEditing = editingCommentId === comment.id
   const isReplying = replyingToId === comment.id
   const isOwner = user?.id === comment.user_id
   const isReply = depth === 1
   
-  // 只支持两级结构：depth 0（顶级评论）可以显示回复，depth >= 1 不再显示回复
-  const replies = depth === 0 ? getReplies(comment.id) : []
+  // UI 最多 2 层：根评论下所有后代回复扁平展示为第 2 层
+  const replies = depth === 0 ? getRepliesFlattened(comment.id) : []
   
   // 折叠/展开状态（只在顶级评论中有效）
   const [isExpanded, setIsExpanded] = useState(false)
@@ -1088,7 +1135,7 @@ function CommentItem({
   return (
     <Card className="p-3 border-0 shadow-none min-w-0">
       <div className="flex items-start gap-3 min-w-0">
-        <Link href={`/profile/${comment.user_id}`}>
+        <I18nLink href={`/profile/${comment.user_id}`}>
           <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
             {comment.user?.avatar_url ? (
               <img
@@ -1102,14 +1149,14 @@ function CommentItem({
               </span>
             )}
           </div>
-        </Link>
+        </I18nLink>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <Link href={`/profile/${comment.user_id}`}>
+            <I18nLink href={`/profile/${comment.user_id}`}>
               <p className="text-sm font-semibold hover:underline">
                 {comment.user?.display_name || t('anonymousUser')}
               </p>
-            </Link>
+            </I18nLink>
             {isOwner && (
               <div className="flex gap-2">
                 <Button
@@ -1142,7 +1189,9 @@ function CommentItem({
                 onChange={(e) => setEditingContent(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 rows={3}
+                maxLength={500}
               />
+              <p className="text-xs text-muted-foreground text-right">{editingContent.length}/500</p>
               {/* Image upload for editing */}
               <div className="flex items-center gap-2">
                 <EmojiPicker onEmojiSelect={(emoji) => onEditEmoji?.(comment.id, emoji)} />
@@ -1206,9 +1255,12 @@ function CommentItem({
                 <Button
                   size="sm"
                   onClick={() => onSaveEdit(comment.id)}
-                  disabled={!editingContent.trim() && (editingExistingImages?.[comment.id]?.length || 0) + (editingImageFiles?.[comment.id]?.length || 0) === 0}
+                  disabled={
+                    isSavingEdit ||
+                    (!editingContent.trim() && (editingExistingImages?.[comment.id]?.length || 0) + (editingImageFiles?.[comment.id]?.length || 0) === 0)
+                  }
                 >
-                  {tCommon('save')}
+                  {isSavingEdit ? tCommon('loading') : tCommon('save')}
                 </Button>
                 <Button
                   size="sm"
@@ -1226,18 +1278,18 @@ function CommentItem({
                 <div className="mt-1 mb-1">
                   <span className="text-xs text-muted-foreground">
                     {t('reply')}{' '}
-                    <Link
+                    <I18nLink
                       href={`/profile/${parentCommentUser.user_id}`}
                       className="text-primary hover:underline font-medium"
                     >
                       @{parentCommentUser.display_name || parentCommentUser.username}
-                    </Link>
+                    </I18nLink>
                   </span>
                 </div>
               )}
-              {/* ✅ 修复 P0-3: 使用转义后的内容（防止 XSS） */}
+              {/* ✅ 按 locale 显示原文或译文 */}
               <p className="text-sm text-muted-foreground mt-1 break-words">
-                {sanitizeContent(comment.content)}
+                {sanitizeContent(displayContent)}
               </p>
               {/* Display comment images */}
               {comment.image_urls && comment.image_urls.length > 0 && (
@@ -1303,6 +1355,7 @@ function CommentItem({
                   onChange={(e) => setReplyContent(e.target.value)}
                   placeholder={t('writeReply')}
                   className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm min-w-0"
+                  maxLength={500}
                 />
                 <EmojiPicker onEmojiSelect={(emoji) => onReplyEmoji?.(emoji)} />
                 <Button
@@ -1395,6 +1448,7 @@ function CommentItem({
                       onReply={onReply}
                       onSaveEdit={onSaveEdit}
                       onCancelEdit={onCancelEdit}
+                      isSavingEdit={isSavingEdit}
                       editingCommentId={editingCommentId}
                       editingContent={editingContent}
                       setEditingContent={setEditingContent}
@@ -1403,10 +1457,20 @@ function CommentItem({
                       setReplyContent={setReplyContent}
                       onReplySubmit={onReplySubmit}
                       getReplies={getReplies}
+                      getRepliesFlattened={getRepliesFlattened}
                       getParentCommentUser={getParentCommentUser}
                       comments={comments}
                       postId={postId}
-                      depth={depth + 1}
+                      depth={1}
+                      newCommentImageUpload={newCommentImageUpload}
+                      replyImageUpload={replyImageUpload}
+                      editingImageFiles={editingImageFiles}
+                      editingImagePreviews={editingImagePreviews}
+                      editingExistingImages={editingExistingImages}
+                      onEditImageSelect={onEditImageSelect}
+                      onRemoveEditImage={onRemoveEditImage}
+                      replyFileInputRef={replyFileInputRef}
+                      replyInputRef={replyInputRef}
                       editingTextareaRefs={editingTextareaRefs}
                       onEditEmoji={onEditEmoji}
                       onReplyEmoji={onReplyEmoji}

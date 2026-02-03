@@ -81,6 +81,8 @@ export async function deductFromDeposit({
         related_type: relatedType === 'debt' ? 'order' : relatedType === 'violation' ? 'violation' : 'commission',
         related_id: relatedId,
         link: '/seller/deposit',
+        content_key: 'violation_penalty',
+        content_params: {},
       })
     }
 

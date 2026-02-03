@@ -6,14 +6,16 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useImageUpload } from '@/lib/hooks/useImageUpload'
 import { useToast } from '@/lib/hooks/useToast'
 import { createClient } from '@/lib/supabase/client'
+import { logAudit } from '@/lib/api/audit'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { X, Upload, Loader2, Plus, Trash2, AlertCircle } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-import { getCurrencyFromBrowser, type Currency } from '@/lib/currency/detect-currency'
+import { X, Upload, Loader2, Plus, Trash2, AlertCircle, Sparkles } from 'lucide-react'
+import { useTranslations, useLocale } from 'next-intl'
+import { detectCurrency, type Currency } from '@/lib/currency/detect-currency'
+import { useAiTask } from '@/lib/ai/useAiTask'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const CURRENCIES: Currency[] = ['USD', 'CNY', 'EUR', 'GBP', 'JPY', 'KRW', 'SGD', 'HKD', 'AUD', 'CAD']
@@ -25,14 +27,19 @@ export default function CreateProductPage() {
   const { toast } = useToast()
   const t = useTranslations('seller')
   const tCommon = useTranslations('common')
-  
+  const tAi = useTranslations('ai')
+  const locale = useLocale()
+  const contentLang = locale === 'zh' ? 'zh' : 'en'
+  const { runTask, loading: aiLoading } = useAiTask()
+  const defaultCurrency = detectCurrency({ browserLocale: locale })
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     stock: '0',
     category: '',
-    currency: 'USD' as Currency,
+    currency: defaultCurrency as Currency,
     allow_affiliate: false,
     commission_rate: '',
     details: '',
@@ -102,8 +109,6 @@ export default function CreateProductPage() {
 
     if (!authLoading && user) {
       checkSellerSubscription()
-      // Set default currency from browser
-      setFormData(prev => ({ ...prev, currency: getCurrencyFromBrowser() }))
     }
   }, [authLoading, user, router, supabase, toast])
 
@@ -190,11 +195,12 @@ export default function CreateProductPage() {
       // Upload images
       const imageUrls = await uploadImages()
 
-      // Prepare product data
+      // Prepare product data（content_lang 先用页面语言，审核通过时翻译接口会检测并修正）
       const productData: any = {
         seller_id: user.id,
         name: formData.name.trim(),
         description: formData.description.trim() || null,
+        content_lang: (formData.name.trim() || formData.description.trim()) ? contentLang : null,
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock) || 0,
         category: formData.category.trim() || null,
@@ -217,6 +223,17 @@ export default function CreateProductPage() {
         .single()
 
       if (productError) throw productError
+
+      logAudit({
+        action: 'create_product',
+        userId: user.id,
+        resourceId: product.id,
+        resourceType: 'product',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+      })
+
+      // 自动翻译改为审核通过后触发，避免未通过审核时浪费 AI 资源
 
       // Show success message
       toast({
@@ -263,14 +280,19 @@ export default function CreateProductPage() {
 
         {/* Product Description */}
         <Card className="p-4">
-          <label className="mb-2 block text-sm font-medium">商品描述</label>
+          <label className="mb-2 block text-sm font-medium">{t('productDescription')}</label>
           <Textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="请输入商品描述..."
+            placeholder={t('enterProductDescription')}
             rows={4}
           />
         </Card>
+
+        <Alert className="text-sm text-muted-foreground">
+          <Sparkles className="h-4 w-4" />
+          <AlertDescription>{t('autoTranslateHint')}</AlertDescription>
+        </Alert>
 
         {/* Product Details */}
         <Card className="p-4">
@@ -376,12 +398,13 @@ export default function CreateProductPage() {
               placeholder="0.00"
               className={errors.price ? 'border-destructive' : ''}
             />
+            <p className="mt-1 text-xs text-muted-foreground">{t('priceUnitHint')}</p>
             {errors.price && <p className="mt-1 text-sm text-destructive">{errors.price}</p>}
           </Card>
 
           <Card className="p-4">
             <label className="mb-2 block text-sm font-medium">
-              货币 <span className="text-destructive">*</span>
+              {t('currency')} <span className="text-destructive">*</span>
             </label>
             <select
               value={formData.currency}
@@ -394,10 +417,11 @@ export default function CreateProductPage() {
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-muted-foreground">{t('currencyHint')}</p>
           </Card>
 
           <Card className="p-4">
-            <label className="mb-2 block text-sm font-medium">库存</label>
+            <label className="mb-2 block text-sm font-medium">{t('productStock')}</label>
             <Input
               type="number"
               min="0"
@@ -412,7 +436,31 @@ export default function CreateProductPage() {
 
         {/* Category */}
         <Card className="p-4">
-          <label className="mb-2 block text-sm font-medium">{t('category')}</label>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <label className="text-sm font-medium">{t('category')}</label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!(formData.name.trim() || formData.description.trim()) || aiLoading}
+              onClick={async () => {
+                const input = [formData.name, formData.description].filter(Boolean).join('\n')
+                if (!input.trim()) return
+                try {
+                  const { result } = await runTask({ task: 'suggest_category', input })
+                  if (result?.trim()) {
+                    setFormData((prev) => ({ ...prev, category: result.trim() }))
+                    toast({ variant: 'success', title: tCommon('success') })
+                  }
+                } catch {
+                  toast({ variant: 'destructive', title: tCommon('error'), description: tAi('failed') })
+                }
+              }}
+            >
+              {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
+              {tAi('suggestCategory')}
+            </Button>
+          </div>
           <Input
             type="text"
             value={formData.category}

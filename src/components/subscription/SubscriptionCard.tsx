@@ -13,6 +13,13 @@ interface SubscriptionCardProps {
   features: string[]
   onSubscribe: () => void
   loading?: boolean
+  /** When true, hide subscribe button and show usePayPalHint (e.g. PayPal selected) */
+  hideSubscribeButton?: boolean
+  usePayPalHint?: string
+  title?: string
+  description?: string
+  subscribeLabel?: string
+  processingLabel?: string
 }
 
 export function SubscriptionCard({
@@ -22,23 +29,21 @@ export function SubscriptionCard({
   features,
   onSubscribe,
   loading,
+  hideSubscribeButton,
+  usePayPalHint,
+  title,
+  description,
+  subscribeLabel,
+  processingLabel,
 }: SubscriptionCardProps) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          {type === 'seller' 
-            ? '成为卖家' 
-            : type === 'affiliate' 
-            ? '成为带货者' 
-            : '打赏功能订阅'}
+          {title ?? (type === 'seller' ? '成为卖家' : type === 'affiliate' ? '成为带货者' : '打赏功能订阅')}
         </CardTitle>
         <CardDescription>
-          {type === 'seller'
-            ? '开始销售您的商品'
-            : type === 'affiliate'
-            ? '通过推广商品赚取佣金'
-            : '启用打赏功能，支持您喜欢的创作者'}
+          {description ?? (type === 'seller' ? '开始销售您的商品' : type === 'affiliate' ? '通过推广商品赚取佣金' : '启用打赏功能，支持您喜欢的创作者')}
         </CardDescription>
         <div className="mt-4">
           <span className="text-3xl font-bold">{formatCurrency(price, currency)}</span>
@@ -56,9 +61,13 @@ export function SubscriptionCard({
         </ul>
       </CardContent>
       <CardFooter>
-        <Button className="w-full" onClick={onSubscribe} disabled={loading}>
-          {loading ? '处理中...' : '立即订阅'}
-        </Button>
+        {hideSubscribeButton && usePayPalHint ? (
+          <p className="text-sm text-muted-foreground w-full text-center py-2">{usePayPalHint}</p>
+        ) : (
+          <Button className="w-full" onClick={onSubscribe} disabled={loading}>
+            {loading ? (processingLabel ?? '处理中...') : (subscribeLabel ?? '立即订阅')}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   )

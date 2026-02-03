@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showError, showSuccess, showWarning, showInfo } from '@/lib/utils/toast'
+import { useTranslations } from 'next-intl'
+import { logAudit } from '@/lib/api/audit'
 
 const BURST_COUNT = 10
 const BURST_RADIUS = 28
@@ -24,6 +26,7 @@ export function LikeButton({ postId, initialLikes, enabled = true }: LikeButtonP
   const { user } = useAuth()
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
+  const t = useTranslations('posts')
   const [optimisticLikes, setOptimisticLikes] = useState(initialLikes)
   const [burst, setBurst] = useState(false)
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -104,7 +107,7 @@ export function LikeButton({ postId, initialLikes, enabled = true }: LikeButtonP
   const likeMutation = useMutation({
     mutationFn: async (shouldLike: boolean) => {
       if (!user) {
-        showInfo('请先登录后再点赞')
+        showInfo(t('pleaseLoginToLike'))
         throw new Error('Not authenticated')
       }
 
@@ -117,6 +120,16 @@ export function LikeButton({ postId, initialLikes, enabled = true }: LikeButtonP
         if (error && error.code !== '23505') {
           throw error
         }
+        
+        // 记录审计日志
+        logAudit({
+          action: 'like_post',
+          userId: user.id,
+          resourceId: postId,
+          resourceType: 'post',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+        })
       } else {
         const { error } = await supabase
           .from('likes')
@@ -124,6 +137,16 @@ export function LikeButton({ postId, initialLikes, enabled = true }: LikeButtonP
           .eq('user_id', user.id)
           .eq('post_id', postId)
         if (error) throw error
+        
+        // 记录审计日志
+        logAudit({
+          action: 'unlike_post',
+          userId: user.id,
+          resourceId: postId,
+          resourceType: 'post',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+        })
       }
     },
     onMutate: async (shouldLike) => {
@@ -158,9 +181,9 @@ export function LikeButton({ postId, initialLikes, enabled = true }: LikeButtonP
       // Show error feedback to user
       const errorMessage = String(err?.message || '')
       if (errorMessage.includes('Rate limit exceeded')) {
-        showWarning('操作过于频繁，请稍后再试')
+        showWarning(t('rateLimitExceeded'))
       } else {
-        const userFriendlyMessage = shouldLike ? '点赞失败，请重试' : '取消点赞失败，请重试'
+        const userFriendlyMessage = shouldLike ? t('likeFailed') : t('unlikeFailed')
         showError(userFriendlyMessage)
         console.error('Like error:', err)
       }
@@ -181,7 +204,7 @@ export function LikeButton({ postId, initialLikes, enabled = true }: LikeButtonP
       return
     }
     if (!user) {
-      showInfo('请先登录后再点赞')
+      showInfo(t('pleaseLoginToLike'))
       return
     }
     

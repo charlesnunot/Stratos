@@ -1,0 +1,216 @@
+{
+  "reportMeta": {
+    "page": "订阅与打赏模块",
+    "scope": "SellerSubscriptionPage, AffiliateSubscriptionPage, TipSubscriptionPage, SubscriptionManagePage, TieredSubscriptionCard, SubscriptionCard, TipButton, UserTipButton",
+    "generatedAt": "2025-01-31",
+    "method": "Code audit + trace",
+    "lastFixedAt": "2025-01-31",
+    "fixSummary": "All findings with severity 关键路径/中/低 have been addressed."
+  },
+  "findings": [
+    {
+      "page": "订阅与打赏模块",
+      "event": "点击",
+      "scenario": "订阅按钮点击 (handleSubscribe - seller/affiliate/tip)",
+      "observedIssue": "所有订阅页的 fetch（create-checkout-session、create-pending、create-payment）均无 AbortController/超时。网络异常或后端挂起时用户长时间等待，无超时提示。",
+      "enhancementSuggestion": "为订阅相关 API 调用增加 20–30 秒超时；超时时显示「请求超时，请重试」。",
+      "severity": "关键路径",
+      "fixed": true
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "点击",
+      "scenario": "订阅按钮点击 - 防重复",
+      "observedIssue": "seller/tip/affiliate 页面：Button 有 disabled={loading || !!wechatCodeUrl}，可防重复点击。PayPal 分支 handleSubscribe 内 return 不设置 loading，无额外问题。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "点击",
+      "scenario": "affiliate/tip 选择 PayPal 后点击 SubscriptionCard「立即订阅」",
+      "observedIssue": "handleSubscribe 在 paymentMethod === 'paypal' 时直接 return，订阅按钮无实际效果。用户需找到下方 PayPal 专用按钮。UX 混淆：主按钮可见但无效。",
+      "enhancementSuggestion": "当 paymentMethod === 'paypal' 时，隐藏 SubscriptionCard 的主订阅按钮，或改为提示「请使用下方 PayPal 支付」；或调整布局使 PayPal 支付更突出。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "点击",
+      "scenario": "打赏弹窗打开 (setShowModal - TipButton/UserTipButton)",
+      "observedIssue": "点击打赏按钮 setShowModal(true)，弹窗通过遮罩点击、X 按钮可关闭。无异常。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "点击",
+      "scenario": "发起打赏 (handleTip - TipButton/UserTipButton)",
+      "observedIssue": "fetch create-tip-session / create-user-tip-session 无 AbortController。网络挂起时无超时。Button 有 disabled={loading || !amount} 可防重复点击。",
+      "enhancementSuggestion": "为打赏 API 增加 15–20 秒超时；超时时显示友好提示并允许重试。",
+      "severity": "关键路径",
+      "fixed": true
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "点击",
+      "scenario": "展开/收起历史 (setShowHistory - subscription/manage)",
+      "observedIssue": "useQuery 的 enabled 为 !!user && showHistory，点击后触发 historyData 加载。historyLoading 时显示 Loader2。无边界异常。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "点击",
+      "scenario": "非登录用户尝试订阅",
+      "observedIssue": "handleSubscribe 内 if (!user) router.push('/login')，未登录时跳转登录。SubscriptionCard 不单独校验登录，依赖 handleSubscribe。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "点击",
+      "scenario": "非登录用户尝试打赏",
+      "observedIssue": "TipButton/UserTipButton 未登录时渲染「登录后打赏」Link，点击跳转登录。不暴露打赏表单。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "输入",
+      "scenario": "打赏金额输入 (amount - TipButton/UserTipButton)",
+      "observedIssue": "Input type=\"number\" min=\"0.01\" step=\"0.01\"，无 max。用户可输入超大金额（如 99999）。API 会通过 checkTipLimits 拒绝 >35 CNY，但前端无提前校验，用户提交后才发现错误。",
+      "enhancementSuggestion": "增加 max={35} 或客户端校验 amount <= 35，并显示「单次最多 ¥35」提示。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "输入",
+      "scenario": "打赏空金额提交",
+      "observedIssue": "handleTip 校验 parseFloat(amount) 无效或 <=0 时 toast 提示。Button disabled={loading || !amount} 在空金额时禁用。双重防护。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "输入",
+      "scenario": "打赏非法字符输入",
+      "observedIssue": "Input type=\"number\" 限制为数字输入，parseFloat 对非数字返回 NaN，校验 tipAmount <= 0 会拦截。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "选择器",
+      "scenario": "支付方式选择 (PaymentMethodSelector)",
+      "observedIssue": "onSelect 更新 paymentMethod 状态，handleSubscribe / handleTip 使用当前 paymentMethod 调用对应 API。选择器与支付流程正确联动。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "边界/异常",
+      "scenario": "打赏给自己 (TipButton postAuthorId / UserTipButton targetUserId)",
+      "observedIssue": "handleTip 内显式校验 user.id === postAuthorId/targetUserId，toast 提示。API 亦校验，双重防护。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "边界/异常",
+      "scenario": "打赏限额超限（单次>35 CNY / 每日3次）",
+      "observedIssue": "API checkTipLimits 校验，返回 400 及 reason。TipButton 已映射 tipLimitExceeded 等 i18n。UserTipButton 部分错误仍为硬编码中文（如「打赏限额已超」未统一）。",
+      "enhancementSuggestion": "UserTipButton 与 TipButton 统一使用 t() 映射所有错误类型，避免硬编码。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "边界/异常",
+      "scenario": "打赏订阅过期后点击打赏",
+      "observedIssue": "TipButton/UserTipButton 通过 useQuery tipSubscription 检查，过期时显示「启用打赏」Link。若订阅在打开弹窗后过期，API 会 403，前端有错误映射。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "边界/异常",
+      "scenario": "接收者未开启打赏时显示打赏按钮",
+      "observedIssue": "TipButton 使用 post 作者的 profile（通过 post 上下文），UserTipButton 使用当前用户 profile。两者均未预检查接收者 tip_enabled。API 会 403，用户需提交后才知。可接受，但可优化：在展示打赏按钮前查询接收者 tip_enabled。",
+      "enhancementSuggestion": "可选：UserTipButton 增加 useProfile(targetUserId) 查询接收者 tip_enabled，未开启时隐藏或禁用按钮并提示。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "UX/提示",
+      "scenario": "订阅模块硬编码文案",
+      "observedIssue": "SellerSubscriptionPage：'卖家订阅'、'请选择订阅档位'、'无法降级'、'处理中...'、'订阅'、'请使用微信扫码支付'、'返回重选'、'前往订阅管理' 等硬编码。AffiliateSubscriptionPage、TipSubscriptionPage、SubscriptionCard、TieredSubscriptionCard、SubscriptionManagePage  similarly 大量硬编码。",
+      "enhancementSuggestion": "统一使用 useTranslations 做国际化（subscription 命名空间）。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "UX/提示",
+      "scenario": "UserTipButton 硬编码文案",
+      "observedIssue": "'提示'、'成功'、'错误'、'直接打赏给用户'、'最小打赏金额：¥0.01'、'请输入打赏金额' 及错误映射中硬编码中文（如「您的打赏订阅已过期」），而 TipButton 已使用 t()。",
+      "enhancementSuggestion": "与 TipButton 对齐，全部使用 t() / tCommon()。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "加载",
+      "scenario": "订阅页 / 打赏加载",
+      "observedIssue": "订阅页无独立 useQuery 加载订阅列表（seller 有 fetchCurrentTier）。manage 页 isLoading 时显示 Loader2。打赏按钮 profileLoading 时显示 loading 态。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "权限",
+      "scenario": "订阅 API 权限",
+      "observedIssue": "create-checkout-session、create-pending、create-payment 等需登录；打赏 API 校验 tipper 订阅、接收者 tip_enabled、黑名单、限额。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "关键路径",
+      "scenario": "seller 降级校验",
+      "observedIssue": "handleSubscribe 在 selectedTier < currentTier 时查询未履行订单总额，与 tierConfig.depositCredit 比较，超限则 toast 并 return。逻辑正确。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订阅与打赏模块",
+      "event": "关键路径",
+      "scenario": "PayPal 打赏流程",
+      "observedIssue": "TipButton/UserTipButton 选择 PayPal 时，amount > 0 才渲染 PayPalButton。onSuccess 关闭弹窗、清空 amount、router.refresh。onError 显示 toast。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    }
+  ],
+  "summary": {
+    "totalFindings": 22,
+    "bySeverity": {
+      "关键路径": 2,
+      "高": 0,
+      "中": 1,
+      "低": 5,
+      "无": 14
+    },
+    "fixedCount": 8,
+    "topPriorities": [
+      "订阅 API 无超时（create-checkout-session、create-pending、create-payment）（关键路径）",
+      "打赏 API 无超时（create-tip-session、create-user-tip-session）（关键路径）",
+      "affiliate/tip 选择 PayPal 时主订阅按钮无效，UX 混淆（中）",
+      "打赏金额无前端 max/35 CNY 校验（低）",
+      "UserTipButton 错误消息硬编码，未统一 i18n（低）",
+      "接收者未开启打赏时可优化按钮展示（低）",
+      "订阅/打赏模块大量硬编码文案（低）"
+    ]
+  }
+}

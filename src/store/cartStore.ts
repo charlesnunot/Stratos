@@ -2,12 +2,31 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// 购物车操作审计日志（客户端）
+function logCartAudit(action: string, productId: string, meta?: Record<string, unknown>): void {
+  const timestamp = new Date().toISOString()
+  const logEntry = {
+    action,
+    productId: productId.substring(0, 8) + '...', // 截断隐私保护
+    timestamp,
+    ...meta,
+  }
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[CART AUDIT]', JSON.stringify(logEntry))
+  }
+  // 在生产环境中，可以发送到服务器端日志收集
+}
+
 interface CartItem {
   product_id: string
   quantity: number
   price: number
   name: string
   image: string
+  currency?: string
+  // Multi-language information
+  contentLang?: 'zh' | 'en' | null
+  nameTranslated?: string | null
 }
 
 export interface ValidationResult {
@@ -25,6 +44,7 @@ interface CartStore {
   addItem: (item: CartItem) => void
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
+  updateItemName: (productId: string, name: string) => void
   clearCart: () => void
   getTotal: () => number
   toggleSelect: (productId: string) => void
@@ -60,8 +80,12 @@ export const useCartStore = create<CartStore>()(
             ),
             selectedIds: ensureSelected,
           })
+          logCartAudit('update_cart_quantity', item.product_id, { 
+            newQuantity: existingItem.quantity + item.quantity 
+          })
         } else {
           set({ items: [...get().items, item], selectedIds: ensureSelected })
+          logCartAudit('add_to_cart', item.product_id, { quantity: item.quantity })
         }
       },
       removeItem: (productId) => {
@@ -70,6 +94,7 @@ export const useCartStore = create<CartStore>()(
           items: get().items.filter((i) => i.product_id !== productId),
           selectedIds,
         })
+        logCartAudit('remove_from_cart', productId)
       },
       updateQuantity: (productId, quantity) => {
         if (quantity <= 0) {
@@ -80,9 +105,23 @@ export const useCartStore = create<CartStore>()(
               i.product_id === productId ? { ...i, quantity } : i
             ),
           })
+          logCartAudit('update_cart_quantity', productId, { newQuantity: quantity })
         }
       },
-      clearCart: () => set({ items: [], selectedIds: [] }),
+      updateItemName: (productId, name) => {
+        set({
+          items: get().items.map((i) =>
+            i.product_id === productId ? { ...i, name } : i
+          ),
+        })
+      },
+      clearCart: () => {
+        const itemCount = get().items.length
+        set({ items: [], selectedIds: [] })
+        if (itemCount > 0) {
+          logCartAudit('clear_cart', 'all', { removedCount: itemCount })
+        }
+      },
       getTotal: () => {
         return get().items.reduce(
           (total, item) => total + item.price * item.quantity,

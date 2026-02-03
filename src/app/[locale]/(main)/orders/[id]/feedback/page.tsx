@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2, Star } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { showSuccess, showError, showInfo } from '@/lib/utils/toast'
+import { sanitizeContent } from '@/lib/utils/sanitize-content'
 
 export default function OrderFeedbackPage() {
   const params = useParams()
@@ -22,6 +23,7 @@ export default function OrderFeedbackPage() {
   const { user } = useAuth()
   const supabase = createClient()
   const t = useTranslations('orders')
+  const tFeedback = useTranslations('orders.feedback')
   const tCommon = useTranslations('common')
 
   const [shippingTimeRating, setShippingTimeRating] = useState(0)
@@ -70,18 +72,20 @@ export default function OrderFeedbackPage() {
   // 检查权限
   useEffect(() => {
     if (order && user && order.buyer_id !== user.id) {
-      showInfo('您只能评价自己的订单')
+      showInfo(tFeedback('onlyRateOwnOrder'))
       router.push(`/orders/${orderId}`)
     }
-  }, [order, user, router, orderId])
+  }, [order, user, router, orderId, tFeedback])
 
   // 检查订单状态
   useEffect(() => {
     if (order && order.order_status !== 'completed') {
-      showInfo('只能评价已完成的订单')
+      showInfo(tFeedback('onlyCompletedOrder'))
       router.push(`/orders/${orderId}`)
     }
-  }, [order, router, orderId])
+  }, [order, router, orderId, tFeedback])
+
+  const MAX_COMMENT_LENGTH = 1000
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,9 +93,16 @@ export default function OrderFeedbackPage() {
     if (!user || !order) return
 
     if (shippingTimeRating === 0 || productQualityRating === 0 || customerServiceRating === 0) {
-      showError('请为所有维度评分')
+      showError(tFeedback('ratingRequired'))
       return
     }
+
+    const rawComment = comment.trim()
+    if (rawComment.length > MAX_COMMENT_LENGTH) {
+      showError(tFeedback('commentTooLong', { max: MAX_COMMENT_LENGTH }))
+      return
+    }
+    const safeComment = rawComment ? sanitizeContent(rawComment) : undefined
 
     try {
       if (existingFeedback) {
@@ -101,11 +112,10 @@ export default function OrderFeedbackPage() {
           shippingTimeRating,
           productQualityRating,
           customerServiceRating,
-          comment: comment.trim() || undefined,
+          comment: safeComment,
         })
-        showSuccess('反馈已更新')
+        showSuccess(tFeedback('feedbackUpdated'))
       } else {
-        // 创建新反馈
         await createMutation.mutateAsync({
           orderId: order.id,
           buyerId: user.id,
@@ -113,15 +123,15 @@ export default function OrderFeedbackPage() {
           shippingTimeRating,
           productQualityRating,
           customerServiceRating,
-          comment: comment.trim() || undefined,
+          comment: safeComment,
         })
-        showSuccess('反馈已提交')
+        showSuccess(tFeedback('feedbackSubmitted'))
       }
 
       router.push(`/orders/${orderId}`)
     } catch (error: any) {
       console.error('Submit feedback error:', error)
-      showError('提交失败，请重试')
+      showError(tFeedback('submitFailed'))
     }
   }
 
@@ -171,7 +181,7 @@ export default function OrderFeedbackPage() {
   if (!order || !user) {
     return (
       <div className="py-12 text-center">
-        <p className="text-destructive">订单不存在或无权访问</p>
+        <p className="text-destructive">{t('orderNotFoundOrFailed')}</p>
       </div>
     )
   }
@@ -180,10 +190,10 @@ export default function OrderFeedbackPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">
-          {existingFeedback ? '更新评价' : '评价卖家'}
+          {existingFeedback ? tFeedback('updatePageTitle') : tFeedback('pageTitle')}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          订单号: {order.order_number}
+          {tFeedback('orderNumber')}: {order.order_number}
         </p>
       </div>
 
@@ -192,30 +202,32 @@ export default function OrderFeedbackPage() {
           <RatingStars
             rating={shippingTimeRating}
             setRating={setShippingTimeRating}
-            label="配送时间"
+            label={tFeedback('shippingTime')}
           />
 
           <RatingStars
             rating={productQualityRating}
             setRating={setProductQualityRating}
-            label="产品质量"
+            label={tFeedback('productQuality')}
           />
 
           <RatingStars
             rating={customerServiceRating}
             setRating={setCustomerServiceRating}
-            label="客户服务"
+            label={tFeedback('customerService')}
           />
 
           <div className="space-y-2">
-            <Label htmlFor="comment">评论（可选）</Label>
+            <Label htmlFor="comment">{tFeedback('commentOptional')}</Label>
             <Textarea
               id="comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="分享您的购物体验..."
+              placeholder={tFeedback('commentPlaceholder')}
               rows={4}
+              maxLength={MAX_COMMENT_LENGTH}
             />
+            <p className="text-right text-xs text-muted-foreground">{comment.length}/{MAX_COMMENT_LENGTH}</p>
           </div>
 
           <div className="flex gap-3">
@@ -235,10 +247,10 @@ export default function OrderFeedbackPage() {
               {createMutation.isPending || updateMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {tCommon('submitting') || '提交中...'}
+                  {tCommon('submitting')}
                 </>
               ) : (
-                existingFeedback ? '更新评价' : '提交评价'
+                existingFeedback ? tFeedback('updatePageTitle') : tFeedback('submitReview')
               )}
             </Button>
           </div>

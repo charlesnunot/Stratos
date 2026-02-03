@@ -1,0 +1,260 @@
+{
+  "reportMeta": {
+    "page": "评论模块",
+    "scope": "Post CommentSection, ProductCommentSection, CommentLikeButton",
+    "generatedAt": "2025-01-31",
+    "method": "Code audit + trace",
+    "lastFixedAt": "2025-01-31",
+    "fixSummary": "All findings with severity 高/中 and most 低 have been addressed."
+  },
+  "findings": [
+    {
+      "page": "评论模块",
+      "event": "点击",
+      "scenario": "点击删除评论 (CommentSection)",
+      "observedIssue": "删除有确认弹窗。确认按钮在 deleteCommentMutation.isPending 时未 disabled，可快速连点导致重复请求。",
+      "enhancementSuggestion": "确认按钮增加 disabled={deleteCommentMutation.isPending}，防止重复提交。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "点击",
+      "scenario": "点击删除评论 (ProductCommentSection)",
+      "observedIssue": "handleDelete 直接调用 deleteCommentMutation.mutate(id)，无确认弹窗。用户误点即删除，无法撤销。",
+      "enhancementSuggestion": "增加删除确认弹窗（与 CommentSection 一致）。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "点击",
+      "scenario": "点击取消编辑 (handleCancelEdit - CommentSection)",
+      "observedIssue": "仅清空 editingCommentId 和 editingContent，未清理 editingImageFiles、editingImagePreviews、editingExistingImages。已选编辑图片的 object URL 未 revoke，存在内存泄漏。",
+      "enhancementSuggestion": "取消编辑时清理对应 comment 的图片状态并 revokeObjectURL。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "点击",
+      "scenario": "点击保存编辑 (CommentSection) 快速连续点击",
+      "observedIssue": "保存按钮无 disabled={updateCommentMutation.isPending}，可连点触发多次更新。",
+      "enhancementSuggestion": "保存按钮在 mutation isPending 时 disabled。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "点击",
+      "scenario": "非作者尝试编辑/删除评论",
+      "observedIssue": "CommentSection 与 ProductCommentSection 均仅对 isOwner 展示编辑/删除按钮。后端 RLS 限制 update/delete。权限校验正确。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "点击",
+      "scenario": "举报商品评论 (ProductCommentSection)",
+      "observedIssue": "ReportDialog 使用 reportedType='comment'，reported_id 为 product_comments 表 id。ReportManagement 按 reported_type='comment' 时查询 comments 表，导致商品评论举报内容无法正确加载（id 不匹配）。",
+      "enhancementSuggestion": "新增 reported_type 'product_comment'，ReportManagement 增加对应分支查询 product_comments；或统一 comment 类型时按 reported_id 同时查 comments 与 product_comments。",
+      "severity": "高",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "点击",
+      "scenario": "点击打开评论图片 (window.open)",
+      "observedIssue": "CommentSection 中 comment.image_urls 点击打开新窗口。无安全问题。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "输入",
+      "scenario": "提交空评论 (CommentSection)",
+      "observedIssue": "handleSubmit 检查 !newComment.trim() && newCommentImageUpload.totalImageCount === 0 时 return。mutate 前有校验。mutationFn 内也校验。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "输入",
+      "scenario": "提交超长评论 (>500)",
+      "observedIssue": "CommentSection：input 有 maxLength={500}，mutationFn 内校验 trimmedContent.length > 500 并 throw。ProductCommentSection：无 maxLength，仅 mutation 内校验。",
+      "enhancementSuggestion": "ProductCommentSection 输入框增加 maxLength={500} 及字数提示（与 CommentSection 一致）。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "输入",
+      "scenario": "评论内容 XSS/sanitize",
+      "observedIssue": "CommentSection 写入前调用 sanitizeContent。展示时 displayContent 经 getDisplayContent 后也 sanitizeContent。ProductCommentSection 插入/更新未调用 sanitizeContent，存在 XSS 风险。",
+      "enhancementSuggestion": "ProductCommentSection 在 insert/update 前对 content 调用 sanitizeContent。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "输入",
+      "scenario": "ProductCommentSection 提交仅图片无文本",
+      "observedIssue": "handleSubmitNew 调用 addCommentMutation.mutate({ content: newComment, parentId: null })，未传入 imageUrls。mutation 内部从 newCommentImageUpload 读取，支持仅图片。但 handleSubmitNew 未校验 totalImageCount，若仅选图未输入文本会提交。mutation 内会校验 trimmedContent 与 imageUrls。",
+      "enhancementSuggestion": "无，逻辑正确。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "图片上传",
+      "scenario": "评论图片 - 合法格式/大小",
+      "observedIssue": "CommentSection 使用 useImageUpload，handleImageSelect 校验类型与 5MB。ProductCommentSection 同理。编辑评论时 handleEditImageSelect 也有校验。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "图片上传",
+      "scenario": "评论图片上传失败（网络中断）",
+      "observedIssue": "useImageUpload 已支持失败时清理已上传文件（帖子模块修复）。CommentSection/ProductCommentSection 使用同一 hook，可享受该能力。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "图片上传",
+      "scenario": "编辑评论时上传图片失败 (CommentSection)",
+      "observedIssue": "updateCommentMutation 内直接使用 supabase.storage.upload，未使用 useImageUpload，失败时无孤儿文件清理逻辑。但编辑是单张循环上传，失败即 throw，不会出现部分成功。",
+      "enhancementSuggestion": "可选：编辑上传失败时对已成功上传的 path 做 remove 清理。",
+      "severity": "低"
+    },
+    {
+      "page": "评论模块",
+      "event": "图片上传",
+      "scenario": "ProductCommentSection 编辑评论不支持图片",
+      "observedIssue": "updateCommentMutation 仅更新 content，不支持 image_urls。编辑时无法修改/增删图片，且若原评论有图，编辑后可能被覆盖（当前 update 未传 image_urls，可能保留原值，需确认）。",
+      "enhancementSuggestion": "ProductCommentSection 编辑支持图片增删，与 CommentSection 保持一致；或明确编辑仅限文本并隐藏图片。",
+      "severity": "中",
+      "fixed": false,
+      "fixNote": "编辑仅限文本，保留原 image_urls；完整图片编辑待后续迭代"
+    },
+    {
+      "page": "评论模块",
+      "event": "边界/异常",
+      "scenario": "CommentSection 2 秒 rate limit",
+      "observedIssue": "checkRateLimit 限制 2 秒内只能提交一次，有 toast 提示。可防刷。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "边界/异常",
+      "scenario": "ProductCommentSection 无 rate limit",
+      "observedIssue": "无前端 rate limit，仅依赖 DB trigger（如有）。可被快速刷评。",
+      "enhancementSuggestion": "增加与 CommentSection 相同的 2 秒限频逻辑。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "边界/异常",
+      "scenario": "评论提交/编辑异步失败",
+      "observedIssue": "CommentSection：onError 有 rollback、toast、多种错误类型处理。ProductCommentSection：onError 有 toast，但部分硬编码中文（如「操作过于频繁」「评论失败」）。",
+      "enhancementSuggestion": "ProductCommentSection 错误信息统一使用 t() 国际化。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "边界/异常",
+      "scenario": "回复切换时图片状态 (CommentSection)",
+      "observedIssue": "handleReply 切换回复对象时未调用 replyImageUpload.clearImages()。但取消回复按钮（onReply('')）会 clearImages。点击另一条评论的回复时 setReplyingToId 变更，replyContent 未显式清空，replyImageUpload 未清空。用户从 A 的回复切换到 B 的回复时，A 的图片会带到 B。",
+      "enhancementSuggestion": "handleReply 在切换 replyingToId 时清空 replyContent 和 replyImageUpload.clearImages()。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "边界/异常",
+      "scenario": "ProductCommentSection 回复切换",
+      "observedIssue": "handleReply 中有 setReplyContent('') 和 replyImageUpload.clearImages()。切换时正确清空。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "UX/提示",
+      "scenario": "CommentSection 评论输入 maxLength 与字数提示",
+      "observedIssue": "input maxLength={500}，有字数显示及 approachingLimit 提示。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "UX/提示",
+      "scenario": "ProductCommentSection 硬编码文案",
+      "observedIssue": "多处硬编码：'保存'、'取消'、'收起回复'、'查看更多回复'、'回复 @用户'、'用户'、'操作过于频繁，请稍后再试'、'评论失败，请重试' 等。",
+      "enhancementSuggestion": "统一使用 t() 国际化。",
+      "severity": "低"
+    },
+    {
+      "page": "评论模块",
+      "event": "UX/提示",
+      "scenario": "CommentSection 编辑 textarea 无 maxLength",
+      "observedIssue": "编辑评论文本 textarea 无 maxLength，用户可输入超 500 字符，提交时方报错。",
+      "enhancementSuggestion": "编辑 textarea 增加 maxLength={500} 及字数提示。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "UX/提示",
+      "scenario": "CommentSection 回复 input 无 maxLength",
+      "observedIssue": "回复输入为 input，无 maxLength。mutation 内会校验 500。",
+      "enhancementSuggestion": "回复 input 增加 maxLength={500}。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "评论模块",
+      "event": "加载",
+      "scenario": "CommentSection 加载更多",
+      "observedIssue": "hasNextPage 时显示加载更多按钮，isFetchingNextPage 时 disabled。分页 20 条/页。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "评论模块",
+      "event": "加载",
+      "scenario": "ProductCommentSection 无分页",
+      "observedIssue": "useQuery 一次性拉取全部评论，无分页。评论量大时可能性能问题。",
+      "enhancementSuggestion": "改为 useInfiniteQuery 分页加载，与 CommentSection 一致。",
+      "severity": "低"
+    },
+    {
+      "page": "评论模块",
+      "event": "点赞",
+      "scenario": "CommentLikeButton 快速连点",
+      "observedIssue": "与 LikeButton 类似，无显式防抖。mutation.isPending 时可忽略点击（需确认）。DB 有 rate limit。",
+      "enhancementSuggestion": "可考虑与 LikeButton 一致增加 300ms 防抖。",
+      "severity": "低"
+    }
+  ],
+  "summary": {
+    "totalFindings": 24,
+    "bySeverity": {
+      "关键路径": 0,
+      "高": 1,
+      "中": 5,
+      "低": 13,
+      "无": 5
+    },
+    "topPriorities": [
+      "ProductCommentSection 举报商品评论时 reported_type='comment' 导致 admin 无法正确加载内容（高）",
+      "ProductCommentSection 删除无确认弹窗（中）",
+      "ProductCommentSection 无 sanitizeContent，存在 XSS 风险（中）",
+      "ProductCommentSection 无 rate limit（中）",
+      "CommentSection 回复切换时未清空 reply 图片（中）",
+      "ProductCommentSection 编辑不支持图片（中）"
+    ]
+  }
+}

@@ -2,11 +2,19 @@
  * Order creation API
  * Supports multiple products and multiple sellers (creates separate orders per seller)
  * Note: Deposit check is now done at payment time, not at order creation
+ * Rate limit: 10 orders/minute per user (anti-spam).
+ * 
+ * 审计日志规范：
+ * - 记录订单创建操作
+ * - 不记录敏感信息（如完整地址、支付账户）
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { validateSellerPaymentReady } from '@/lib/payments/validate-seller-payment-ready'
+import { logAudit } from '@/lib/api/audit'
+import { withApiLogging } from '@/lib/api/logger'
+import { RateLimitConfigs } from '@/lib/api/rate-limit'
 
 interface OrderItem {
   product_id: string
@@ -14,7 +22,7 @@ interface OrderItem {
   price: number
 }
 
-export async function POST(request: NextRequest) {
+async function createOrderHandler(request: NextRequest) {
   let userId: string | undefined
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -634,18 +642,38 @@ export async function POST(request: NextRequest) {
 
         createdOrders.push(order)
 
+        // 记录订单创建审计日志
+        logAudit({
+          action: 'create_order',
+          userId: user.id,
+          resourceId: order.id,
+          resourceType: 'order',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: {
+            sellerId: sellerId.substring(0, 8) + '...',
+            itemCount: sellerItems.length,
+            hasAffiliate: !!orderAffiliatePostId,
+          },
+        })
+
         // Send notification to seller about pending payment order
         if (order.seller_id) {
           try {
             await supabaseAdmin.from('notifications').insert({
               user_id: order.seller_id,
               type: 'order',
-              title: '新订单待支付',
-              content: `您收到了一个新订单 ${order.order_number}，金额 ¥${totalAmount.toFixed(2)}，等待买家支付`,
+              title: 'New Order Pending Payment',
+              content: `You received a new order ${order.order_number}, amount ¥${totalAmount.toFixed(2)}, awaiting buyer payment`,
               related_id: order.id,
               related_type: 'order',
               link: `/orders/${order.id}`,
-              actor_id: user.id, // 买家 ID
+              actor_id: user.id,
+              content_key: 'order_pending_payment',
+              content_params: {
+                orderNumber: order.order_number,
+                amount: totalAmount.toFixed(2),
+              },
             })
           } catch (notificationError) {
             // Log error but don't fail order creation
@@ -734,3 +762,7 @@ export async function POST(request: NextRequest) {
     })
   }
 }
+
+export const POST = withApiLogging(createOrderHandler, {
+  rateLimitConfig: RateLimitConfigs.ORDER_CREATE,
+})

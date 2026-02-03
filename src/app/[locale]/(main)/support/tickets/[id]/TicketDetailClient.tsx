@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Loader2, ArrowLeft, Send } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
+const REPLY_MAX_LENGTH = 5000
+
 interface TicketDetailClientProps {
   ticketId: string
   initialTicket: any
@@ -60,19 +62,18 @@ export function TicketDetailClient({ ticketId, initialTicket }: TicketDetailClie
 
   const replyMutation = useMutation({
     mutationFn: async (content: string) => {
-      const { error } = await supabase.from('support_ticket_replies').insert({
-        ticket_id: ticketId,
-        user_id: user!.id,
-        content,
+      const trimmed = content.trim()
+      if (!trimmed) throw new Error('Reply content is required')
+      if (trimmed.length > REPLY_MAX_LENGTH) throw new Error(`Reply must be at most ${REPLY_MAX_LENGTH} characters`)
+      const response = await fetch(`/api/support/tickets/${ticketId}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: trimmed }),
       })
-
-      if (error) throw error
-
-      // Update ticket updated_at
-      await supabase
-        .from('support_tickets')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', ticketId)
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || response.statusText)
+      }
     },
     onSuccess: () => {
       setReplyText('')
@@ -83,8 +84,10 @@ export function TicketDetailClient({ ticketId, initialTicket }: TicketDetailClie
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!replyText.trim()) return
-    replyMutation.mutate(replyText)
+    const trimmed = replyText.trim()
+    if (!trimmed) return
+    if (trimmed.length > REPLY_MAX_LENGTH) return
+    replyMutation.mutate(trimmed)
   }
 
   if (!ticket) {
@@ -116,12 +119,12 @@ export function TicketDetailClient({ ticketId, initialTicket }: TicketDetailClie
         <div className="mb-4">
           <h2 className="mb-2 text-xl font-semibold">{ticket.title}</h2>
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <span>类型: {ticket.ticket_type}</span>
-            <span>优先级: {ticket.priority}</span>
-            <span>状态: {ticket.status}</span>
+            <span>{t('ticketType')}: {t(`type_${ticket.ticket_type}`)}</span>
+            <span>{t('priority')}: {t(`priority_${ticket.priority}`)}</span>
+            <span>{tCommon('status')}: {tCommon(ticket.status === 'in_progress' ? 'processing' : ticket.status)}</span>
             <span>
-              创建时间:{' '}
-              {new Date(ticket.created_at).toLocaleString('zh-CN')}
+              {tCommon('createdAt')}:{' '}
+              {new Date(ticket.created_at).toLocaleString()}
             </span>
           </div>
         </div>
@@ -148,7 +151,7 @@ export function TicketDetailClient({ ticketId, initialTicket }: TicketDetailClie
                   {reply.user?.display_name || reply.user?.username}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {new Date(reply.created_at).toLocaleString('zh-CN')}
+                  {new Date(reply.created_at).toLocaleString()}
                 </span>
               </div>
               <p className="whitespace-pre-wrap">{reply.content}</p>
@@ -172,7 +175,7 @@ export function TicketDetailClient({ ticketId, initialTicket }: TicketDetailClie
             </div>
             <Button
               type="submit"
-              disabled={replyMutation.isPending || !replyText.trim()}
+              disabled={replyMutation.isPending || !replyText.trim() || replyText.trim().length > REPLY_MAX_LENGTH}
             >
               {replyMutation.isPending ? (
                 <>

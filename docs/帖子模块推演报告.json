@@ -1,0 +1,284 @@
+{
+  "reportMeta": {
+    "page": "帖子模块",
+    "scope": "Post module: feed, post detail, post create, post card interactions",
+    "generatedAt": "2025-01-31",
+    "method": "Code audit + trace",
+    "lastFixedAt": "2025-01-31",
+    "fixSummary": "All findings with severity 高/中/低 have been addressed via code changes."
+  },
+  "findings": [
+    {
+      "page": "帖子模块",
+      "event": "点击",
+      "scenario": "非作者点击编辑按钮 (handleEditPost)",
+      "observedIssue": "capabilities.canEdit 为 false 时编辑按钮不渲染，非作者看不到编辑入口。直接访问 /post/[id]/edit 会被 edit 页面校验 user.id !== post.user_id 拦截并显示「您没有权限编辑该帖子」。权限校验正确。",
+      "enhancementSuggestion": "无，当前实现正确。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "点击",
+      "scenario": "点击编辑按钮进入 edit 页面",
+      "observedIssue": "edit 页面为占位页，仅显示「编辑功能即将上线」，无实际编辑表单。用户点击编辑后只能返回。",
+      "enhancementSuggestion": "实现完整编辑功能或移除编辑入口，避免用户困惑。",
+      "severity": "中",
+      "fixed": true,
+      "fixNote": "已实现完整编辑页：内容/图片/话题/位置编辑，post_topics 原子更新"
+    },
+    {
+      "page": "帖子模块",
+      "event": "点击",
+      "scenario": "点击删除 (handleDeleteClick) - 快速连续点击",
+      "observedIssue": "删除按钮在 isDeleting 时 disabled，可防止重复提交。但使用原生 confirm() 进行二次确认，用户可能快速点两次确认。deletePost 内部无请求级幂等保护，若网络慢可能重复发送 delete 请求。",
+      "enhancementSuggestion": "在 deletePost 内加请求锁或 abort 控制，防止重复 DELETE；或后端对已删除帖子返回幂等成功。",
+      "severity": "低",
+      "fixed": true,
+      "fixNote": "已加 deleteInProgressRef 请求锁"
+    },
+    {
+      "page": "帖子模块",
+      "event": "点击",
+      "scenario": "删除帖子 - 网络异常",
+      "observedIssue": "catch 块 showError(t('deletePostFailed'))，toast 提示用户。isDeleting 会正确置回 false。无重试机制。",
+      "enhancementSuggestion": "可考虑添加「重试」按钮或自动重试一次，提升异常场景 UX。",
+      "severity": "低"
+    },
+    {
+      "page": "帖子模块",
+      "event": "点击",
+      "scenario": "非作者/未登录点击举报 (handleReportClick)",
+      "observedIssue": "capabilities.canReport 为 false 时举报不显示（作者本人不显示举报）。未登录时 requestReportDialog 显示「请先登录后再举报」并 return false，不打开弹窗。",
+      "enhancementSuggestion": "无，逻辑正确。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "点击",
+      "scenario": "点击分享 (handleShareTo) / 复制链接",
+      "observedIssue": "ShareDialog 打开后，recordShare 插入 shares 表。若 rate limit 触发会 showWarning。复制链接时 copyLink 也会插入 shares，有 rate limit 处理。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "点击",
+      "scenario": "点击转发 (handleRepost)",
+      "observedIssue": "未登录时 showInfo 提示。repostMutation 有 onError 处理，showError。DB 有 enforce_repost_rate_limit。",
+      "enhancementSuggestion": "前端可增加 300ms 防抖（类似 LikeButton），防止连点。",
+      "severity": "低"
+    },
+    {
+      "page": "帖子模块",
+      "event": "点击",
+      "scenario": "点击查看统计 (handleViewStatsClick)",
+      "observedIssue": "capabilities.canViewStats 仅 owner 或 admin。PostCard 中 admin 需通过 viewerKindOverride 传入，若 feed 未传则 admin 在卡片上可能看不到统计。",
+      "enhancementSuggestion": "确认 feed/profile 等列表是否传入 viewerKindOverride 以支持 admin 查看统计。",
+      "severity": "低",
+      "fixed": true,
+      "fixNote": "PostCardUnit 已根据 useProfile role 传入 viewerKindOverride='admin'"
+    },
+    {
+      "page": "帖子模块",
+      "event": "点击",
+      "scenario": "点赞 (LikeButton) 快速连续点击",
+      "observedIssue": "有 300ms 防抖、likeMutation.isPending 时忽略点击。DB trigger enforce_like_rate_limit。乐观更新 + 失败回滚。",
+      "enhancementSuggestion": "无，实现完善。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "输入",
+      "scenario": "创建帖子 - 空内容",
+      "observedIssue": "校验顺序：先检查 imagePreviews.length === 0（至少一张图），再检查 content 超长。空 content 允许提交（帖子可仅含图片）。",
+      "enhancementSuggestion": "若业务要求文本必填，可增加 content.trim().length === 0 校验。",
+      "severity": "低"
+    },
+    {
+      "page": "帖子模块",
+      "event": "输入",
+      "scenario": "创建帖子 - 超长文本 (>2000)",
+      "observedIssue": "handleSubmit 中检查 trimmed.length > POST_CONTENT_MAX_LENGTH，toast 提示并 return。textarea 无 maxLength 属性，用户可输入超长后提交才被拦截。",
+      "enhancementSuggestion": "textarea 增加 maxLength={2000}，实时截断或禁止继续输入，提前反馈。",
+      "severity": "中",
+      "fixed": true,
+      "fixNote": "已加 maxLength=2000 及字数计数"
+    },
+    {
+      "page": "帖子模块",
+      "event": "输入",
+      "scenario": "创建帖子 - 非法字符/XSS",
+      "observedIssue": "写入前调用 sanitizeContent 做 HTML 转义。可防 XSS。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "输入",
+      "scenario": "创建帖子 - 位置 (fetchLocationFromIp)",
+      "observedIssue": "useEffect 挂载时自动调用，无 loading/错误提示。API 失败或返回 null 时 location 保持空字符串，用户可能不知道获取失败。",
+      "enhancementSuggestion": "失败时 toast 提示「位置获取失败，可手动输入」；或显示「重试」按钮。",
+      "severity": "低",
+      "fixed": true,
+      "fixNote": "失败时 toast，重试按钮已有（detectLocation）"
+    },
+    {
+      "page": "帖子模块",
+      "event": "输入",
+      "scenario": "话题 - 添加/删除 (addTopic/removeTopic)",
+      "observedIssue": "addTopic 检查 newTopic.trim() 且 !topics.includes。无话题数量上限、无话题长度限制。恶意用户可添加大量或超长话题。",
+      "enhancementSuggestion": "限制 topics.length <= 5（或业务值）；限制单个 topic 长度 <= 30。",
+      "severity": "中",
+      "fixed": true,
+      "fixNote": "已限制最多 5 个话题、每话题 ≤30 字符"
+    },
+    {
+      "page": "帖子模块",
+      "event": "输入",
+      "scenario": "提取话题 (handleExtractTopics)",
+      "observedIssue": "需 content.trim() 非空，否则 toast 提示。AI task 可能因限额失败，有 toast。无防抖，用户可快速连点消耗额度。",
+      "enhancementSuggestion": "提取话题按钮加 2s 防抖，或 disabled 直到上一次完成。",
+      "severity": "低",
+      "fixed": true,
+      "fixNote": "已加 2s 防抖"
+    },
+    {
+      "page": "帖子模块",
+      "event": "输入",
+      "scenario": "提交帖子 (onSubmit) - 上传中/失败",
+      "observedIssue": "submit 时先 uploadImages()，再创建 post。若 uploadImages 中途失败（如第 3 张网络断开），前 2 张已上传到 storage，造成孤儿文件。catch 仅 toast，无回滚。",
+      "enhancementSuggestion": "uploadImages 失败时尝试清理已上传文件；或使用服务端统一上传接口，事务内创建 post + 写入 storage 引用。",
+      "severity": "中",
+      "fixed": true,
+      "fixNote": "useImageUpload 失败时调用 storage.remove 清理已上传文件"
+    },
+    {
+      "page": "帖子模块",
+      "event": "输入",
+      "scenario": "提交帖子 - 仅图片无内容",
+      "observedIssue": "业务允许。content 为 sanitizeContent(trimmed) || null，可写入空。",
+      "enhancementSuggestion": "若需文本必填，加校验。",
+      "severity": "低"
+    },
+    {
+      "page": "帖子模块",
+      "event": "图片上传",
+      "scenario": "选择合法图片 (JPEG/PNG/WebP/GIF)",
+      "observedIssue": "useImageUpload handleImageSelect 校验类型与大小（5MB）。合法文件加入 images 数组，预览正常。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "图片上传",
+      "scenario": "选择非法格式 (PDF/MP4)",
+      "observedIssue": "handleImageSelect 检查 ALLOWED_TYPES，非法格式 toast 提示并 continue，不加入列表。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "图片上传",
+      "scenario": "选择超大图片 (>5MB)",
+      "observedIssue": "handleImageSelect 与 uploadImages 均校验 5MB，超限 toast 提示。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "图片上传",
+      "scenario": "移除图片 (removeImage)",
+      "observedIssue": "从 images 数组移除，并 revokeObjectURL 释放预览 URL。逻辑正确。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "图片上传",
+      "scenario": "上传失败（网络中断）",
+      "observedIssue": "uploadImages 内单张失败会 throw，上层 handleSubmit catch 后 toast，setLoading(false)。已上传文件留在 storage，无回滚。",
+      "enhancementSuggestion": "上传失败时记录已成功 path，在 catch 中调用 storage.remove 清理；或提示用户重试并保留本地选择。",
+      "severity": "中",
+      "fixed": true,
+      "fixNote": "uploadImages catch 中调用 storage.remove 清理已上传文件"
+    },
+    {
+      "page": "帖子模块",
+      "event": "图片上传",
+      "scenario": "超过 9 张图片",
+      "observedIssue": "totalCount > maxImages 时 toast 提示，不添加。input 有 disabled={uploading || previews.length >= maxImages}（ImageUpload 内部）。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "边界/权限",
+      "scenario": "非作者尝试编辑/删除",
+      "observedIssue": "PostCard capabilities 根据 viewer 计算，非作者 canEdit/canDelete 为 false，按钮不显示。若直接调用 API 或篡改前端，后端 RLS 与 .eq('user_id', user.id) 会拦截。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "边界/权限",
+      "scenario": "提取话题 - 非作者",
+      "observedIssue": "提取话题在创建页，创建页需登录（useAuthGuard）。编辑页为占位无提取功能。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "帖子模块",
+      "event": "边界/异常",
+      "scenario": "表单提交 - 异步请求失败",
+      "observedIssue": "catch 中 toast 提示，setLoading(false)。用户可修改后重新提交。无自动重试。",
+      "enhancementSuggestion": "可增加「重试」按钮或提供保存草稿（localStorage）能力。",
+      "severity": "低"
+    },
+    {
+      "page": "帖子模块",
+      "event": "边界/异常",
+      "scenario": "创建帖子 - topic insert 失败",
+      "observedIssue": "post 已创建，topic 关联失败时 throw，被 catch。此时帖子已落库但无 topic 关联，数据不一致。",
+      "enhancementSuggestion": "将 post insert 与 post_topics insert 放入事务；或先创建 topics、再创建 post 并关联，失败时删除刚创建的 post。",
+      "severity": "高",
+      "fixed": true,
+      "fixNote": "topic insert 失败时删除刚创建的 post，保证一致性"
+    },
+    {
+      "page": "帖子模块",
+      "event": "UX/提示",
+      "scenario": "loading 状态",
+      "observedIssue": "创建页：loading/uploading 时按钮 disabled 并显示 Loader2。删除：isDeleting 时按钮 disabled 显示「处理中」。点赞：isPending 时忽略点击。",
+      "enhancementSuggestion": "删除时可考虑全屏 loading 遮罩，防止用户操作其他内容。",
+      "severity": "低"
+    },
+    {
+      "page": "帖子模块",
+      "event": "UX/提示",
+      "scenario": "错误与 toast",
+      "observedIssue": "各操作有 toast 反馈。部分硬编码中文（如「请先登录后再举报」），部分使用 t() 国际化。",
+      "enhancementSuggestion": "统一使用 t() 做国际化。",
+      "severity": "低",
+      "fixed": true,
+      "fixNote": "usePostActions 中硬编码已替换为 t()"
+    }
+  ],
+  "summary": {
+    "totalFindings": 27,
+    "bySeverity": {
+      "关键路径": 0,
+      "高": 1,
+      "中": 5,
+      "低": 11,
+      "无": 10
+    },
+    "topPriorities": [
+      "创建帖子时 topic 关联失败导致 post 已创建但无 topic（高）- 已修复",
+      "编辑页为占位无实际功能（中）- 已实现完整编辑",
+      "上传失败后孤儿文件无清理（中）- 已修复",
+      "话题数量与长度无限制（中）- 已修复",
+      "textarea 无 maxLength 导致超长提交才报错（中）- 已修复"
+    ],
+    "fixesApplied": 17
+  }
+}

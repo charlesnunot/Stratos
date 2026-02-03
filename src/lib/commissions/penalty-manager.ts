@@ -1,9 +1,14 @@
 /**
  * Penalty automation for overdue commission payments
  * Applies escalating penalties: warning → restrict_sales → suspend → disable
+ * 
+ * 审计日志规范：
+ * - 记录惩罚应用操作
+ * - 不记录敏感财务信息
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
+import { logAudit } from '@/lib/api/audit'
 
 export async function checkAndApplyPenalties(supabaseAdmin: SupabaseClient): Promise<void> {
   try {
@@ -16,7 +21,7 @@ export async function checkAndApplyPenalties(supabaseAdmin: SupabaseClient): Pro
 
     if (obligationsError) {
       console.error('Error fetching overdue obligations:', obligationsError)
-      return
+      throw new Error(`Failed to fetch overdue obligations: ${obligationsError.message}`)
     }
 
     if (!overdueObligations || overdueObligations.length === 0) {
@@ -60,6 +65,15 @@ export async function checkAndApplyPenalties(supabaseAdmin: SupabaseClient): Pro
 
       if (penaltyError) {
         console.error('Error applying penalty:', penaltyError)
+        logAudit({
+          action: 'apply_commission_penalty',
+          userId: obligation.seller_id,
+          resourceId: obligation.id,
+          resourceType: 'commission_obligation',
+          result: 'fail',
+          timestamp: new Date().toISOString(),
+          meta: { error: penaltyError.message },
+        })
         continue
       }
 
@@ -68,6 +82,32 @@ export async function checkAndApplyPenalties(supabaseAdmin: SupabaseClient): Pro
         .from('commission_payment_obligations')
         .update({ status: 'overdue' })
         .eq('id', obligation.id)
+
+      // Log audit for penalty application
+      logAudit({
+        action: 'apply_commission_penalty',
+        userId: obligation.seller_id,
+        resourceId: obligation.id,
+        resourceType: 'commission_obligation',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+        meta: { penaltyType },
+      })
+
+      // Send notification to seller about penalty (use content_key for i18n)
+      await supabaseAdmin.from('notifications').insert({
+        user_id: obligation.seller_id,
+        type: 'system',
+        title: 'Commission Payment Overdue',
+        content: `Your commission payment is overdue. A ${penaltyType} penalty has been applied.`,
+        related_type: 'commission',
+        related_id: obligation.id,
+        link: '/seller/commissions',
+        content_key: 'commission_penalty_applied',
+        content_params: {
+          penaltyType,
+        },
+      })
 
       // Apply penalty actions based on type
       if (penaltyType === 'restrict_sales') {
@@ -95,7 +135,8 @@ export async function checkAndApplyPenalties(supabaseAdmin: SupabaseClient): Pro
 
       console.log(`Applied ${penaltyType} penalty to seller ${obligation.seller_id}`)
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('checkAndApplyPenalties error:', error)
+    throw error
   }
 }

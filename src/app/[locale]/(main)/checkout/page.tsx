@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from '@/i18n/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/lib/hooks/useToast'
@@ -9,10 +9,26 @@ import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Loader2, CheckCircle, Copy } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { AddressSelector } from '@/components/ecommerce/AddressSelector'
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector'
+import { formatPriceWithConversion } from '@/lib/currency/format-currency'
+import { detectCurrency, type Currency } from '@/lib/currency/detect-currency'
+import { getDisplayContent } from '@/lib/ai/display-translated'
+import { criticalFetch, CriticalPathTimeoutError } from '@/lib/critical-path/critical-fetch'
+
+function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const name = (err as any)?.name ?? ''
+  const msg = String((err as any)?.message ?? '')
+  return (
+    name === 'AbortError' ||
+    msg.includes('aborted') ||
+    msg.includes('cancelled') ||
+    msg.includes('signal is aborted')
+  )
+}
 
 interface CreatedOrder {
   id: string
@@ -22,11 +38,18 @@ interface CreatedOrder {
   created_at: string
 }
 
+interface ProductMultiLangInfo {
+  id: string
+  name: string
+  nameTranslated: string | null
+  contentLang: 'zh' | 'en' | null
+}
+
 export default function CheckoutPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const { toast } = useToast()
-  const { items, getSelectedItems, getSelectedTotal, removeItem, removeSelectedItems } = useCartStore()
+  const { items, getSelectedItems, getSelectedTotal, removeItem, removeSelectedItems, addItem, selectAll } = useCartStore()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [createdOrders, setCreatedOrders] = useState<CreatedOrder[] | null>(null)
@@ -41,18 +64,65 @@ export default function CheckoutPage() {
     street_address: string
     postal_code: string | null
   } | null>(null)
-  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<('stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank')[]>([])
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank' | null>(null)
+
+  // No need for productMultiLangInfos state anymore
+  // We'll use the multi-language information stored in cart items
+
+  // Memoize address selection callback to prevent infinite re-renders
+  const handleSelectAddress = useCallback((address: any) => {
+    if (address) {
+      setSelectedAddress({
+        id: address.id,
+        recipient_name: address.recipient_name,
+        phone: address.phone,
+        country: address.country,
+        state: address.state,
+        city: address.city,
+        street_address: address.street_address,
+        postal_code: address.postal_code,
+      })
+    } else {
+      setSelectedAddress(null)
+    }
+  }, [])
+  const PAYMENT_METHODS = ['stripe', 'paypal', 'alipay', 'wechat', 'bank'] as const
+  type PaymentMethod = (typeof PAYMENT_METHODS)[number]
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentMethod[]>([])
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null)
   const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false)
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null)
+  const [productIdFromUrlHandled, setProductIdFromUrlHandled] = useState(false)
   const t = useTranslations('checkout')
   const tOrders = useTranslations('orders')
   const tPayments = useTranslations('payments')
   const tCommon = useTranslations('common')
   const tSupport = useTranslations('support')
+  const locale = useLocale()
+
+  // Detect user's local currency based on locale
+  const userCurrency = useMemo(() => detectCurrency({ browserLocale: locale }), [locale])
 
   const selectedItems = getSelectedItems()
   const selectedTotal = getSelectedTotal()
+
+  // Memoize display names for all items based on current locale
+  const itemDisplayNames = useMemo(() => {
+    const displayNames = new Map<string, string>()
+    
+    selectedItems.forEach((item) => {
+      // Generate display name based on current locale and item's multi-language info
+      const displayName = getDisplayContent(
+        locale,
+        item.contentLang || null,
+        item.name,
+        item.nameTranslated
+      )
+      
+      displayNames.set(item.product_id, displayName)
+    })
+    
+    return displayNames
+  }, [selectedItems, locale])
 
   // Use useMemo to stabilize productIds reference
   // Create a stable string key from productIds to use as dependency
@@ -64,6 +134,67 @@ export default function CheckoutPage() {
     selectedItems.map(item => item.product_id),
     [productIdsKey]
   )
+
+  // No need to fetch product multi-language information anymore
+  // We'll use the multi-language information stored in cart items
+
+  // Handle direct checkout: cart empty + product_id in URL - fetch product and add to cart
+  useEffect(() => {
+    if (typeof window === 'undefined' || showConfirmation) return
+    if (items.length > 0 || selectedItems.length > 0) return
+    const urlParams = new URLSearchParams(window.location.search)
+    const productId = urlParams.get('product_id')
+    if (!productId || productIdFromUrlHandled) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data: resp } = await criticalFetch<{ ok?: boolean; product?: any }>(
+          'checkout_validate_product',
+          '/api/checkout/validate-product',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ productId }),
+            timeoutMs: 8000,
+          }
+        )
+        if (cancelled) return
+        setProductIdFromUrlHandled(true)
+        if (!resp?.ok || !resp?.product) {
+          toast({ variant: 'destructive', title: t('validationFailed'), description: t('pleaseAddToCartFirst') })
+          router.push(`/product/${productId}`)
+          return
+        }
+        const p = resp.product
+        if (!p?.id || p.price == null) {
+          toast({ variant: 'destructive', title: t('validationFailed'), description: t('pleaseAddToCartFirst') })
+          router.push(`/product/${productId}`)
+          return
+        }
+        addItem({
+          product_id: p.id,
+          quantity: 1,
+          price: p.price,
+          name: p.name ?? '',
+          image: p.image ?? '',
+          currency: p.currency ?? 'CNY',
+        })
+        selectAll()
+      } catch (err) {
+        if (cancelled) return
+        setProductIdFromUrlHandled(true)
+        const isTimeout = err instanceof CriticalPathTimeoutError
+        toast({
+          variant: 'destructive',
+          title: isTimeout ? t('validationTimeoutRetry') : t('validationFailed'),
+          description: isTimeout ? undefined : t('pleaseAddToCartFirst'),
+        })
+        if (!isTimeout) router.push('/cart')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [showConfirmation, items.length, selectedItems.length, productIdFromUrlHandled, addItem, selectAll, router, toast, t])
 
   // Fetch available payment methods for all sellers in cart
   useEffect(() => {
@@ -78,43 +209,27 @@ export default function CheckoutPage() {
       setLoadingPaymentMethods(true)
       setPaymentMethodsError(null)
       try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
+        const { data } = await criticalFetch<{ availableMethods?: string[] }>(
+          'checkout_get_payment_methods',
+          '/api/orders/get-available-payment-methods',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productIds }),
+            timeoutMs: 8000,
+          }
+        )
+        const methods = (data?.availableMethods || []).filter(
+          (m): m is PaymentMethod => PAYMENT_METHODS.includes(m as PaymentMethod)
+        )
+        setAvailablePaymentMethods(methods)
 
-        const response = await fetch('/api/orders/get-available-payment-methods', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ productIds }),
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          console.error('Failed to fetch available payment methods:', errorData)
-          setAvailablePaymentMethods([])
-          setPaymentMethodsError('加载支付方式失败，请刷新页面重试')
-          return
+        if (methods.length && !selectedPaymentMethod) {
+          setSelectedPaymentMethod(methods[0])
         }
-
-        const data = await response.json()
-        setAvailablePaymentMethods(data.availableMethods || [])
-
-        // Auto-select first available method
-        if (data.availableMethods && data.availableMethods.length > 0 && !selectedPaymentMethod) {
-          setSelectedPaymentMethod(data.availableMethods[0])
-        }
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.error('Request timeout while fetching payment methods')
-          setPaymentMethodsError('请求超时，请刷新页面重试')
-        } else {
-          console.error('Error fetching available payment methods:', error)
-          setPaymentMethodsError('加载支付方式失败，请刷新页面重试')
-        }
+      } catch (error: unknown) {
+        const isTimeout = error instanceof CriticalPathTimeoutError
+        setPaymentMethodsError(isTimeout ? t('validationTimeoutRetry') : t('paymentMethodsLoadFailed'))
         setAvailablePaymentMethods([])
       } finally {
         setLoadingPaymentMethods(false)
@@ -139,8 +254,27 @@ export default function CheckoutPage() {
     return null
   }
 
-  // 只有在未显示确认页面时才检查购物车是否为空
+  // Handle direct checkout from product page
+  // This is now handled in the useProductCardActions buyNow method
+  // We'll keep this check to ensure cart is not empty
   if (!showConfirmation && (items.length === 0 || selectedItems.length === 0)) {
+    // Check if we're in the browser
+    if (typeof window !== 'undefined') {
+      // Check if there's a product_id in URL params
+      const urlParams = new URLSearchParams(window.location.search)
+      const productId = urlParams.get('product_id')
+      
+      if (productId) {
+        // Show loading while we handle the direct checkout
+        return (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        )
+      }
+    }
+    
+    // If cart is empty and no product_id in URL params, redirect to cart
     router.push('/cart')
     return null
   }
@@ -161,8 +295,8 @@ export default function CheckoutPage() {
       } else {
         toast({
           variant: 'destructive',
-          title: '购物车为空',
-          description: '购物车中没有有效商品',
+          title: t('cartEmpty'),
+          description: t('cartEmptyDescription'),
         })
         router.push('/cart')
         return
@@ -173,8 +307,8 @@ export default function CheckoutPage() {
       if (productsError) {
         toast({
           variant: 'destructive',
-          title: '验证失败',
-          description: '无法验证商品信息，请刷新后重试',
+          title: t('validationFailed'),
+          description: t('validationFailedDescription'),
         })
         return
       }
@@ -182,8 +316,8 @@ export default function CheckoutPage() {
       if (!products || products.length === 0) {
         toast({
           variant: 'destructive',
-          title: '购物车为空',
-          description: '购物车中没有有效商品',
+          title: t('cartEmpty'),
+          description: t('cartEmptyDescription'),
         })
         router.push('/cart')
         return
@@ -201,8 +335,8 @@ export default function CheckoutPage() {
 
         toast({
           variant: 'warning',
-          title: '部分商品已移除',
-          description: `已移除 ${missingItems.length} 个不存在的商品`,
+          title: t('partialItemsRemoved'),
+          description: t('partialItemsRemovedDescription', { count: missingItems.length }),
           duration: 3000,
         })
 
@@ -224,24 +358,24 @@ export default function CheckoutPage() {
         const product = productMap.get(item.product_id)
         
         if (!product) {
-          invalidItems.push({ item, reason: '商品不存在' })
+          invalidItems.push({ item, reason: t('productNotFound') })
           continue
         }
 
         if (product.status !== 'active') {
-          invalidItems.push({ item, reason: `商品已下架 (状态: ${product.status})` })
+          invalidItems.push({ item, reason: t('productInactiveReason', { status: product.status }) })
           continue
         }
 
         if (product.stock != null && product.stock < item.quantity) {
-          invalidItems.push({ item, reason: `库存不足 (可用: ${product.stock}, 需要: ${item.quantity})` })
+          invalidItems.push({ item, reason: t('stockInsufficientReason', { available: product.stock, required: item.quantity }) })
           continue
         }
 
         // Verify price matches (allow small floating point differences)
         const priceDiff = Math.abs(product.price - item.price)
         if (priceDiff > 0.01) {
-          invalidItems.push({ item, reason: `价格已变化 (当前: ¥${product.price.toFixed(2)}, 购物车: ¥${item.price.toFixed(2)})` })
+          invalidItems.push({ item, reason: t('priceChangedReason', { current: product.price.toFixed(2), cart: item.price.toFixed(2) }) })
           continue
         }
 
@@ -260,8 +394,8 @@ export default function CheckoutPage() {
 
         toast({
           variant: 'destructive',
-          title: '部分商品无法结算',
-          description: `已移除 ${invalidItems.length} 个无效商品。\n${errorMessages}`,
+          title: t('partialItemsInvalid'),
+          description: t('partialItemsInvalidDescription', { count: invalidItems.length, details: errorMessages }),
           duration: 5000,
         })
 
@@ -275,8 +409,8 @@ export default function CheckoutPage() {
       if (!selectedAddress) {
         toast({
           variant: 'destructive',
-          title: '请选择收货地址',
-          description: '请选择一个收货地址或添加新地址',
+          title: t('selectAddressRequired'),
+          description: t('selectAddressDescription'),
           duration: 5000,
         })
         setLoading(false)
@@ -294,108 +428,86 @@ export default function CheckoutPage() {
       if (!selectedPaymentMethod) {
         toast({
           variant: 'destructive',
-          title: '请选择支付方式',
-          description: '请选择一个可用的支付方式',
+          title: t('selectPaymentRequired'),
+          description: t('selectPaymentDescription'),
           duration: 5000,
         })
         setLoading(false)
         return
       }
 
-      // Call the API to create orders
-      const response = await fetch('/api/orders/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          items: apiItems,
-          currency: 'CNY',
-          payment_method: selectedPaymentMethod, // Pass selected payment method
-          shipping_address_id: selectedAddress.id, // Pass address ID to use address from table
-          shipping_address: {
-            recipientName: selectedAddress.recipient_name,
-            phone: selectedAddress.phone,
-            country: selectedAddress.country,
-            state: selectedAddress.state || '',
-            city: selectedAddress.city || '',
-            address: selectedAddress.street_address,  // 用于后端验证
-            streetAddress: selectedAddress.street_address,  // 用于前端显示
-            postalCode: selectedAddress.postal_code || '',
-          },
-        }),
-      })
-
-      let result
+      let result: any
       try {
-        result = await response.json()
-      } catch (jsonError) {
-        // 如果响应不是JSON，使用默认错误消息
-        throw new Error(`订单创建失败: ${response.status === 404 ? '商品不存在' : '服务器错误'}`)
+        const { data: orderData } = await criticalFetch<{ orders?: any[]; order_group_id?: string; error?: string; requiresDeposit?: boolean; details?: any[] }>(
+          'checkout_create_orders',
+          '/api/orders/create',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: apiItems,
+              currency: 'CNY',
+              payment_method: selectedPaymentMethod,
+              shipping_address_id: selectedAddress.id,
+              shipping_address: {
+                recipientName: selectedAddress.recipient_name,
+                phone: selectedAddress.phone,
+                country: selectedAddress.country,
+                state: selectedAddress.state || '',
+                city: selectedAddress.city || '',
+                address: selectedAddress.street_address,
+                streetAddress: selectedAddress.street_address,
+                postalCode: selectedAddress.postal_code || '',
+              },
+            }),
+            timeoutMs: 8000,
+          }
+        )
+        result = orderData
+      } catch (err) {
+        if (err instanceof CriticalPathTimeoutError) {
+          toast({
+            variant: 'destructive',
+            title: t('validationTimeoutRetry'),
+            duration: 5000,
+          })
+          setLoading(false)
+          return
+        }
+        throw err
       }
 
-      if (!response.ok) {
-        // 如果是401错误，重定向到登录页
-        if (response.status === 401) {
-          toast({
-            variant: 'destructive',
-            title: '登录已过期',
-            description: '请重新登录后继续',
-          })
-          router.push('/login')
-          return
-        }
-        
-        // 如果是404错误，显示商品不存在的错误
-        if (response.status === 404) {
-          const errorMessage = result?.error || '购物车中的某些商品已不存在，请刷新购物车后重试'
-          toast({
-            variant: 'destructive',
-            title: '商品不存在',
-            description: errorMessage,
-            duration: 5000,
-          })
-          // 如果所有商品都不存在，清空购物车并跳转
-          if (result?.error?.includes('All products not found') || result?.error?.includes('All products')) {
-            router.push('/cart')
-          }
-          return
-        }
-        
-        // 如果是500错误，显示服务器错误提示
-        if (response.status === 500) {
-          toast({
-            variant: 'destructive',
-            title: '服务器错误',
-            description: result?.error || result?.details || '服务器暂时无法处理请求，请稍后重试',
-            duration: 5000,
-          })
-          return
-        }
-        
-        // Handle API errors
-        if (result.requiresDeposit) {
-          toast({
-            variant: 'destructive',
-            title: '生成订单失败',
-            description: '生成订单失败，请联系卖家',
-            duration: 5000,
-          })
-        } else if (result.details && Array.isArray(result.details)) {
-          // Validation errors from API
-          toast({
-            variant: 'destructive',
-            title: '订单创建失败',
-            description: result.details.join('\n'),
-            duration: 5000,
-          })
-        } else {
-          throw new Error(result.error || 'Failed to create order')
-        }
+      if (result.requiresDeposit) {
+        toast({
+          variant: 'destructive',
+          title: '生成订单失败',
+          description: '生成订单失败，请联系卖家',
+          duration: 5000,
+        })
+        setLoading(false)
+        return
+      }
+      if (result.details && Array.isArray(result.details)) {
+        toast({
+          variant: 'destructive',
+          title: '订单创建失败',
+          description: result.details.join('\n'),
+          duration: 5000,
+        })
+        setLoading(false)
+        return
+      }
+      if (!result.orders?.length) {
+        toast({
+          variant: 'destructive',
+          title: result?.error ? t('productsNotFound') : t('serverError'),
+          description: result?.error || t('serverErrorDescription'),
+          duration: 5000,
+        })
+        setLoading(false)
         return
       }
 
-      // Orders created successfully
       const { orders, warnings } = result
 
       if (!orders || orders.length === 0) {
@@ -406,13 +518,13 @@ export default function CheckoutPage() {
       if (orders.length > 1) {
         toast({
           variant: 'default',
-          title: '订单创建成功',
-          description: `已创建 ${orders.length} 个订单（按卖家分组）`,
+          title: t('orderCreated'),
+          description: t('orderCreateSuccessMultiple', { count: orders.length }),
         })
       } else {
         toast({
           variant: 'default',
-          title: '订单创建成功',
+          title: t('orderCreated'),
         })
       }
 
@@ -427,12 +539,27 @@ export default function CheckoutPage() {
 
       // 订单创建成功后，仅移除本次选中的商品
       removeSelectedItems()
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (isAbortError(error)) {
+        toast({
+          variant: 'default',
+          title: tCommon('cancel') || '已取消',
+          description: t('requestCancelledRetry'),
+        })
+        return
+      }
+      if (error instanceof CriticalPathTimeoutError) {
+        toast({
+          variant: 'destructive',
+          title: t('validationTimeoutRetry'),
+        })
+        return
+      }
       console.error('Checkout error:', error)
       toast({
         variant: 'destructive',
-        title: '错误',
-        description: error.message || tOrders('orderCreateFailed'),
+        title: tCommon('error'),
+        description: (error as Error)?.message || tOrders('orderCreateFailed'),
       })
     } finally {
       setLoading(false)
@@ -506,31 +633,36 @@ export default function CheckoutPage() {
         <Card className="p-6">
           <h2 className="mb-4 text-lg font-semibold">{t('orderDetails')}</h2>
           <div className="space-y-3">
-            {selectedItems.map((item) => (
-              <div key={item.product_id} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="h-12 w-12 rounded object-cover"
-                  />
-                  <div>
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t('quantity')}: {item.quantity} × ¥{item.price.toFixed(2)}
-                    </p>
+            {selectedItems.map((item) => {
+              // Get display name from memoized map
+              const displayName = itemDisplayNames.get(item.product_id) || item.name
+              
+              return (
+                <div key={item.product_id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={item.image}
+                      alt={displayName}
+                      className="h-12 w-12 rounded object-cover"
+                    />
+                    <div>
+                      <p className="font-medium">{displayName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {t('quantity')}: {item.quantity} × {formatPriceWithConversion(item.price, (item.currency || 'CNY') as Currency, userCurrency).main}
+                      </p>
+                    </div>
                   </div>
+                  <p className="font-semibold">
+                    {formatPriceWithConversion(item.price * item.quantity, (item.currency || 'CNY') as Currency, userCurrency).main}
+                  </p>
                 </div>
-                <p className="font-semibold">
-                  ¥{(item.price * item.quantity).toFixed(2)}
-                </p>
-              </div>
-            ))}
+              )
+            })}
           </div>
           <div className="mt-4 border-t pt-4">
             <div className="flex items-center justify-between">
               <span className="text-lg font-semibold">{tOrders('totalAmount')}</span>
-              <span className="text-xl font-bold">¥{totalAmount.toFixed(2)}</span>
+              <span className="text-xl font-bold">{formatPriceWithConversion(totalAmount, 'CNY', userCurrency).main}</span>
             </div>
           </div>
         </Card>
@@ -567,31 +699,36 @@ export default function CheckoutPage() {
       <Card className="p-6">
         <h2 className="mb-4 text-lg font-semibold">{t('orderDetails')}</h2>
         <div className="space-y-3">
-          {selectedItems.map((item) => (
-            <div key={item.product_id} className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="h-12 w-12 rounded object-cover"
-                />
-                <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {t('quantity')}: {item.quantity} × ¥{item.price.toFixed(2)}
+          {selectedItems.map((item) => {
+              // Get display name from memoized map
+              const displayName = itemDisplayNames.get(item.product_id) || item.name
+              
+              return (
+                <div key={item.product_id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={item.image}
+                      alt={displayName}
+                      className="h-12 w-12 rounded object-cover"
+                    />
+                    <div>
+                      <p className="font-medium">{displayName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {t('quantity')}: {item.quantity} × {formatPriceWithConversion(item.price, (item.currency || 'CNY') as Currency, userCurrency).main}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="font-semibold">
+                    {formatPriceWithConversion(item.price * item.quantity, (item.currency || 'CNY') as Currency, userCurrency).main}
                   </p>
                 </div>
-              </div>
-              <p className="font-semibold">
-                ¥{(item.price * item.quantity).toFixed(2)}
-              </p>
-            </div>
-          ))}
+              )
+            })}
         </div>
         <div className="mt-4 border-t pt-4">
           <div className="flex items-center justify-between">
             <span className="text-lg font-semibold">{tOrders('totalAmount')}</span>
-            <span className="text-xl font-bold">¥{selectedTotal.toFixed(2)}</span>
+            <span className="text-xl font-bold">{formatPriceWithConversion(selectedTotal, 'CNY', userCurrency).main}</span>
           </div>
         </div>
       </Card>
@@ -601,22 +738,7 @@ export default function CheckoutPage() {
         <h2 className="mb-4 text-lg font-semibold">{t('shippingAddress') || '收货信息'}</h2>
         <AddressSelector
           selectedAddressId={selectedAddress?.id || null}
-          onSelectAddress={(address) => {
-            if (address) {
-              setSelectedAddress({
-                id: address.id,
-                recipient_name: address.recipient_name,
-                phone: address.phone,
-                country: address.country,
-                state: address.state,
-                city: address.city,
-                street_address: address.street_address,
-                postal_code: address.postal_code,
-              })
-            } else {
-              setSelectedAddress(null)
-            }
-          }}
+          onSelectAddress={handleSelectAddress}
           showAddButton={true}
         />
       </Card>
@@ -632,12 +754,12 @@ export default function CheckoutPage() {
         {loadingPaymentMethods ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-sm text-muted-foreground">加载可用支付方式...</span>
+            <span className="ml-2 text-sm text-muted-foreground">{t('loadingPaymentMethods')}</span>
           </div>
         ) : availablePaymentMethods.length === 0 && !paymentMethodsError ? (
           <div className="rounded-lg border border-destructive bg-destructive/10 p-4 space-y-3">
             <p className="text-sm text-destructive">
-              当前订单中的卖家没有可用的支付方式。请确保所有卖家都已绑定收款账户。
+              {t('noPaymentMethodsForSellers')}
             </p>
             <Link href="/support/tickets/create" className="inline-block">
               <Button variant="outline" size="sm" className="border-destructive text-destructive hover:bg-destructive/10">
@@ -654,7 +776,7 @@ export default function CheckoutPage() {
         ) : null}
         {availablePaymentMethods.length > 0 && availablePaymentMethods.length < 5 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            提示：仅显示所有卖家都支持的支付方式（交集）
+            {t('paymentMethodsIntersectionHint')}
           </p>
         )}
       </Card>

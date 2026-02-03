@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/payments/stripe'
 import { createPaymentError, logPaymentError } from '@/lib/payments/error-handler'
 import { logPaymentCreation } from '@/lib/payments/logger'
+import { getSubscriptionPrice, SELLER_TIERS_USD } from '@/lib/subscriptions/pricing'
+import type { SubscriptionType } from '@/lib/subscriptions/pricing'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 export async function POST(request: NextRequest) {
   let requestUserId: string | undefined
@@ -19,7 +22,9 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      console.error('Authentication error:', authError)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Authentication error:', authError)
+      }
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     requestUserId = user.id
@@ -29,37 +34,47 @@ export async function POST(request: NextRequest) {
     requestAmount = parseFloat(amount)
     requestCurrency = currency
 
-    // Validate required fields
-    if (!amount || !subscriptionType || !successUrl || !cancelUrl) {
-      console.error('Missing required fields:', {
-        amount: !!amount,
-        subscriptionType: !!subscriptionType,
-        successUrl: !!successUrl,
-        cancelUrl: !!cancelUrl,
-      })
+    // Validate required fields (amount is computed server-side for subscriptions)
+    if (!subscriptionType || !successUrl || !cancelUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Missing required fields:', {
+          subscriptionType: !!subscriptionType,
+          successUrl: !!successUrl,
+          cancelUrl: !!cancelUrl,
+        })
+      }
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    // Validate amount
-    const numericAmount = parseFloat(amount)
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      console.error('Invalid amount:', amount)
-      return NextResponse.json(
-        { error: 'Invalid amount' },
-        { status: 400 }
-      )
-    }
-
     // Validate subscription type
     if (!['seller', 'affiliate', 'tip'].includes(subscriptionType)) {
-      console.error('Invalid subscription type:', subscriptionType)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Invalid subscription type:', subscriptionType)
+      }
       return NextResponse.json(
         { error: 'Invalid subscription type' },
         { status: 400 }
       )
+    }
+
+    // Validate subscription tier for seller
+    if (subscriptionType === 'seller') {
+      if (subscriptionTier == null || subscriptionTier === '') {
+        return NextResponse.json(
+          { error: 'subscriptionTier is required for seller subscriptions' },
+          { status: 400 }
+        )
+      }
+      const tierNum = Number(subscriptionTier)
+      if (!SELLER_TIERS_USD.includes(tierNum as (typeof SELLER_TIERS_USD)[number])) {
+        return NextResponse.json(
+          { error: `Invalid subscriptionTier. Must be one of: ${SELLER_TIERS_USD.join(', ')}` },
+          { status: 400 }
+        )
+      }
     }
 
     // Validate URLs
@@ -67,18 +82,57 @@ export async function POST(request: NextRequest) {
       new URL(successUrl)
       new URL(cancelUrl)
     } catch (urlError) {
-      console.error('Invalid URLs:', { successUrl, cancelUrl })
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Invalid URLs:', { successUrl, cancelUrl })
+      }
       return NextResponse.json(
         { error: 'Invalid success or cancel URL' },
         { status: 400 }
       )
     }
 
-    // Create checkout session
+    // Server-side price: do not trust frontend amount for subscriptions
+    const normalizedCurrency = (currency?.toString() || 'usd').toUpperCase() as Currency
+    let priceResult
+    try {
+      priceResult = getSubscriptionPrice(
+        subscriptionType as SubscriptionType,
+        subscriptionType === 'seller' ? Number(subscriptionTier) : undefined,
+        normalizedCurrency
+      )
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to calculate subscription price'
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Subscription price calculation error:', err)
+      }
+      return NextResponse.json(
+        { error: message },
+        { status: 400 }
+      )
+    }
+
+    // Optional: reject if frontend sent amount that differs from server (anti-tampering)
+    if (amount !== undefined && amount !== null && amount !== '') {
+      const frontendAmount = parseFloat(String(amount))
+      if (!isNaN(frontendAmount) && Math.abs(frontendAmount - priceResult.amount) > 0.01) {
+        return NextResponse.json(
+          { error: 'Amount mismatch with server calculation' },
+          { status: 400 }
+        )
+      }
+    }
+
+    const numericAmount = priceResult.amount
+    const payCurrency = priceResult.currency
+
+    // Subscription must be for the authenticated user only (ignore body userId to prevent forging)
+    const effectiveUserId = user.id
+
+    // Create checkout session with server-calculated amount
     logPaymentCreation('subscription', {
-      userId: userId || user.id,
+      userId: effectiveUserId,
       amount: numericAmount,
-      currency: currency.toUpperCase(),
+      currency: payCurrency,
       paymentMethod: 'stripe',
       subscriptionType,
       subscriptionTier: subscriptionTier?.toString(),
@@ -89,21 +143,21 @@ export async function POST(request: NextRequest) {
       successUrl,
       cancelUrl,
       {
-        userId: userId || user.id,
+        userId: effectiveUserId,
         subscriptionType: subscriptionType,
         subscriptionTier: subscriptionTier?.toString(),
         type: 'subscription',
       },
-      currency
+      payCurrency.toLowerCase()
     )
 
     if (!session || !session.url) {
       const error = createPaymentError(
         new Error('Failed to create checkout session: no URL returned'),
         {
-          userId: userId || user.id,
+          userId: effectiveUserId,
           amount: numericAmount,
-          currency: currency.toUpperCase(),
+          currency: payCurrency,
           paymentMethod: 'stripe',
         }
       )
@@ -115,8 +169,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ url: session.url })
-  } catch (error: any) {
-    const paymentError = createPaymentError(error, {
+  } catch (error: unknown) {
+    const paymentError = createPaymentError(error as Error, {
       userId: requestUserId,
       amount: requestAmount ?? undefined,
       currency: requestCurrency?.toUpperCase(),

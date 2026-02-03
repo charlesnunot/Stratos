@@ -4,32 +4,24 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { resolveCommissionPenalty } from '@/lib/commissions/resolve-penalty'
+import { logAudit } from '@/lib/api/audit'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   try {
-    // Verify cron secret (if using Vercel Cron)
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { verifyCronSecret } = await import('@/lib/cron/verify-cron-secret')
+    const unauth = verifyCronSecret(request)
+    if (unauth) return unauth
+
+    const supabaseAdmin = await getSupabaseAdmin()
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Starting overdue commission deduction at', new Date().toISOString())
     }
-
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
-
-    const startTime = Date.now()
-    console.log('[Cron] Starting overdue commission deduction at', new Date().toISOString())
 
     // Get all overdue commission obligations
     const { data: overdueObligations, error: obligationsError } = await supabaseAdmin
@@ -38,7 +30,26 @@ export async function GET(request: NextRequest) {
       .eq('status', 'overdue')
 
     if (obligationsError) {
-      console.error('[Cron] Error fetching overdue obligations:', obligationsError)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Cron] Error fetching overdue obligations:', obligationsError)
+      }
+      const duration = Date.now() - startTime
+      try {
+        await supabaseAdmin.from('cron_logs').insert({
+          job_name: 'deduct_overdue_commissions',
+          status: 'failed',
+          execution_time_ms: duration,
+          executed_at: new Date().toISOString(),
+          error_message: obligationsError.message,
+        })
+      } catch (_) {}
+      logAudit({
+        action: 'cron_deduct_overdue_commissions',
+        resourceType: 'cron',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: obligationsError.message },
+      })
       return NextResponse.json(
         { error: obligationsError.message || 'Failed to fetch overdue obligations' },
         { status: 500 }
@@ -46,10 +57,27 @@ export async function GET(request: NextRequest) {
     }
 
     if (!overdueObligations || overdueObligations.length === 0) {
+      const duration = Date.now() - startTime
+      try {
+        await supabaseAdmin.from('cron_logs').insert({
+          job_name: 'deduct_overdue_commissions',
+          status: 'success',
+          execution_time_ms: duration,
+          executed_at: new Date().toISOString(),
+          metadata: { obligations_processed: 0, successful_deductions: 0 },
+        })
+      } catch (_) {}
+      logAudit({
+        action: 'cron_deduct_overdue_commissions',
+        resourceType: 'cron',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+        meta: { obligations_processed: 0, successful_deductions: 0 },
+      })
       return NextResponse.json({
         success: true,
         message: 'No overdue commissions to deduct',
-        executionTime: Date.now() - startTime,
+        executionTime: duration,
         processedCount: 0,
       })
     }
@@ -83,6 +111,17 @@ export async function GET(request: NextRequest) {
           totalDeducted += parseFloat(result.deducted_amount || 0)
           processedCount++
 
+          // Per-obligation audit (spec: logAudit cron_deduct_overdue_commission, sellerId, commissionId)
+          logAudit({
+            action: 'cron_deduct_overdue_commission',
+            userId: obligation.seller_id,
+            resourceId: obligation.id,
+            resourceType: 'commission_obligation',
+            result: 'success',
+            timestamp: new Date().toISOString(),
+            meta: { deducted_amount: result.deducted_amount },
+          })
+
           // Resolve penalties
           const penaltyResult = await resolveCommissionPenalty(
             obligation.seller_id,
@@ -98,38 +137,44 @@ export async function GET(request: NextRequest) {
             `Obligation ${obligation.id}: ${result?.error_message || 'Deduction failed'}`
           )
         }
-      } catch (error: any) {
-        errors.push(`Obligation ${obligation.id}: ${error.message}`)
+      } catch (error: unknown) {
+        errors.push(`Obligation ${obligation.id}: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
     const duration = Date.now() - startTime
-    console.log('[Cron] Overdue commission deduction completed in', duration, 'ms')
-    console.log('[Cron] Processed', processedCount, 'obligations, deducted', totalDeducted)
-
-    // Log execution result (ignore errors - cron_logs table might not exist)
-    try {
-      const { error: logError } = await supabaseAdmin
-        .from('cron_logs')
-        .insert({
-          job_name: 'deduct_overdue_commissions',
-          status: errors.length > 0 ? 'partial' : 'success',
-          execution_time_ms: duration,
-          executed_at: new Date().toISOString(),
-          metadata: {
-            obligations_processed: overdueObligations.length,
-            successful_deductions: processedCount,
-            total_deducted: totalDeducted,
-            resolved_penalties: resolvedPenalties,
-            errors: errors.length > 0 ? errors : undefined,
-          },
-        })
-      if (logError) {
-        console.warn('[Cron] Failed to log execution:', logError)
-      }
-    } catch (logError) {
-      console.warn('[Cron] Failed to log execution:', logError)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Overdue commission deduction completed in', duration, 'ms, processed:', processedCount, 'deducted:', totalDeducted)
     }
+
+    try {
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'deduct_overdue_commissions',
+        status: 'success',
+        execution_time_ms: duration,
+        executed_at: new Date().toISOString(),
+        metadata: {
+          obligations_processed: overdueObligations.length,
+          successful_deductions: processedCount,
+          total_deducted: totalDeducted,
+          resolved_penalties: resolvedPenalties,
+          error_count: errors.length,
+        },
+      })
+    } catch (_) {}
+
+    logAudit({
+      action: 'cron_deduct_overdue_commissions',
+      resourceType: 'cron',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: {
+        obligations_processed: overdueObligations.length,
+        successful_deductions: processedCount,
+        resolved_penalties: resolvedPenalties,
+        error_count: errors.length,
+      },
+    })
 
     return NextResponse.json({
       success: true,
@@ -141,10 +186,30 @@ export async function GET(request: NextRequest) {
       resolvedPenalties,
       errors: errors.length > 0 ? errors : undefined,
     })
-  } catch (error: any) {
-    console.error('Cron job error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Cron job error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to deduct overdue commissions'
+    try {
+      const supabaseAdmin = await getSupabaseAdmin()
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'deduct_overdue_commissions',
+        status: 'failed',
+        execution_time_ms: Date.now() - startTime,
+        executed_at: new Date().toISOString(),
+        error_message: message,
+      })
+    } catch (_) {}
+    logAudit({
+      action: 'cron_deduct_overdue_commissions',
+      resourceType: 'cron',
+      result: 'fail',
+      timestamp: new Date().toISOString(),
+      meta: { reason: message },
+    })
     return NextResponse.json(
-      { error: error.message || 'Failed to deduct overdue commissions' },
+      { error: message },
       { status: 500 }
     )
   }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -53,6 +54,7 @@ interface AdminOrdersClientProps {
 }
 
 export function AdminOrdersClient({ initialOrders, initialDisputes }: AdminOrdersClientProps) {
+  const t = useTranslations('admin')
   const params = useParams()
   const locale = (params as any)?.locale as string | undefined
   const [orders, setOrders] = useState<Order[]>(initialOrders)
@@ -72,23 +74,23 @@ export function AdminOrdersClient({ initialOrders, initialDisputes }: AdminOrder
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold">订单监管</h1>
-        <p className="mt-2 text-muted-foreground">查看和管理所有订单及纠纷</p>
+        <h1 className="text-3xl font-bold">{t('ordersTitle')}</h1>
+        <p className="mt-2 text-muted-foreground">{t('ordersSubtitle')}</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="orders">订单 ({orders.length})</TabsTrigger>
+          <TabsTrigger value="orders">{t('ordersTab')} ({orders.length})</TabsTrigger>
           <TabsTrigger value="disputes">
-            待处理纠纷 ({disputes.length})
+            {t('disputesTab')} ({disputes.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>所有订单</CardTitle>
-              <CardDescription>查看平台所有订单状态</CardDescription>
+              <CardTitle>{t('allOrders')}</CardTitle>
+              <CardDescription>{t('allOrdersDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -104,20 +106,20 @@ export function AdminOrdersClient({ initialOrders, initialDisputes }: AdminOrder
                           </div>
                           <div className="text-sm text-muted-foreground">
                             <p>
-                              买家: {order.buyer?.display_name || order.buyer?.username || 'Unknown'}
+                              {t('buyer')}: {order.buyer?.display_name || order.buyer?.username || 'Unknown'}
                             </p>
                             <p>
-                              卖家: {order.seller?.display_name || order.seller?.username || 'Unknown'}
+                              {t('sellerLabel')}: {order.seller?.display_name || order.seller?.username || 'Unknown'}
                             </p>
                             <p>
-                              金额: {formatCurrency(order.total_amount, (order.currency as Currency) || 'USD')}
+                              {t('orderAmount')}: {formatCurrency(order.total_amount, (order.currency as Currency) || 'USD')}
                             </p>
-                            <p>创建时间: {new Date(order.created_at).toLocaleString('zh-CN')}</p>
+                            <p>{t('createdAtLabel')}: {new Date(order.created_at).toLocaleString()}</p>
                           </div>
                           {order.disputes && order.disputes.length > 0 && (
                             <div className="mt-2">
                               <Badge variant="destructive">
-                                {order.disputes.length} 个纠纷
+                                {t('disputesCount', { count: order.disputes.length })}
                               </Badge>
                             </div>
                           )}
@@ -126,7 +128,7 @@ export function AdminOrdersClient({ initialOrders, initialDisputes }: AdminOrder
                           <Link href={`/orders/${order.id}`}>
                             <Button variant="outline" size="sm">
                               <Eye className="h-4 w-4 mr-2" />
-                              查看详情
+                              {t('viewDetail')}
                             </Button>
                           </Link>
                         </div>
@@ -142,8 +144,8 @@ export function AdminOrdersClient({ initialOrders, initialDisputes }: AdminOrder
         <TabsContent value="disputes" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>待处理纠纷</CardTitle>
-              <CardDescription>需要管理员处理的订单纠纷</CardDescription>
+              <CardTitle>{t('pendingDisputesTitle')}</CardTitle>
+              <CardDescription>{t('pendingDisputesDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -154,7 +156,7 @@ export function AdminOrdersClient({ initialOrders, initialDisputes }: AdminOrder
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold">
-                              订单: {dispute.orders.order_number}
+                              {t('orderLabel')}: {dispute.orders.order_number}
                             </span>
                             <Badge variant="destructive">{dispute.status}</Badge>
                             <Badge variant="outline">{dispute.dispute_type}</Badge>
@@ -162,16 +164,16 @@ export function AdminOrdersClient({ initialOrders, initialDisputes }: AdminOrder
                           <p className="text-sm">{dispute.reason}</p>
                           <div className="text-sm text-muted-foreground">
                             <p>
-                              金额: {formatCurrency(dispute.orders.total_amount, (dispute.orders.currency as Currency) || 'USD')}
+                              {t('orderAmount')}: {formatCurrency(dispute.orders.total_amount, (dispute.orders.currency as Currency) || 'USD')}
                             </p>
-                            <p>创建时间: {new Date(dispute.created_at).toLocaleString('zh-CN')}</p>
+                            <p>{t('createdAtLabel')}: {new Date(dispute.created_at).toLocaleString()}</p>
                           </div>
                         </div>
                         <div className="flex gap-2">
                           <Link href={`/admin/disputes/${dispute.id}`}>
                             <Button variant="outline" size="sm">
                               <Eye className="h-4 w-4 mr-2" />
-                              处理纠纷
+                              {t('resolveDispute')}
                             </Button>
                           </Link>
                         </div>
@@ -180,7 +182,7 @@ export function AdminOrdersClient({ initialOrders, initialDisputes }: AdminOrder
                   </Card>
                 ))}
                 {disputes.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">暂无待处理纠纷</p>
+                  <p className="text-center text-muted-foreground py-8">{t('noPendingDisputes')}</p>
                 )}
               </div>
             </CardContent>

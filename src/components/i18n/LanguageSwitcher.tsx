@@ -4,16 +4,16 @@ import { usePathname, useRouter } from '@/i18n/navigation'
 import { locales, localeNames, type Locale } from '@/i18n/config'
 import { Button } from '@/components/ui/button'
 import { Languages } from 'lucide-react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
+import { useLocale } from 'next-intl'
 
 export function LanguageSwitcher() {
   const router = useRouter()
   const pathname = usePathname()
-  const params = useParams()
   const searchParams = useSearchParams()
-  const currentLocale = (params?.locale as Locale) || 'en'
+  const currentLocale = (useLocale() as Locale) || 'en'
   const [isOpen, setIsOpen] = useState(false)
   const buttonRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; right: number } | null>(null)

@@ -94,12 +94,14 @@ export default function SellerDashboard() {
       const pendingOrdersResult = pendingOrders.status === 'fulfilled' ? pendingOrders.value : null
       const monthlySalesResult = monthlySales.status === 'fulfilled' ? monthlySales.value : null
 
-      // 如果有错误，记录但不抛出（部分数据仍可显示）
-      if (products.status === 'rejected') console.error('Failed to fetch products:', products.reason)
-      if (orders.status === 'rejected') console.error('Failed to fetch orders:', orders.reason)
-      if (sales.status === 'rejected') console.error('Failed to fetch sales:', sales.reason)
-      if (pendingOrders.status === 'rejected') console.error('Failed to fetch pending orders:', pendingOrders.reason)
-      if (monthlySales.status === 'rejected') console.error('Failed to fetch monthly sales:', monthlySales.reason)
+      // 如果有错误，记录但不抛出（部分数据仍可显示）；仅开发环境输出避免生产泄露
+      if (process.env.NODE_ENV === 'development') {
+        if (products.status === 'rejected') console.error('Failed to fetch products:', products.reason)
+        if (orders.status === 'rejected') console.error('Failed to fetch orders:', orders.reason)
+        if (sales.status === 'rejected') console.error('Failed to fetch sales:', sales.reason)
+        if (pendingOrders.status === 'rejected') console.error('Failed to fetch pending orders:', pendingOrders.reason)
+        if (monthlySales.status === 'rejected') console.error('Failed to fetch monthly sales:', monthlySales.reason)
+      }
 
       const totalSales = salesResult?.data?.reduce(
         (sum, order) => sum + (order.total_amount || 0),
@@ -162,12 +164,12 @@ export default function SellerDashboard() {
   if (statsError && !stats) {
     return (
       <div className="py-12 text-center">
-        <p className="text-destructive mb-4">加载统计数据失败</p>
+        <p className="text-destructive mb-4">{t('loadStatsFailed')}</p>
         <Button
           variant="outline"
           onClick={() => window.location.reload()}
         >
-          刷新页面
+          {t('refreshPage')}
         </Button>
       </div>
     )
@@ -195,8 +197,8 @@ export default function SellerDashboard() {
               <div className="flex items-center gap-3 p-4 hover:opacity-90 transition-opacity cursor-pointer">
                 <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-yellow-900">🟡 未绑定收款方式</p>
-                  <p className="text-xs text-yellow-700">点击绑定收款账户以开始接收买家付款</p>
+                  <p className="text-sm font-medium text-yellow-900">🟡 {t('noPaymentBound')}</p>
+                  <p className="text-xs text-yellow-700">{t('noPaymentBoundDesc')}</p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-yellow-600 flex-shrink-0" />
               </div>
@@ -206,8 +208,8 @@ export default function SellerDashboard() {
               <div className="flex items-center gap-3 p-4 hover:opacity-90 transition-opacity cursor-pointer">
                 <X className="h-5 w-5 text-red-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-red-900">🔴 收款账户不可用</p>
-                  <p className="text-xs text-red-700">您的收款账户已被禁用，无法接收付款</p>
+                  <p className="text-sm font-medium text-red-900">🔴 {t('paymentUnavailable')}</p>
+                  <p className="text-xs text-red-700">{t('paymentUnavailableDesc')}</p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-red-600 flex-shrink-0" />
               </div>
@@ -217,8 +219,8 @@ export default function SellerDashboard() {
               <div className="flex items-center gap-3 p-4 hover:opacity-90 transition-opacity cursor-pointer">
                 <Clock className="h-5 w-5 text-yellow-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-yellow-900">🟡 收款账户审核中</p>
-                  <p className="text-xs text-yellow-700">您的收款账户正在审核中，审核完成后即可开始接收付款</p>
+                  <p className="text-sm font-medium text-yellow-900">🟡 {t('paymentUnderReview')}</p>
+                  <p className="text-xs text-yellow-700">{t('paymentUnderReviewDesc')}</p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-yellow-600 flex-shrink-0" />
               </div>
@@ -227,8 +229,8 @@ export default function SellerDashboard() {
             <div className="flex items-center gap-3 p-4">
               <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-green-900">🟢 可正常收款</p>
-                <p className="text-xs text-green-700">您的收款账户状态正常，可以接收买家付款</p>
+                <p className="text-sm font-medium text-green-900">🟢 {t('paymentOk')}</p>
+                <p className="text-xs text-green-700">{t('paymentOkDesc')}</p>
               </div>
             </div>
           ) : null}
@@ -262,7 +264,7 @@ export default function SellerDashboard() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">总订单数</p>
+              <p className="text-sm text-muted-foreground">{t('totalOrders')}</p>
               <p className="text-2xl font-bold">{stats?.orderCount || 0}</p>
             </div>
             <ShoppingCart className="h-8 w-8 text-muted-foreground" />
@@ -272,7 +274,7 @@ export default function SellerDashboard() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">待处理订单</p>
+              <p className="text-sm text-muted-foreground">{t('pendingOrders')}</p>
               <p className="text-2xl font-bold">{stats?.pendingOrderCount || 0}</p>
             </div>
             <CreditCard className="h-8 w-8 text-muted-foreground" />
@@ -282,7 +284,7 @@ export default function SellerDashboard() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">总销售额</p>
+              <p className="text-sm text-muted-foreground">{t('totalSales')}</p>
               <p className="text-2xl font-bold">
                 ¥{stats?.totalSales.toFixed(2) || '0.00'}
               </p>
@@ -294,7 +296,7 @@ export default function SellerDashboard() {
 
       {/* Sales Chart */}
       {stats?.chartData && stats.chartData.length > 0 && (
-        <StatsChart title="近7天销售额" data={stats.chartData} />
+        <StatsChart title={t('last7DaysSales')} data={stats.chartData} />
       )}
 
       {/* Recent Orders */}
@@ -318,19 +320,19 @@ export default function SellerDashboard() {
           <Link href="/seller/payment-accounts">
             <Button variant="outline" className="w-full justify-start">
               <DollarSign className="mr-2 h-4 w-4" />
-              管理收款账户
+              {t('managePaymentAccounts')}
             </Button>
           </Link>
           <Link href="/seller/affiliate-settings">
             <Button variant="outline" className="w-full justify-start">
               <TrendingUp className="mr-2 h-4 w-4" />
-              带货设置
+              {t('affiliateSettings')}
             </Button>
           </Link>
           <Link href="/seller/analytics">
             <Button variant="outline" className="w-full justify-start">
               <TrendingUp className="mr-2 h-4 w-4" />
-              销售分析
+              {t('salesAnalytics')}
             </Button>
           </Link>
         </div>

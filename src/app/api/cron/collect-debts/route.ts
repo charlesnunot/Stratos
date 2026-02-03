@@ -4,38 +4,57 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { verifyCronSecret } from '@/lib/cron/verify-cron-secret'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { collectDebtFromDeposit } from '@/lib/debts/collect-debt'
+import { logAudit } from '@/lib/api/audit'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   try {
-    // Verify cron secret (if using Vercel Cron)
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const unauth = verifyCronSecret(request)
+    if (unauth) return unauth
+
+    const supabaseAdmin = await getSupabaseAdmin()
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Starting debt collection at', new Date().toISOString())
     }
 
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
-
-    const startTime = Date.now()
-    console.log('[Cron] Starting debt collection at', new Date().toISOString())
-
     // Get all sellers with pending debts
-    const { data: debts } = await supabaseAdmin
+    const { data: debts, error: debtsError } = await supabaseAdmin
       .from('seller_debts')
       .select('seller_id')
       .eq('status', 'pending')
+
+    if (debtsError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Cron] Error fetching seller debts:', debtsError)
+      }
+      const duration = Date.now() - startTime
+      try {
+        await supabaseAdmin.from('cron_logs').insert({
+          job_name: 'collect_debts',
+          status: 'failed',
+          execution_time_ms: duration,
+          executed_at: new Date().toISOString(),
+          error_message: debtsError.message,
+        })
+      } catch (_) {}
+      logAudit({
+        action: 'cron_collect_debts',
+        resourceType: 'cron',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: debtsError.message },
+      })
+      return NextResponse.json(
+        { error: debtsError.message || 'Failed to fetch seller debts' },
+        { status: 500 }
+      )
+    }
 
     const uniqueSellers = Array.from(
       new Set(debts?.map((d: any) => d.seller_id) || [])
@@ -55,13 +74,41 @@ export async function GET(request: NextRequest) {
         } else {
           errors.push(`Seller ${sellerId}: ${result.error}`)
         }
-      } catch (error: any) {
-        errors.push(`Seller ${sellerId}: ${error.message}`)
+      } catch (error: unknown) {
+        errors.push(`Seller ${sellerId}: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
     const duration = Date.now() - startTime
-    console.log('[Cron] Debt collection completed in', duration, 'ms')
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Debt collection completed in', duration, 'ms')
+    }
+    try {
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'collect_debts',
+        status: 'success',
+        execution_time_ms: duration,
+        executed_at: new Date().toISOString(),
+        metadata: {
+          sellers_processed: uniqueSellers.length,
+          debts_collected: totalCount,
+          total_collected: totalCollected,
+          error_count: errors.length,
+        },
+      })
+    } catch (_) {}
+
+    logAudit({
+      action: 'cron_collect_debts',
+      resourceType: 'cron',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: {
+        sellers_processed: uniqueSellers.length,
+        debts_collected: totalCount,
+        error_count: errors.length,
+      },
+    })
 
     return NextResponse.json({
       success: true,
@@ -72,10 +119,30 @@ export async function GET(request: NextRequest) {
       totalCollected,
       errors: errors.length > 0 ? errors : undefined,
     })
-  } catch (error: any) {
-    console.error('Cron job error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Cron job error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to collect debts'
+    try {
+      const supabaseAdmin = await getSupabaseAdmin()
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'collect_debts',
+        status: 'failed',
+        execution_time_ms: Date.now() - startTime,
+        executed_at: new Date().toISOString(),
+        error_message: message,
+      })
+    } catch (_) {}
+    logAudit({
+      action: 'cron_collect_debts',
+      resourceType: 'cron',
+      result: 'fail',
+      timestamp: new Date().toISOString(),
+      meta: { error: message },
+    })
     return NextResponse.json(
-      { error: error.message || 'Failed to collect debts' },
+      { error: message },
       { status: 500 }
     )
   }

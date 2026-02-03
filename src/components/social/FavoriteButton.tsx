@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useIsFavorite, useToggleFavorite } from '@/lib/hooks/useFavorites'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { showInfo } from '@/lib/utils/toast'
+import { useTranslations } from 'next-intl'
 
 interface FavoriteButtonProps {
   postId: string
@@ -19,6 +20,7 @@ export function FavoriteButton({ postId, initialFavorites = 0, enabled = true }:
   const { user } = useAuth()
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const t = useTranslations('posts')
   const [optimisticFavorites, setOptimisticFavorites] = useState(initialFavorites)
   const isOptimisticUpdateRef = useRef(false)
   const lastInitialFavoritesRef = useRef(initialFavorites)
@@ -64,7 +66,7 @@ export function FavoriteButton({ postId, initialFavorites = 0, enabled = true }:
       return
     }
     if (!user) {
-      showInfo('请先登录后再收藏')
+      showInfo(t('pleaseLoginToFavorite'))
       return
     }
     

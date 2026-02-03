@@ -74,14 +74,8 @@ export default function DepositPolicyPage() {
                 '您的订阅费用等于免费保证金额度。订阅档位越高，免费保证金额度越高，可以支持更多的未完成订单。'}
             </p>
             <div className="rounded-lg bg-muted p-4">
-              <p className="font-semibold mb-2">{t('policy.subscription.tiers') || '订阅档位：'}</p>
-              <ul className="space-y-2 text-sm">
-                <li>• $5/月 - 免费保证金额度 $5</li>
-                <li>• $15/月 - 免费保证金额度 $15</li>
-                <li>• $40/月 - 免费保证金额度 $40</li>
-                <li>• $80/月 - 免费保证金额度 $80</li>
-                <li>• $200/月 - 免费保证金额度 $200</li>
-              </ul>
+              <p className="font-semibold mb-2">{t('policy.subscription.tiers')}</p>
+              <p className="text-sm whitespace-pre-line">{t('policy.subscription.tierList')}</p>
             </div>
           </div>
         </div>

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAudit } from '@/lib/api/audit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -122,11 +123,29 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (createError) {
+      logAudit({
+        action: 'platform_account_crud',
+        userId: authResult.data.user.id,
+        resourceType: 'payment_account',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { op: 'create', reason: createError.message },
+      })
       return NextResponse.json(
         { error: `Failed to create account: ${createError.message}` },
         { status: 500 }
       )
     }
+
+    logAudit({
+      action: 'platform_account_crud',
+      userId: authResult.data.user.id,
+      resourceId: newAccount.id,
+      resourceType: 'payment_account',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { op: 'create' },
+    })
 
     return NextResponse.json({ account: newAccount }, { status: 201 })
   } catch (error: any) {

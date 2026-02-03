@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { deductFromDeposit } from '@/lib/deposits/deduct-from-deposit'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +32,28 @@ export async function POST(request: NextRequest) {
     if (!sellerId || !amount || !violationType || !violationReason) {
       return NextResponse.json(
         { error: 'Missing required fields: sellerId, amount, violationType, violationReason' },
+        { status: 400 }
+      )
+    }
+
+    const reasonTrimmed = String(violationReason).trim()
+    if (reasonTrimmed.length === 0) {
+      return NextResponse.json({ error: 'violationReason cannot be empty' }, { status: 400 })
+    }
+    if (reasonTrimmed.length > 500) {
+      return NextResponse.json(
+        { error: 'violationReason must be at most 500 characters' },
+        { status: 400 }
+      )
+    }
+
+    const typeTrimmed = String(violationType).trim()
+    if (typeTrimmed.length === 0) {
+      return NextResponse.json({ error: 'violationType cannot be empty' }, { status: 400 })
+    }
+    if (typeTrimmed.length > 50) {
+      return NextResponse.json(
+        { error: 'violationType must be at most 50 characters' },
         { status: 400 }
       )
     }
@@ -76,8 +99,8 @@ export async function POST(request: NextRequest) {
         .from('seller_violations')
         .insert({
           seller_id: sellerId,
-          violation_type: violationType,
-          violation_reason: violationReason,
+          violation_type: typeTrimmed,
+          violation_reason: reasonTrimmed,
           penalty_amount: numericAmount,
           currency: currency || 'CNY',
           status: 'pending',
@@ -92,9 +115,11 @@ export async function POST(request: NextRequest) {
       if (!violationError && violation) {
         violationId = violation.id
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // seller_violations table may not exist, continue without creating violation record
-      console.warn('Violation record table may not exist, continuing without it:', error.message)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Violation record table may not exist, continuing without it:', error instanceof Error ? error.message : error)
+      }
     }
 
     // Deduct from deposit (use fallback relatedId when violation record wasn't created)
@@ -102,7 +127,7 @@ export async function POST(request: NextRequest) {
       sellerId,
       amount: numericAmount,
       currency: currency || 'CNY',
-      reason: `违规扣款: ${violationReason}`,
+      reason: `违规扣款: ${reasonTrimmed}`,
       relatedId: violationId ?? `violation-deduct-${sellerId}-${Date.now()}`,
       relatedType: 'violation',
       supabaseAdmin,
@@ -124,6 +149,15 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      logAudit({
+        action: 'violation_deduction',
+        userId: user.id,
+        resourceId: sellerId,
+        resourceType: 'seller_deposit',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: deductionResult.error },
+      })
       return NextResponse.json(
         {
           success: false,
@@ -151,15 +185,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create notification for seller
+    // Create notification for seller (use content_key for i18n)
     await supabaseAdmin.from('notifications').insert({
       user_id: sellerId,
       type: 'system',
-      title: '违规扣款通知',
-      content: `您的保证金中已扣除 ${deductionResult.deductedAmount.toFixed(2)} ${deductionResult.deductedAmountCurrency}。原因：${violationReason}。剩余保证金：${deductionResult.remainingBalance.toFixed(2)} ${deductionResult.deductedAmountCurrency}。`,
+      title: 'Violation Deduction',
+      content: `A deduction of ${deductionResult.deductedAmount.toFixed(2)} ${deductionResult.deductedAmountCurrency} has been made from your deposit. Reason: ${reasonTrimmed}. Remaining balance: ${deductionResult.remainingBalance.toFixed(2)} ${deductionResult.deductedAmountCurrency}.`,
       related_type: 'order',
       related_id: relatedOrderId || null,
       link: '/seller/deposit',
+      content_key: 'violation_penalty',
+      content_params: {
+        deductedAmount: deductionResult.deductedAmount.toFixed(2),
+        currency: deductionResult.deductedAmountCurrency,
+        reason: reasonTrimmed,
+        remainingBalance: deductionResult.remainingBalance.toFixed(2),
+      },
+    })
+
+    logAudit({
+      action: 'violation_deduction',
+      userId: user.id,
+      resourceId: sellerId,
+      resourceType: 'seller_deposit',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { violationId, deductedAmount: deductionResult.deductedAmount },
     })
 
     return NextResponse.json({
@@ -168,12 +219,22 @@ export async function POST(request: NextRequest) {
       deductedAmount: deductionResult.deductedAmount,
       deductedAmountCurrency: deductionResult.deductedAmountCurrency,
       remainingBalance: deductionResult.remainingBalance,
-      message: '违规扣款已成功扣除',
+      message: 'Violation deduction completed successfully',
     })
-  } catch (error: any) {
-    console.error('Violation penalty deduction error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Violation penalty deduction error:', error)
+    }
+    logAudit({
+      action: 'violation_deduction',
+      resourceType: 'seller_deposit',
+      result: 'fail',
+      timestamp: new Date().toISOString(),
+      meta: { reason: error instanceof Error ? error.message : String(error) },
+    })
+    const message = error instanceof Error ? error.message : 'Failed to deduct violation penalty'
     return NextResponse.json(
-      { error: error.message || 'Failed to deduct violation penalty' },
+      { error: message },
       { status: 500 }
     )
   }

@@ -30,7 +30,9 @@ export function UserTipButton({
   const [loading, setLoading] = useState(false)
   const { user } = useAuth()
   const { data: profileResult, isLoading: profileLoading } = useProfile(user?.id ?? '')
+  const { data: targetProfileResult } = useProfile(targetUserId)
   const profile = profileResult?.profile
+  const targetTipEnabled = targetProfileResult?.profile?.tip_enabled
   const router = useRouter()
   const { toast } = useToast()
   const t = useTranslations('tips')
@@ -58,6 +60,7 @@ export function UserTipButton({
   })
 
   const tipEnabled = !!profile?.tip_enabled && !!tipSubscription
+  const recipientAcceptsTips = targetTipEnabled !== false
 
   // 未登录用户显示"登录后打赏"按钮
   if (!user) {
@@ -92,13 +95,32 @@ export function UserTipButton({
     )
   }
 
+  if (!recipientAcceptsTips) {
+    return (
+      <Button variant="outline" size="sm" className="gap-2" disabled title={t('tipRecipientNotEnabled')}>
+        <Gift className="h-4 w-4" />
+        {t('tip')}
+      </Button>
+    )
+  }
+
+  const MAX_TIP_CNY = 35
+
   const handleTip = async () => {
     const tipAmount = parseFloat(amount)
     if (!tipAmount || tipAmount <= 0) {
       toast({
         variant: 'warning',
-        title: '提示',
+        title: tCommon('notice'),
         description: t('enterValidAmount'),
+      })
+      return
+    }
+    if (tipAmount > MAX_TIP_CNY) {
+      toast({
+        variant: 'warning',
+        title: tCommon('notice'),
+        description: t('maximumTipAmount'),
       })
       return
     }
@@ -106,14 +128,16 @@ export function UserTipButton({
     if (user.id === targetUserId) {
       toast({
         variant: 'warning',
-        title: '提示',
-        description: t('cannotTipSelf'),
+        title: tCommon('notice'),
+        description: t('cannotTipSelfUser'),
       })
       return
     }
 
     setLoading(true)
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 18000)
       const response = await fetch('/api/payments/stripe/create-user-tip-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,26 +148,29 @@ export function UserTipButton({
           cancelUrl: window.location.href,
           currency: 'CNY',
         }),
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const err = await response.json()
         const errorMessage = err.error || 'Failed to create checkout session'
         
-        // 根据错误类型显示更具体的错误信息
         let userFriendlyMessage = errorMessage
         if (errorMessage.includes('subscription')) {
-          userFriendlyMessage = '您的打赏订阅已过期，请续费后再试'
+          userFriendlyMessage = t('tipSubscriptionExpired')
         } else if (errorMessage.includes('Tip feature subscription required')) {
-          userFriendlyMessage = '请先开通打赏功能订阅'
+          userFriendlyMessage = t('tipSubscriptionRequired')
         } else if (errorMessage.includes('Tip subscription expired')) {
-          userFriendlyMessage = '您的打赏订阅已过期，请续费后再试'
+          userFriendlyMessage = t('tipSubscriptionExpired')
         } else if (errorMessage.includes('Cannot tip yourself')) {
-          userFriendlyMessage = '不能给自己打赏'
+          userFriendlyMessage = t('cannotTipSelfUser')
         } else if (errorMessage.includes('blocked')) {
-          userFriendlyMessage = '您已被该用户拉黑，无法打赏'
+          userFriendlyMessage = t('tipUserBlocked')
         } else if (errorMessage.includes('not enabled')) {
-          userFriendlyMessage = '该用户未开启打赏功能'
+          userFriendlyMessage = t('tipRecipientNotEnabled')
+        } else if (errorMessage.includes('Tip limit exceeded')) {
+          userFriendlyMessage = t('tipLimitExceeded')
         }
         
         throw new Error(userFriendlyMessage)
@@ -153,10 +180,11 @@ export function UserTipButton({
       window.location.href = url
     } catch (error: any) {
       console.error('Tip error:', error)
+      const isAbort = error?.name === 'AbortError'
       toast({
         variant: 'destructive',
-        title: '错误',
-        description: t('tipFailed', { error: error.message }),
+        title: tCommon('error'),
+        description: isAbort ? t('requestTimeoutRetry') : t('tipFailed', { error: error.message }),
       })
     } finally {
       setLoading(false)
@@ -195,22 +223,21 @@ export function UserTipButton({
             <h3 className="mb-4 text-lg font-semibold pr-8">
               {t('tipCreator')} {targetUserName ? `@${targetUserName}` : ''}
             </h3>
-            <p className="mb-4 text-sm text-muted-foreground">
-              直接打赏给用户
-            </p>
+            <p className="mb-4 text-sm text-muted-foreground">{t('tipUserDirectly')}</p>
 
             <div className="mb-4 space-y-2">
               <label className="text-sm font-medium">{t('tipAmount')} (¥)</label>
               <Input
                 type="number"
                 min="0.01"
+                max="35"
                 step="0.01"
                 placeholder={t('enterAmount')}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 disabled={paymentMethod === 'paypal'}
               />
-              <p className="text-xs text-muted-foreground">最小打赏金额：¥0.01</p>
+              <p className="text-xs text-muted-foreground">{t('minimumTipAmount')} · {t('maximumTipAmount')}</p>
             </div>
 
             <div className="mb-4">
@@ -237,7 +264,7 @@ export function UserTipButton({
                     onSuccess={() => {
                       toast({
                         variant: 'success',
-                        title: '成功',
+                        title: tCommon('success'),
                         description: t('tipCreated'),
                       })
                       setShowModal(false)
@@ -247,15 +274,13 @@ export function UserTipButton({
                     onError={(error) => {
                       toast({
                         variant: 'destructive',
-                        title: '错误',
+                        title: tCommon('error'),
                         description: t('tipFailed', { error: error.message }),
                       })
                     }}
                   />
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center">
-                    请输入打赏金额
-                  </p>
+                  <p className="text-sm text-muted-foreground text-center">{t('enterTipAmount')}</p>
                 )}
                 <Button
                   variant="outline"

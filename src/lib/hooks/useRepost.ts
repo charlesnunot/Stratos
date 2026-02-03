@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
+import { logAudit } from '@/lib/api/audit'
 
 /**
  * 检查当前用户是否已转发某个帖子或商品
@@ -31,6 +32,18 @@ export function useIsReposted(itemType: 'post' | 'product', itemId: string) {
   })
 }
 
+function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const name = (err as any)?.name ?? ''
+  const msg = String((err as any)?.message ?? '')
+  return (
+    name === 'AbortError' ||
+    msg.includes('aborted') ||
+    msg.includes('cancelled') ||
+    msg.includes('signal is aborted')
+  )
+}
+
 /**
  * 转发帖子或商品给多个目标用户
  */
@@ -40,99 +53,50 @@ export function useRepost() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ 
+    mutationFn: async ({
       itemType,
-      itemId, 
+      itemId,
       targetUserIds,
-      content 
-    }: { 
+      content,
+      userId: callerUserId,
+    }: {
       itemType: 'post' | 'product'
       itemId: string
       targetUserIds: string[]
-      content?: string 
+      content?: string
+      /** 调用方传入则优先使用，避免 useAuth 短暂为 null 导致误报未登录 */
+      userId?: string | null
     }) => {
-      if (!user) throw new Error('Not authenticated')
+      const userId = callerUserId ?? user?.id
+      if (!userId) throw new Error('Not authenticated')
       if (!targetUserIds || targetUserIds.length === 0) {
         throw new Error('No target users selected')
       }
 
-      // 为每个目标用户创建转发记录
-      const repostsToInsert = targetUserIds.map((targetUserId) => ({
-        user_id: user.id,
-        item_type: itemType,
-        original_item_id: itemId,
-        target_user_id: targetUserId,
-        repost_content: content || null,
-      }))
-
-      // 批量插入（忽略已存在的记录）
-      const { error, data } = await supabase
-        .from('reposts')
-        .insert(repostsToInsert)
-        .select()
-
-      if (error) {
-        // 检查是否是唯一约束冲突
-        // Supabase 可能返回不同的错误格式：
-        // - error.code === '23505' (PostgreSQL 唯一约束错误代码)
-        // - HTTP 409 状态码
-        // - 错误消息中包含 "duplicate", "unique", "conflict" 等关键词
-        const errorMessage = (error.message || '').toLowerCase()
-        const isUniqueConstraintError = 
-          error.code === '23505' ||
-          error.code === 'PGRST116' ||
-          errorMessage.includes('duplicate') ||
-          errorMessage.includes('unique') ||
-          errorMessage.includes('conflict') ||
-          errorMessage.includes('already exists') ||
-          (error as any).status === 409
-
-        if (isUniqueConstraintError) {
-          // 尝试逐个插入，忽略已存在的记录
-          const results = []
-          const alreadyExists = []
-          
-          for (const repost of repostsToInsert) {
-            const { error: insertError, data: insertData } = await supabase
-              .from('reposts')
-              .insert(repost)
-              .select()
-            
-            if (!insertError && insertData && insertData.length > 0) {
-              results.push(insertData[0])
-            } else if (insertError) {
-              // 检查是否是唯一约束冲突（已存在）
-              const insertErrorMessage = (insertError.message || '').toLowerCase()
-              const isConflict = 
-                insertError.code === '23505' ||
-                insertError.code === 'PGRST116' ||
-                insertErrorMessage.includes('duplicate') ||
-                insertErrorMessage.includes('unique') ||
-                insertErrorMessage.includes('conflict') ||
-                insertErrorMessage.includes('already exists') ||
-                (insertError as any).status === 409
-              
-              if (isConflict) {
-                alreadyExists.push(repost.target_user_id)
-              } else {
-                // 其他错误，记录但不中断流程
-                console.warn('Failed to insert repost:', insertError)
-              }
-            }
-          }
-          
-          return { 
-            action: 'repost' as const, 
-            count: results.length,
-            alreadyExists: alreadyExists.length
-          }
+      try {
+        return await repostMutationFn(supabase, userId, itemType, itemId, targetUserIds, content)
+      } catch (e) {
+        if (isAbortError(e)) {
+          throw new Error('请求已取消，请重试')
         }
-        throw error
+        throw e
       }
-
-      return { action: 'repost' as const, count: data?.length || 0, alreadyExists: 0 }
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
+      // 记录审计日志
+      const userId = variables.userId ?? user?.id
+      if (userId && result.count > 0) {
+        logAudit({
+          action: 'create_repost',
+          userId,
+          resourceId: variables.itemId,
+          resourceType: variables.itemType,
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: { targetCount: result.count },
+        })
+      }
+      
       // 使相关查询失效以刷新数据
       queryClient.invalidateQueries({ queryKey: ['isReposted', user?.id, variables.itemType, variables.itemId] })
       if (variables.itemType === 'post') {
@@ -145,6 +109,93 @@ export function useRepost() {
       queryClient.invalidateQueries({ queryKey: ['reposts', variables.itemId] })
     },
   })
+}
+
+async function repostMutationFn(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  itemType: 'post' | 'product',
+  itemId: string,
+  targetUserIds: string[],
+  content?: string
+) {
+  const repostsToInsert = targetUserIds.map((targetUserId) => ({
+    user_id: userId,
+    item_type: itemType,
+    original_item_id: itemId,
+    target_user_id: targetUserId,
+    repost_content: content || null,
+  }))
+
+  const { error, data } = await supabase
+    .from('reposts')
+    .insert(repostsToInsert)
+    .select()
+
+  if (error) {
+    const errorMessage = (error.message || '').toLowerCase()
+    const isUniqueConstraintError =
+      error.code === '23505' ||
+      error.code === 'PGRST116' ||
+      errorMessage.includes('duplicate') ||
+      errorMessage.includes('unique') ||
+      errorMessage.includes('conflict') ||
+      errorMessage.includes('already exists') ||
+      (error as any).status === 409
+
+    if (isUniqueConstraintError) {
+      const results = []
+      const alreadyExists: string[] = []
+      let lastNonConflictError: any = null
+
+      for (const repost of repostsToInsert) {
+        const { error: insertError, data: insertData } = await supabase
+          .from('reposts')
+          .insert(repost)
+          .select()
+
+        if (!insertError && insertData && insertData.length > 0) {
+          results.push(insertData[0])
+        } else if (insertError) {
+          const insertErrorMessage = (insertError.message || '').toLowerCase()
+          const isConflict =
+            insertError.code === '23505' ||
+            insertError.code === 'PGRST116' ||
+            insertErrorMessage.includes('duplicate') ||
+            insertErrorMessage.includes('unique') ||
+            insertErrorMessage.includes('conflict') ||
+            insertErrorMessage.includes('already exists') ||
+            (insertError as any).status === 409
+
+          if (isConflict) {
+            alreadyExists.push(repost.target_user_id)
+          } else {
+            lastNonConflictError = insertError
+            console.warn('Failed to insert repost:', insertError)
+          }
+        }
+      }
+
+      if (results.length > 0 || alreadyExists.length > 0) {
+        return {
+          action: 'repost' as const,
+          count: results.length,
+          alreadyExists: alreadyExists.length,
+        }
+      }
+      if (lastNonConflictError) {
+        throw lastNonConflictError
+      }
+      return {
+        action: 'repost' as const,
+        count: 0,
+        alreadyExists: alreadyExists.length,
+      }
+    }
+    throw error
+  }
+
+  return { action: 'repost' as const, count: data?.length || 0, alreadyExists: 0 }
 }
 
 /**

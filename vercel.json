@@ -1,6 +1,14 @@
 {
   "crons": [
     {
+      "path": "/api/cron/auto-close-tickets",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/check-overdue-commissions",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/cron/check-shipping-timeout",
       "schedule": "0 2 * * *"
     },
@@ -43,6 +51,10 @@
     {
       "path": "/api/cron/cancel-expired-orders",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/update-exchange-rates",
+      "schedule": "0 0 * * *"
     }
   ]
 }

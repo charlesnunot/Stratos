@@ -118,12 +118,31 @@ export async function PUT(
       .single()
 
     if (updateError) {
+      const { logAudit } = await import('@/lib/api/audit')
+      logAudit({
+        action: 'payment_account_update',
+        userId: user.id,
+        resourceId: params.id,
+        resourceType: 'payment_account',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: updateError.message },
+      })
       return NextResponse.json(
         { error: `Failed to update account: ${updateError.message}` },
         { status: 500 }
       )
     }
 
+    const { logAudit } = await import('@/lib/api/audit')
+    logAudit({
+      action: 'payment_account_update',
+      userId: user.id,
+      resourceId: params.id,
+      resourceType: 'payment_account',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+    })
     return NextResponse.json({ account: updatedAccount })
   } catch (error: any) {
     console.error('Update payment account error:', error)
@@ -177,12 +196,31 @@ export async function DELETE(
       .eq('id', params.id)
 
     if (deleteError) {
+      const { logAudit } = await import('@/lib/api/audit')
+      logAudit({
+        action: 'payment_account_delete',
+        userId: user.id,
+        resourceId: params.id,
+        resourceType: 'payment_account',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: deleteError.message },
+      })
       return NextResponse.json(
         { error: `Failed to delete account: ${deleteError.message}` },
         { status: 500 }
       )
     }
 
+    const { logAudit } = await import('@/lib/api/audit')
+    logAudit({
+      action: 'payment_account_delete',
+      userId: user.id,
+      resourceId: params.id,
+      resourceType: 'payment_account',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+    })
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Delete payment account error:', error)

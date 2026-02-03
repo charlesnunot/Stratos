@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkSellerDepositRequirement } from '@/lib/deposits/check-deposit-requirement'
+import { checkSellerPermission } from '@/lib/auth/check-subscription'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get Supabase admin client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!supabaseUrl || !serviceRoleKey) {
@@ -36,6 +36,14 @@ export async function GET(request: NextRequest) {
     const supabaseAdmin = createAdminClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     })
+
+    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
+    if (!sellerCheck.hasPermission) {
+      return NextResponse.json(
+        { error: sellerCheck.reason || 'Seller subscription required' },
+        { status: 403 }
+      )
+    }
 
     // Check deposit requirement with newOrderAmount = 0 (check current state)
     const depositCheck = await checkSellerDepositRequirement(user.id, 0, supabaseAdmin)

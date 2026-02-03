@@ -1,4 +1,5 @@
-export const locales = ['en', 'zh', 'es', 'pt', 'ja', 'ar'] as const
+/** 项目仅支持中文与英文两种国际化 */
+export const locales = ['en', 'zh'] as const
 export type Locale = (typeof locales)[number]
 
 export const defaultLocale: Locale = 'en'
@@ -13,27 +14,6 @@ export const localeNames: Record<Locale, { name: string; nativeName: string; fla
     name: 'Chinese',
     nativeName: '中文',
     flag: '🇨🇳',
-  },
-  es: {
-    name: 'Spanish',
-    nativeName: 'Español',
-    flag: '🇪🇸',
-  },
-  pt: {
-    name: 'Portuguese',
-    nativeName: 'Português',
-    flag: '🇵🇹',
-  },
-  ja: {
-    name: 'Japanese',
-    nativeName: '日本語',
-    flag: '🇯🇵',
-  },
-  ar: {
-    name: 'Arabic',
-    nativeName: 'العربية',
-    flag: '🇸🇦',
-    rtl: true,
   },
 }
 

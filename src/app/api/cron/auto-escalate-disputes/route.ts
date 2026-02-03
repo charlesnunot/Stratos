@@ -4,37 +4,40 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAudit } from '@/lib/api/audit'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   try {
-    // Verify cron secret (if using Vercel Cron)
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { verifyCronSecret } = await import('@/lib/cron/verify-cron-secret')
+    const unauth = verifyCronSecret(request)
+    if (unauth) return unauth
+
+    const supabaseAdmin = await getSupabaseAdmin()
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Starting dispute auto-escalation at', new Date().toISOString())
     }
 
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
-
-    const startTime = Date.now()
-    console.log('[Cron] Starting dispute auto-escalation at', new Date().toISOString())
-
-    // Call database function to auto-escalate disputes
     const { data, error } = await supabaseAdmin.rpc('auto_escalate_disputes')
 
     if (error) {
-      console.error('[Cron] Error auto-escalating disputes:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Cron] Error auto-escalating disputes:', error)
+      }
+      const duration = Date.now() - startTime
+      try {
+        await supabaseAdmin.from('cron_logs').insert({
+          job_name: 'auto_escalate_disputes',
+          status: 'failed',
+          execution_time_ms: duration,
+          executed_at: new Date().toISOString(),
+          error_message: error.message,
+        })
+      } catch (_) {}
       return NextResponse.json(
         { error: error.message || 'Failed to auto-escalate disputes' },
         { status: 500 }
@@ -43,29 +46,29 @@ export async function GET(request: NextRequest) {
 
     const result = data?.[0] || { escalated_count: 0, escalated_disputes: [] }
     const duration = Date.now() - startTime
-    console.log('[Cron] Dispute auto-escalation completed in', duration, 'ms')
-    console.log('[Cron] Escalated', result.escalated_count, 'disputes')
-
-    // Log execution result (ignore errors - cron_logs table might not exist)
-    try {
-      const { error: logError } = await supabaseAdmin
-        .from('cron_logs')
-        .insert({
-          job_name: 'auto_escalate_disputes',
-          status: 'success',
-          execution_time_ms: duration,
-          executed_at: new Date().toISOString(),
-          metadata: {
-            escalated_count: result.escalated_count,
-            escalated_disputes: result.escalated_disputes,
-          },
-        })
-      if (logError) {
-        console.warn('[Cron] Failed to log execution:', logError)
-      }
-    } catch (logError) {
-      console.warn('[Cron] Failed to log execution:', logError)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Dispute auto-escalation completed in', duration, 'ms, escalated:', result.escalated_count)
     }
+
+    try {
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'auto_escalate_disputes',
+        status: 'success',
+        execution_time_ms: duration,
+        executed_at: new Date().toISOString(),
+        metadata: {
+          escalated_count: result.escalated_count ?? 0,
+        },
+      })
+    } catch (_) {}
+
+    logAudit({
+      action: 'cron_auto_escalate_disputes',
+      resourceType: 'cron',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { escalated_count: result.escalated_count ?? 0 },
+    })
 
     return NextResponse.json({
       success: true,
@@ -74,10 +77,30 @@ export async function GET(request: NextRequest) {
       escalatedCount: result.escalated_count || 0,
       escalatedDisputes: result.escalated_disputes || [],
     })
-  } catch (error: any) {
-    console.error('Cron job error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Cron job error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to auto-escalate disputes'
+    try {
+      const supabaseAdmin = await getSupabaseAdmin()
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'auto_escalate_disputes',
+        status: 'failed',
+        execution_time_ms: Date.now() - startTime,
+        executed_at: new Date().toISOString(),
+        error_message: message,
+      })
+    } catch (_) {}
+    logAudit({
+      action: 'cron_auto_escalate_disputes',
+      resourceType: 'cron',
+      result: 'fail',
+      timestamp: new Date().toISOString(),
+      meta: { error: message },
+    })
     return NextResponse.json(
-      { error: error.message || 'Failed to auto-escalate disputes' },
+      { error: message },
       { status: 500 }
     )
   }

@@ -40,23 +40,25 @@ interface SidebarProps {
   onClose?: () => void
 }
 
-// 格式化最后上线日期
-function formatLastSeen(date: Date | null): string {
-  if (!date) return '从未上线'
-  
+// 格式化最后上线日期（使用 common 的 time* 键）
+function formatLastSeen(
+  date: Date | null,
+  t: (key: string, values?: Record<string, number>) => string
+): string {
+  if (!date) return t('timeNeverOnline')
+
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
-  
-  if (diffMins < 1) return '刚刚上线'
-  if (diffMins < 60) return `${diffMins}分钟前`
-  if (diffHours < 24) return `${diffHours}小时前`
-  if (diffDays === 1) return '昨天'
-  if (diffDays < 7) return `${diffDays}天前`
-  
-  // 超过7天显示具体日期
+
+  if (diffMins < 1) return t('timeJustNowOnline')
+  if (diffMins < 60) return t('timeMinutesAgo', { count: diffMins })
+  if (diffHours < 24) return t('timeHoursAgo', { count: diffHours })
+  if (diffDays === 1) return t('yesterday')
+  if (diffDays < 7) return t('timeDaysAgo', { count: diffDays })
+
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -69,9 +71,11 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   const router = useRouter()
   const supabase = createClient()
   const t = useTranslations('navigation')
+  const tCommon = useTranslations('common')
   const tAuth = useTranslations('auth')
   const tProfile = useTranslations('profile')
   const tMenu = useTranslations('menu')
+  const tAdmin = useTranslations('admin')
   
   // 获取用户资料
   const { data: profileResult } = useProfile(user?.id || '')
@@ -294,15 +298,16 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
     { href: '/products', icon: ShoppingBag, label: t('products') },
     { href: '/cart', icon: ShoppingCart, label: t('cart') },
     { href: '/following', icon: Users, label: t('following') },
+    { href: '/groups', icon: Users, label: t('groups') },
     { href: '/insights', icon: BarChart3, label: t('insights') },
     { href: '/messages', icon: MessageSquare, label: t('messages') },
     { href: '/notifications', icon: Bell, label: t('notifications') },
   ]
   
-  // 如果是管理员或支持人员，添加管理后台导航
   if (isAdmin) {
     navItems.push(
-      { href: '/admin/dashboard', icon: Shield, label: '管理后台' }
+      { href: '/admin/dashboard', icon: Shield, label: tAdmin('sidebarLabel') },
+      { href: '/admin/community', icon: Users, label: tAdmin('communityOps') }
     )
   }
   
@@ -323,9 +328,15 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
           <Link
             href="/"
             onClick={handleLinkClick}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0"
+            aria-label="Stratos Home"
           >
-            <span className="text-xl font-bold">Stratos</span>
+            {/* 再 ×1.3：128px→166px，426px→554px */}
+            <img
+              src="/logo.png"
+              alt="Stratos"
+              className="h-[166px] w-auto max-w-[554px] object-contain"
+            />
           </Link>
           {isMobile && onClose && (
             <Button
@@ -388,7 +399,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
-                  alt={profile.display_name || profile.username || 'User'}
+                  alt={profile.display_name || profile.username || tCommon('user')}
                   className="h-10 w-10 rounded-full object-cover"
                 />
               ) : (
@@ -402,10 +413,10 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
               {/* 中间两行文字 */}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">
-                  {profile?.display_name || profile?.username || '用户'}
+                  {profile?.display_name || profile?.username || tCommon('user')}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {formatLastSeen(lastSeen)}
+                  {formatLastSeen(lastSeen, (k, v) => tCommon(k, v as Record<string, number>))}
                 </p>
               </div>
               
@@ -470,6 +481,22 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
                         <div className="flex items-center gap-2">
                           <Info className="h-4 w-4" />
                           <span>{tMenu('privacyPolicy')}</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </Link>
+
+                      {/* 平台政策 */}
+                      <Link
+                        href="/policies"
+                        onClick={() => {
+                          setIsMoreMenuOpen(false)
+                          handleLinkClick()
+                        }}
+                        className="flex items-center justify-between w-full text-left px-3 py-2 rounded-md text-sm transition-colors hover:bg-accent"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          <span>{tMenu('platformPolicies')}</span>
                         </div>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </Link>

@@ -5,12 +5,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { lotId: string } }
+  { params }: { params: Promise<{ lotId: string }> }
 ) {
   try {
+    const { lotId } = await params
     const supabase = await createClient()
     const {
       data: { user },
@@ -37,7 +39,7 @@ export async function POST(
     const { data: lot, error: lotError } = await supabaseAdmin
       .from('seller_deposit_lots')
       .select('*')
-      .eq('id', params.lotId)
+      .eq('id', lotId)
       .single()
 
     if (lotError || !lot) {
@@ -78,7 +80,7 @@ export async function POST(
         status: 'refunding',
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.lotId)
+      .eq('id', lotId)
 
     if (updateError) {
       console.error('[request-refund] Error updating lot:', updateError)
@@ -88,16 +90,31 @@ export async function POST(
       )
     }
 
+    // Log audit
+    logAudit({
+      action: 'deposit_refund_request',
+      userId: user.id,
+      resourceId: lot.id,
+      resourceType: 'deposit_lot',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+    })
+
     // Send notification (non-blocking; log errors only)
     try {
       const { error: notifError } = await supabaseAdmin.from('notifications').insert({
         user_id: user.id,
         type: 'deposit',
-        title: '保证金退款申请已提交',
-        content: `您的保证金退款申请已提交，金额为 ${lot.required_amount} ${lot.currency}。我们将在3-5个工作日内处理。`,
+        title: 'Deposit Refund Request Submitted',
+        content: `Your deposit refund request has been submitted. Amount: ${lot.required_amount} ${lot.currency}. Processing time: 3-5 business days.`,
         related_id: lot.id,
         related_type: 'deposit_lot',
         link: `/seller/deposit`,
+        content_key: 'deposit_refund_request',
+        content_params: {
+          amount: lot.required_amount.toString(),
+          currency: lot.currency,
+        },
       })
       if (notifError) {
         console.error('[request-refund] Failed to send notification:', notifError)
@@ -113,10 +130,13 @@ export async function POST(
       amount: lot.required_amount,
       currency: lot.currency,
     })
-  } catch (error: any) {
-    console.error('[request-refund] Error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[request-refund] Error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to request refund'
     return NextResponse.json(
-      { error: error.message || 'Failed to request refund' },
+      { error: message },
       { status: 500 }
     )
   }

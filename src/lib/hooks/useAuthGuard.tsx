@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname } from '@/i18n/navigation'
 import { useAuth } from './useAuth'
 
 interface UseAuthGuardOptions {
@@ -19,7 +19,7 @@ export function useAuthGuard(options: UseAuthGuardOptions = {}) {
     if (loading) return // 等待认证状态加载
 
     if (requireAuth && !user) {
-      // 保存原始路径以便登录后重定向回来
+      // pathname 来自 next-intl，已不含 locale（如 /post/create）；登录页会据此跳回，不会出现 /en/en/
       const redirectUrl = `${redirectTo}?redirect=${encodeURIComponent(pathname)}`
       router.push(redirectUrl)
     }

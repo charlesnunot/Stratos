@@ -1,18 +1,30 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useRouter, usePathname } from '@/i18n/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Loader2, CheckCircle, XCircle, Clock, History, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
 
 export default function SubscriptionManagePage() {
-  const { user } = useAuth()
+  const t = useTranslations('subscription')
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
   const [showHistory, setShowHistory] = useState(false)
+
+  // Redirect to login when not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push(`/login?redirect=${encodeURIComponent(pathname)}`)
+    }
+  }, [authLoading, user, router, pathname])
 
   const { data: subscription, isLoading } = useQuery({
     queryKey: ['subscription', user?.id],
@@ -59,6 +71,14 @@ export default function SubscriptionManagePage() {
     enabled: !!user,
   })
 
+  if (authLoading || (!user && !authLoading)) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -74,81 +94,81 @@ export default function SubscriptionManagePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">订阅管理</h1>
+        <h1 className="text-2xl font-bold">{t('manageTitle')}</h1>
         <Button
           variant="outline"
           onClick={() => setShowHistory(!showHistory)}
           className="flex items-center gap-2"
         >
           <History className="h-4 w-4" />
-          {showHistory ? '隐藏历史' : '查看历史'}
+          {showHistory ? t('hideHistory') : t('viewHistory')}
         </Button>
       </div>
 
       {!subscription && !profile?.subscription_type ? (
         <Card className="p-8 text-center">
-          <p className="mb-4 text-muted-foreground">您还没有订阅</p>
+          <p className="mb-4 text-muted-foreground">{t('noSubscription')}</p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link href="/subscription/seller">
-              <Button>成为卖家</Button>
+              <Button>{t('becomeSeller')}</Button>
             </Link>
             <Link href="/subscription/affiliate">
-              <Button variant="outline">成为带货者</Button>
+              <Button variant="outline">{t('becomeAffiliate')}</Button>
             </Link>
             <Link href="/subscription/tip">
-              <Button variant="outline">订阅打赏功能</Button>
+              <Button variant="outline">{t('tipSubscription')}</Button>
             </Link>
           </div>
         </Card>
       ) : (
         <Card className="p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">当前订阅</h2>
+            <h2 className="text-lg font-semibold">{t('currentSubscription')}</h2>
             {isExpired ? (
               <span className="flex items-center gap-2 text-red-600">
                 <XCircle className="h-5 w-5" />
-                已过期
+                {t('expired')}
               </span>
             ) : subscription?.status === 'active' ? (
               <span className="flex items-center gap-2 text-green-600">
                 <CheckCircle className="h-5 w-5" />
-                活跃
+                {t('active')}
               </span>
             ) : (
               <span className="flex items-center gap-2 text-yellow-600">
                 <Clock className="h-5 w-5" />
-                待激活
+                {t('pending')}
               </span>
             )}
           </div>
 
           <div className="space-y-3">
             <div>
-              <p className="text-sm text-muted-foreground">订阅类型</p>
+              <p className="text-sm text-muted-foreground">{t('subscriptionType')}</p>
               <p className="font-semibold">
                 {(() => {
                   const type = subscription?.subscription_type || profile?.subscription_type
-                  if (type === 'seller') return '卖家订阅'
-                  if (type === 'affiliate') return '带货者订阅'
-                  if (type === 'tip') return '打赏功能订阅'
+                  if (type === 'seller') return t('sellerSubscription')
+                  if (type === 'affiliate') return t('affiliateSubscription')
+                  if (type === 'tip') return t('tipSubscriptionType')
                   return type || '-'
                 })()}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">支付方式</p>
+              <p className="text-sm text-muted-foreground">{t('paymentMethod')}</p>
               <p className="font-semibold capitalize">
                 {subscription?.payment_method || '-'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">订阅金额</p>
+              <p className="text-sm text-muted-foreground">{t('subscriptionAmount')}</p>
               <p className="font-semibold">
                 ¥{subscription?.amount?.toFixed(2) || '-'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">到期时间</p>
+              <p className="text-sm text-muted-foreground">{t('expiresAt')}</p>
               <p className="font-semibold">
                 {profile?.subscription_expires_at
                   ? new Date(profile.subscription_expires_at).toLocaleString(
@@ -159,7 +179,7 @@ export default function SubscriptionManagePage() {
             </div>
             {subscription && (
               <div>
-                <p className="text-sm text-muted-foreground">开始时间</p>
+                <p className="text-sm text-muted-foreground">{t('startsAt')}</p>
                 <p className="font-semibold">
                   {new Date(subscription.starts_at).toLocaleString('zh-CN')}
                 </p>
@@ -170,7 +190,7 @@ export default function SubscriptionManagePage() {
           {isExpired && (
             <div className="mt-6">
               <Link href={`/subscription/${subscription?.subscription_type || 'seller'}`}>
-                <Button className="w-full">续费订阅</Button>
+                <Button className="w-full">{t('renewSubscription')}</Button>
               </Link>
             </div>
           )}
@@ -182,7 +202,7 @@ export default function SubscriptionManagePage() {
         <Card className="p-6">
           <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
             <History className="h-5 w-5" />
-            订阅历史
+            {t('subscriptionHistory')}
           </h2>
 
           {historyLoading ? (
@@ -194,19 +214,19 @@ export default function SubscriptionManagePage() {
               {/* Statistics */}
               <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
                 <div className="rounded-lg border p-3">
-                  <p className="text-sm text-muted-foreground">总订阅数</p>
+                  <p className="text-sm text-muted-foreground">{t('totalSubscriptions')}</p>
                   <p className="text-2xl font-bold">{historyData.stats.total}</p>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <p className="text-sm text-muted-foreground">活跃</p>
+                  <p className="text-sm text-muted-foreground">{t('active')}</p>
                   <p className="text-2xl font-bold text-green-600">{historyData.stats.active}</p>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <p className="text-sm text-muted-foreground">已过期</p>
+                  <p className="text-sm text-muted-foreground">{t('expired')}</p>
                   <p className="text-2xl font-bold text-red-600">{historyData.stats.expired}</p>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <p className="text-sm text-muted-foreground">总支出</p>
+                  <p className="text-sm text-muted-foreground">{t('totalSpent')}</p>
                   <p className="text-2xl font-bold">
                     ¥{historyData.stats.totalSpent.toFixed(2)}
                   </p>
@@ -228,10 +248,10 @@ export default function SubscriptionManagePage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-semibold">
-                              {sub.subscription_type === 'seller' && '卖家订阅'}
-                              {sub.subscription_type === 'affiliate' && '带货者订阅'}
-                              {sub.subscription_type === 'tip' && '打赏功能订阅'}
-                              {sub.subscription_tier && ` (${sub.subscription_tier} USD档位)`}
+                              {sub.subscription_type === 'seller' && t('sellerSubscription')}
+                              {sub.subscription_type === 'affiliate' && t('affiliateSubscription')}
+                              {sub.subscription_type === 'tip' && t('tipSubscriptionType')}
+                              {sub.subscription_tier && ` (${t('tierLabel', { tier: sub.subscription_tier })})`}
                             </p>
                             <p className="text-sm text-muted-foreground">
                               {new Date(sub.created_at).toLocaleString('zh-CN')}
@@ -241,12 +261,12 @@ export default function SubscriptionManagePage() {
                             {isActive ? (
                               <span className="flex items-center gap-1 text-green-600 text-sm">
                                 <CheckCircle className="h-4 w-4" />
-                                活跃
+                                {t('active')}
                               </span>
                             ) : isExpired ? (
                               <span className="flex items-center gap-1 text-red-600 text-sm">
                                 <XCircle className="h-4 w-4" />
-                                已过期
+                                {t('expired')}
                               </span>
                             ) : (
                               <span className="flex items-center gap-1 text-yellow-600 text-sm">
@@ -271,11 +291,11 @@ export default function SubscriptionManagePage() {
                   })}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground py-8">暂无订阅历史</p>
+                <p className="text-center text-muted-foreground py-8">{t('noHistory')}</p>
               )}
             </>
           ) : (
-            <p className="text-center text-muted-foreground py-8">加载失败</p>
+            <p className="text-center text-muted-foreground py-8">{t('loadFailed')}</p>
           )}
         </Card>
       )}

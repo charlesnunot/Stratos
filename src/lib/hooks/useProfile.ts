@@ -11,6 +11,10 @@ export interface Profile {
   avatar_url: string | null
   bio: string | null
   location: string | null
+  content_lang?: 'zh' | 'en' | null
+  display_name_translated?: string | null
+  bio_translated?: string | null
+  location_translated?: string | null
   follower_count: number
   following_count: number
   role: string
@@ -19,6 +23,13 @@ export interface Profile {
   status?: string | null // ✅ 修复 P0: 添加 status 字段用于检查用户状态
   email?: string | null // ✅ 修复 P0-3: 自己的页面可以查看 email
   tip_enabled?: boolean | null
+  // 资料审核：仅本人查询时返回；他人只看已审核的主字段
+  profile_status?: 'pending' | 'approved' | null
+  pending_display_name?: string | null
+  pending_username?: string | null
+  pending_avatar_url?: string | null
+  pending_bio?: string | null
+  pending_location?: string | null
 }
 
 export type ProfileQueryErrorKind =
@@ -42,15 +53,16 @@ export function useProfile(userId: string) {
     queryFn: async (): Promise<ProfileResult> => {
       const supabase = createClient()
       
-      // ✅ 修复 P0-3: 如果是自己的页面，查询完整数据（包括 email 等）
-      // 如果是他人页面，只查询公开字段
+      // ✅ 修复 P0-3: 如果是自己的页面，查询完整数据（含 email、待审核字段）
+      // 如果是他人页面，只查询已审核的公开字段（不查 pending_*，他人只看已审核资料）
+      // profiles 表无 email 列（email 在 auth.users），本人页需 email 时从 useAuth().user.email 取
       const baseSelectFields = isOwnProfile
-        ? 'id, username, display_name, avatar_url, bio, location, follower_count, following_count, created_at, status, email, subscription_type, role, tip_enabled'
-        : 'id, username, display_name, avatar_url, bio, location, follower_count, following_count, created_at, status'
+        ? 'id, username, display_name, avatar_url, bio, location, content_lang, display_name_translated, bio_translated, location_translated, follower_count, following_count, created_at, status, subscription_type, role, tip_enabled, profile_status, pending_display_name, pending_username, pending_avatar_url, pending_bio, pending_location'
+        : 'id, username, display_name, avatar_url, bio, location, content_lang, display_name_translated, bio_translated, location_translated, follower_count, following_count, created_at, status'
 
       // 最小公开字段（用于 400 降级重试）
       const publicSelectFields =
-        'id, username, display_name, avatar_url, follower_count, following_count, created_at'
+        'id, username, display_name, avatar_url, bio, location, content_lang, display_name_translated, bio_translated, location_translated, follower_count, following_count, created_at'
 
       const classifyError = (error: any): ProfileQueryErrorKind => {
         if (!error) return 'unknown'
@@ -223,6 +235,8 @@ export function useFollow() {
       queryClient.invalidateQueries({ queryKey: ['profile', variables.followingId] })
       queryClient.invalidateQueries({ queryKey: ['isFollowing', user?.id, variables.followingId] })
       queryClient.invalidateQueries({ queryKey: ['profile', user?.id] }) // Update current user's following count
+      queryClient.invalidateQueries({ queryKey: ['recommendedForMe'] })
+      queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] })
     },
   })
 }
@@ -303,3 +317,68 @@ export function useFollowers() {
   })
 }
 
+/** 某用户的粉丝列表（公开，供个人页 /profile/[id]/followers 使用） */
+export function useProfileFollowers(userId: string | undefined) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['profileFollowers', userId],
+    queryFn: async () => {
+      if (!userId) return []
+      const { data, error } = await supabase
+        .from('follows')
+        .select(`
+          follower_id,
+          follower:profiles!follows_follower_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('followee_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return (data || []).map((item: any) => ({
+        id: item.follower_id,
+        username: item.follower?.username ?? '',
+        display_name: item.follower?.display_name ?? null,
+        avatar_url: item.follower?.avatar_url ?? null,
+      }))
+    },
+    enabled: !!userId,
+  })
+}
+
+/** 某用户的关注列表（公开，供个人页 /profile/[id]/following 使用） */
+export function useProfileFollowing(userId: string | undefined) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['profileFollowing', userId],
+    queryFn: async () => {
+      if (!userId) return []
+      const { data, error } = await supabase
+        .from('follows')
+        .select(`
+          followee_id,
+          followee:profiles!follows_followee_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('follower_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return (data || []).map((item: any) => ({
+        id: item.followee_id,
+        username: item.followee?.username ?? '',
+        display_name: item.followee?.display_name ?? null,
+        avatar_url: item.followee?.avatar_url ?? null,
+      }))
+    },
+    enabled: !!userId,
+  })
+}

@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, X, Users } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 
 interface CreateGroupProps {
@@ -70,7 +70,7 @@ export function CreateGroup({ onClose }: CreateGroupProps) {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to create group')
+        throw new Error(error.error || t('createGroupFailed'))
       }
 
       const { group } = await response.json()
@@ -84,8 +84,8 @@ export function CreateGroup({ onClose }: CreateGroupProps) {
       console.error('Create group error:', error)
       toast({
         variant: 'destructive',
-        title: '错误',
-        description: error.message || '创建群组失败',
+        title: tCommon('error'),
+        description: error.message || t('createGroupFailed'),
       })
     } finally {
       setLoading(false)
@@ -96,7 +96,7 @@ export function CreateGroup({ onClose }: CreateGroupProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <Card className="w-full max-w-md p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">创建群组</h2>
+          <h2 className="text-lg font-semibold">{t('createGroup')}</h2>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -104,31 +104,31 @@ export function CreateGroup({ onClose }: CreateGroupProps) {
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">群组名称 *</label>
+            <label className="mb-1 block text-sm font-medium">{t('groupNameRequired')}</label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="输入群组名称"
+              placeholder={t('groupNamePlaceholder')}
               maxLength={50}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">群组描述</label>
+            <label className="mb-1 block text-sm font-medium">{t('groupDescription')}</label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="输入群组描述（可选）"
+              placeholder={t('groupDescriptionPlaceholder')}
               maxLength={200}
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">添加成员</label>
+            <label className="mb-2 block text-sm font-medium">{t('addMembers')}</label>
             <div className="max-h-48 space-y-2 overflow-y-auto border rounded-md p-3">
               {following.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  暂无关注的人
+                  {t('noFollowingToAdd')}
                 </p>
               ) : (
                 following.map((follow: any) => {
@@ -137,18 +137,28 @@ export function CreateGroup({ onClose }: CreateGroupProps) {
                   return (
                     <div
                       key={followee.id}
+                      role="button"
+                      tabIndex={0}
                       className={`flex items-center gap-2 rounded-md p-2 cursor-pointer transition-colors ${
                         isSelected
                           ? 'bg-primary/10 border border-primary'
                           : 'hover:bg-muted'
                       }`}
                       onClick={() => handleToggleMember(followee.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleToggleMember(followee.id)
+                        }
+                      }}
                     >
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => handleToggleMember(followee.id)}
-                        className="h-4 w-4"
+                        readOnly
+                        tabIndex={-1}
+                        className="h-4 w-4 shrink-0 pointer-events-none"
+                        aria-hidden
                       />
                       {followee.avatar_url && (
                         <img
@@ -169,7 +179,7 @@ export function CreateGroup({ onClose }: CreateGroupProps) {
             </div>
             {selectedMembers.length > 0 && (
               <p className="mt-2 text-xs text-muted-foreground">
-                已选择 {selectedMembers.length} 个成员
+                {t('selectedMembersCount', { count: selectedMembers.length })}
               </p>
             )}
           </div>
@@ -185,10 +195,10 @@ export function CreateGroup({ onClose }: CreateGroupProps) {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  创建中...
+                  {t('creating')}
                 </>
               ) : (
-                '创建群组'
+                t('createGroup')
               )}
             </Button>
           </div>

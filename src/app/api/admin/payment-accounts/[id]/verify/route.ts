@@ -6,12 +6,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAudit } from '@/lib/api/audit'
+import { updateSellerPayoutEligibility } from '@/lib/payments/update-seller-payout-eligibility'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: accountId } = await params
     // Unified admin check
     const authResult = await requireAdmin(request)
     if (!authResult.success) {
@@ -35,13 +38,22 @@ export async function POST(
     // Verify payment account using database function
     const { data: result, error: verifyError } = await supabaseAdmin
       .rpc('verify_payment_account', {
-        p_account_id: params.id,
+        p_account_id: accountId,
         p_verified_by: user.id,
         p_status: status,
         p_notes: notes || null,
       })
 
     if (verifyError) {
+      logAudit({
+        action: 'payment_account_verify',
+        userId: user.id,
+        resourceId: accountId,
+        resourceType: 'payment_account',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: verifyError.message },
+      })
       return NextResponse.json(
         { error: `Failed to verify account: ${verifyError.message}` },
         { status: 500 }
@@ -52,39 +64,86 @@ export async function POST(
     const { data: account, error: accountError } = await supabaseAdmin
       .from('payment_accounts')
       .select('*, profiles!payment_accounts_seller_id_fkey(id, username, display_name)')
-      .eq('id', params.id)
+      .eq('id', accountId)
       .single()
 
-    if (accountError) {
+    if (accountError || !account) {
+      logAudit({
+        action: 'payment_account_verify',
+        userId: user.id,
+        resourceId: accountId,
+        resourceType: 'payment_account',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: accountError?.message ?? 'Account not found' },
+      })
       return NextResponse.json(
-        { error: `Failed to fetch account: ${accountError.message}` },
+        { error: `Failed to fetch account: ${accountError?.message ?? 'Not found'}` },
         { status: 500 }
       )
     }
 
-    // Create notification for seller
+    // When verified: if this account is the seller's default, sync to profile and recalc eligibility so seller can receive payments (non-Stripe; Stripe is updated by Connect callback/webhook)
+    if (status === 'verified' && account.seller_id && account.account_type !== 'stripe' && account.is_default) {
+      const profileUpdate: Record<string, unknown> = {
+        payment_provider: account.account_type,
+        payment_account_id: accountId,
+        provider_account_status: 'enabled',
+      }
+      await supabaseAdmin
+        .from('profiles')
+        .update(profileUpdate)
+        .eq('id', account.seller_id)
+      await updateSellerPayoutEligibility({
+        sellerId: account.seller_id,
+        supabaseAdmin,
+      })
+    } else if (status === 'verified' && account.seller_id && account.account_type !== 'stripe') {
+      // Verified but not default: only recalc eligibility (profile may already point to default; if no default yet, eligibility stays pending until they set default)
+      await updateSellerPayoutEligibility({
+        sellerId: account.seller_id,
+        supabaseAdmin,
+      })
+    }
+
+    // Create notification for seller (use content_key for i18n)
     if (account.seller_id) {
       await supabaseAdmin.from('notifications').insert({
         user_id: account.seller_id,
         type: 'system',
-        title: status === 'verified' ? '支付账户已验证' : '支付账户验证被拒绝',
+        title: status === 'verified' ? 'Payment Account Verified' : 'Payment Account Rejected',
         content: status === 'verified'
-          ? '您的支付账户已通过验证，现在可以正常收款了。'
-          : `您的支付账户验证被拒绝。${notes ? `原因：${notes}` : ''}`,
-        related_id: params.id,
+          ? 'Your payment account has been verified. You can now receive payments.'
+          : `Your payment account verification was rejected.${notes ? ` Reason: ${notes}` : ''}`,
+        related_id: accountId,
         related_type: 'payment_account',
         link: '/seller/payment-accounts',
+        content_key: status === 'verified' ? 'payment_account_verified' : 'payment_account_rejected',
+        content_params: { notes: notes || '' },
       })
     }
+
+    logAudit({
+      action: 'payment_account_verify',
+      userId: user.id,
+      resourceId: accountId,
+      resourceType: 'payment_account',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { status },
+    })
 
     return NextResponse.json({
       success: true,
       account,
     })
-  } catch (error: any) {
-    console.error('Verify payment account error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Verify payment account error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to verify payment account'
     return NextResponse.json(
-      { error: error.message || 'Failed to verify payment account' },
+      { error: message },
       { status: 500 }
     )
   }

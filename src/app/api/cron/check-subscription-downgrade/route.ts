@@ -5,31 +5,22 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAudit } from '@/lib/api/audit'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   try {
-    // Verify cron secret (if using Vercel Cron)
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { verifyCronSecret } = await import('@/lib/cron/verify-cron-secret')
+    const unauth = verifyCronSecret(request)
+    if (unauth) return unauth
+
+    const supabaseAdmin = await getSupabaseAdmin()
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Starting subscription downgrade check at', new Date().toISOString())
     }
-
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
-
-    const startTime = Date.now()
-    console.log('[Cron] Starting subscription downgrade check at', new Date().toISOString())
 
     // Get all active seller subscriptions
     const { data: subscriptions, error: subscriptionsError } = await supabaseAdmin
@@ -41,7 +32,26 @@ export async function GET(request: NextRequest) {
       .not('subscription_tier', 'is', null)
 
     if (subscriptionsError) {
-      console.error('[Cron] Error fetching subscriptions:', subscriptionsError)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Cron] Error fetching subscriptions:', subscriptionsError)
+      }
+      const duration = Date.now() - startTime
+      try {
+        await supabaseAdmin.from('cron_logs').insert({
+          job_name: 'check_subscription_downgrade',
+          status: 'failed',
+          execution_time_ms: duration,
+          executed_at: new Date().toISOString(),
+          error_message: subscriptionsError.message,
+        })
+      } catch (_) {}
+      logAudit({
+        action: 'cron_check_subscription_downgrade',
+        resourceType: 'cron',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: subscriptionsError.message },
+      })
       return NextResponse.json(
         { error: subscriptionsError.message || 'Failed to fetch subscriptions' },
         { status: 500 }
@@ -49,10 +59,27 @@ export async function GET(request: NextRequest) {
     }
 
     if (!subscriptions || subscriptions.length === 0) {
+      const duration = Date.now() - startTime
+      try {
+        await supabaseAdmin.from('cron_logs').insert({
+          job_name: 'check_subscription_downgrade',
+          status: 'success',
+          execution_time_ms: duration,
+          executed_at: new Date().toISOString(),
+          metadata: { checked_count: 0, notified_count: 0 },
+        })
+      } catch (_) {}
+      logAudit({
+        action: 'cron_check_subscription_downgrade',
+        resourceType: 'cron',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+        meta: { checked_count: 0, notified_count: 0 },
+      })
       return NextResponse.json({
         success: true,
         message: 'No active seller subscriptions to check',
-        executionTime: Date.now() - startTime,
+        executionTime: duration,
         checkedCount: 0,
         notifiedCount: 0,
       })
@@ -93,7 +120,7 @@ export async function GET(request: NextRequest) {
             .eq('user_id', subscription.user_id)
             .eq('type', 'system')
             .eq('related_type', 'subscription')
-            .like('title', '%订阅档位%')
+            .eq('content_key', 'subscription_tier_exceeded')
             .gte('created_at', sevenDaysAgo)
             .limit(1)
             .maybeSingle()
@@ -110,54 +137,62 @@ export async function GET(request: NextRequest) {
               .eq('id', subscription.user_id)
               .single()
 
-            const sellerName = profile?.display_name || profile?.username || '卖家'
-
-            // Create notification
+            // Create notification (use content_key for i18n)
             await supabaseAdmin.from('notifications').insert({
               user_id: subscription.user_id,
               type: 'system',
-              title: '订阅档位提醒',
-              content: `您的未完成订单总额（${unfilledTotal.toFixed(2)} USD）已超过当前订阅档位（${subscriptionTier} USD）。建议升级到 ${suggestedTier} USD 档位以继续正常销售。`,
+              title: 'Subscription Tier Reminder',
+              content: `Your unfilled orders total (${unfilledTotal.toFixed(2)} USD) exceeds your subscription tier (${subscriptionTier} USD). Consider upgrading to ${suggestedTier} USD tier.`,
               related_type: 'subscription',
               related_id: subscription.id,
               link: '/subscription/seller',
+              content_key: 'subscription_tier_exceeded',
+              content_params: {
+                unfilledTotal: unfilledTotal.toFixed(2),
+                currentTier: subscriptionTier.toString(),
+                suggestedTier: suggestedTier.toString(),
+              },
             })
 
             notifiedCount++
-            console.log(`[Cron] Notified seller ${subscription.user_id} about tier upgrade needed`)
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[Cron] Notified seller about tier upgrade')
+            }
           }
         }
-      } catch (error: any) {
-        errors.push(`Seller ${subscription.user_id}: ${error.message}`)
-        console.error(`[Cron] Error checking seller ${subscription.user_id}:`, error)
+      } catch (error: unknown) {
+        errors.push(`Seller ${subscription.user_id}: ${error instanceof Error ? error.message : String(error)}`)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[Cron] Error checking seller:', error)
+        }
       }
     }
 
     const duration = Date.now() - startTime
-    console.log('[Cron] Subscription downgrade check completed in', duration, 'ms')
-    console.log('[Cron] Checked:', checkedCount, 'Notified:', notifiedCount)
-
-    // Log execution result (ignore errors - cron_logs table might not exist)
-    try {
-      const { error: logError } = await supabaseAdmin
-        .from('cron_logs')
-        .insert({
-          job_name: 'check_subscription_downgrade',
-          status: 'success',
-          execution_time_ms: duration,
-          executed_at: new Date().toISOString(),
-          metadata: {
-            checked_count: checkedCount,
-            notified_count: notifiedCount,
-            errors: errors.length > 0 ? errors : undefined,
-          },
-        })
-      if (logError) {
-        console.warn('[Cron] Failed to log execution:', logError)
-      }
-    } catch (logError) {
-      console.warn('[Cron] Failed to log execution:', logError)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Subscription downgrade check completed in', duration, 'ms, checked:', checkedCount, 'notified:', notifiedCount)
     }
+    try {
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'check_subscription_downgrade',
+        status: 'success',
+        execution_time_ms: duration,
+        executed_at: new Date().toISOString(),
+        metadata: {
+          checked_count: checkedCount,
+          notified_count: notifiedCount,
+          error_count: errors.length,
+        },
+      })
+    } catch (_) {}
+
+    logAudit({
+      action: 'cron_check_subscription_downgrade',
+      resourceType: 'cron',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { checked_count: checkedCount, notified_count: notifiedCount, error_count: errors.length },
+    })
 
     return NextResponse.json({
       success: true,
@@ -167,10 +202,30 @@ export async function GET(request: NextRequest) {
       notifiedCount,
       errors: errors.length > 0 ? errors : undefined,
     })
-  } catch (error: any) {
-    console.error('[Cron] Subscription downgrade check error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[Cron] Subscription downgrade check error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to check subscription downgrade'
+    try {
+      const supabaseAdmin = await getSupabaseAdmin()
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'check_subscription_downgrade',
+        status: 'failed',
+        execution_time_ms: Date.now() - startTime,
+        executed_at: new Date().toISOString(),
+        error_message: message,
+      })
+    } catch (_) {}
+    logAudit({
+      action: 'cron_check_subscription_downgrade',
+      resourceType: 'cron',
+      result: 'fail',
+      timestamp: new Date().toISOString(),
+      meta: { error: message },
+    })
     return NextResponse.json(
-      { error: error.message || 'Failed to check subscription downgrade' },
+      { error: message },
       { status: 500 }
     )
   }

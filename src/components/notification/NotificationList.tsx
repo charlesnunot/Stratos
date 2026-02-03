@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Card } from '@/components/ui/card'
@@ -18,9 +18,11 @@ export function NotificationList({ onClose, isFullPage = false }: NotificationLi
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
   const router = useRouter()
+  const locale = useLocale()
   const t = useTranslations('navigation')
   const tCommon = useTranslations('common')
   const tNotifications = useTranslations('notifications')
+  const tContent = useTranslations('notifications.content')
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications', user?.id],
@@ -74,10 +76,12 @@ export function NotificationList({ onClose, isFullPage = false }: NotificationLi
 
   const markAsReadMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (!user?.id) return
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('id', id)
+        .eq('user_id', user.id)
 
       if (error) throw error
     },
@@ -102,9 +106,13 @@ export function NotificationList({ onClose, isFullPage = false }: NotificationLi
   })
 
   const getNotificationLink = (notification: any) => {
+    // 举报通知：统一跳转到举报列表并定位到本条（带 reportId，无歧义）
+    if (notification.type === 'report' && notification.related_id) {
+      return `/admin/reports?reportId=${encodeURIComponent(notification.related_id)}`
+    }
     // 优先使用数据库中的 link 字段
     if (notification.link) return notification.link
-    
+
     // 基于 type 和 related_type 生成链接
     if (notification.type === 'system') {
       if (notification.related_type === 'user' && notification.related_id) {
@@ -187,11 +195,6 @@ export function NotificationList({ onClose, isFullPage = false }: NotificationLi
       }
     }
     
-    if (notification.type === 'report' && notification.related_id) {
-      // 举报通知链接到管理后台的举报管理页面
-      return '/admin/reports'
-    }
-    
     return null
   }
 
@@ -256,70 +259,134 @@ export function NotificationList({ onClose, isFullPage = false }: NotificationLi
     }
     
     if (notification.type === 'report') {
-      return '查看举报'
+      return tNotifications('linkText.viewReport')
     }
     
     return null
   }
 
-  // 解析通知内容，使用 actor 数据渲染可点击用户名
+  // Resolve notification body: prefer content_key + content_params (i18n), fallback to content (legacy)
   const renderNotificationContent = (notification: any) => {
-    if (!notification.content) return null
-    
-    // 特殊处理转发通知：如果有转发评论，单独显示
-    if (notification.type === 'repost' && notification.content.includes('：')) {
-      const parts = notification.content.split('：', 2)
-      const baseContent = parts[0] // 基本内容："某用户 向您转发了帖子"
-      const repostComment = parts[1] // 转发评论
-      
-      if (notification.actor && notification.actor_id) {
-        const actorName = notification.actor.display_name || notification.actor.username || '某用户'
-        // 从 baseContent 中提取动作部分（去掉用户名）
-        const actionText = baseContent.replace(/^.+?\s+/, '')
-        
+    const params = (notification.content_params ?? {}) as Record<string, string | number>
+    const repostComment = params.repostComment as string | undefined
+
+    // i18n path: content_key set
+    if (notification.content_key) {
+      const resolvedParams = { ...params }
+      if (notification.actor && (notification.actor.display_name || notification.actor.username)) {
+        resolvedParams.actorName = notification.actor.display_name || notification.actor.username || (params.actorName as string) || ''
+      }
+      if (notification.content_key === 'report_content' && typeof params.reportedType === 'string') {
+        try {
+          resolvedParams.reportedType = tNotifications(`reportedTypes.${params.reportedType}`)
+        } catch {
+          resolvedParams.reportedType = params.reportedType
+        }
+      }
+      let actionText: string
+      try {
+        actionText = tContent(notification.content_key, resolvedParams)
+      } catch {
+        actionText = notification.content ?? ''
+      }
+      const actorName =
+        notification.actor?.display_name || notification.actor?.username || (params.actorName as string) || ''
+
+      // Repost with optional comment: main line + quoted repostComment
+      if (repostComment != null && repostComment !== '') {
         return (
           <div className="mt-1 space-y-1">
             <p className="text-xs text-muted-foreground">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  router.push(`/profile/${notification.actor_id}`)
-                }}
-                className="text-primary hover:underline font-medium"
-              >
-                {actorName}
-              </button>
-              {' ' + actionText}
+              {notification.actor_id && actorName ? (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/profile/${notification.actor_id}`)
+                    }}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    {actorName}
+                  </button>
+                  {' '}
+                </>
+              ) : null}
+              {actionText}
             </p>
-            {repostComment && (
-              <p className="text-xs italic text-muted-foreground/80 pl-4 border-l-2 border-muted">
-                "{repostComment}"
-              </p>
-            )}
-          </div>
-        )
-      } else {
-        // 如果没有 actor 信息，显示纯文本
-        return (
-          <div className="mt-1 space-y-1">
-            <p className="text-xs text-muted-foreground">{baseContent}</p>
-            {repostComment && (
-              <p className="text-xs italic text-muted-foreground/80 pl-4 border-l-2 border-muted">
-                "{repostComment}"
-              </p>
-            )}
+            <p className="text-xs italic text-muted-foreground/80 pl-4 border-l-2 border-muted">
+              &quot;{repostComment}&quot;
+            </p>
           </div>
         )
       }
+
+      // With actor: clickable name + action
+      if (notification.actor_id && actorName) {
+        return (
+          <p className="mt-1 text-xs text-muted-foreground">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                router.push(`/profile/${notification.actor_id}`)
+              }}
+              className="text-primary hover:underline font-medium"
+            >
+              {actorName}
+            </button>
+            {' ' + actionText}
+          </p>
+        )
+      }
+
+      return (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {actionText}
+        </p>
+      )
     }
-    
-    // 方案 A：如果通知有 actor 信息，直接使用 actor 数据渲染
+
+    // Legacy path: no content_key, use content (e.g. Chinese from triggers)
+    if (!notification.content) return null
+
+    if (notification.type === 'repost' && notification.content.includes('：')) {
+      const parts = notification.content.split('：', 2)
+      const baseContent = parts[0]
+      const commentPart = parts[1]
+      const actorName = notification.actor?.display_name || notification.actor?.username || '某用户'
+      const actionText = baseContent.replace(/^.+?\s+/, '')
+
+      return (
+        <div className="mt-1 space-y-1">
+          <p className="text-xs text-muted-foreground">
+            {notification.actor && notification.actor_id ? (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    router.push(`/profile/${notification.actor_id}`)
+                  }}
+                  className="text-primary hover:underline font-medium"
+                >
+                  {actorName}
+                </button>
+                {' ' + actionText}
+              </>
+            ) : (
+              baseContent
+            )}
+          </p>
+          {commentPart && (
+            <p className="text-xs italic text-muted-foreground/80 pl-4 border-l-2 border-muted">
+              &quot;{commentPart}&quot;
+            </p>
+          )}
+        </div>
+      )
+    }
+
     if (notification.actor && notification.actor_id) {
       const actorName = notification.actor.display_name || notification.actor.username || '某用户'
-      // 从 content 中提取动作部分（去掉用户名）
-      // 例如："张三 点赞了您的帖子" -> "点赞了您的帖子"
       const actionText = notification.content.replace(/^.+?\s+/, '')
-      
       return (
         <p className="mt-1 text-xs text-muted-foreground">
           <button
@@ -335,8 +402,7 @@ export function NotificationList({ onClose, isFullPage = false }: NotificationLi
         </p>
       )
     }
-    
-    // 如果没有 actor 信息，显示纯文本（向后兼容旧通知）
+
     return (
       <p className="mt-1 text-xs text-muted-foreground">
         {notification.content}
@@ -405,7 +471,7 @@ export function NotificationList({ onClose, isFullPage = false }: NotificationLi
                   </button>
                 )}
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {new Date(notification.created_at).toLocaleString('zh-CN')}
+                  {new Date(notification.created_at).toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US')}
                 </p>
               </div>
             )

@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { logAudit } from '@/lib/api/audit'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/lib/hooks/useToast'
 import { Card } from '@/components/ui/card'
@@ -10,6 +11,8 @@ import { Button } from '@/components/ui/button'
 import { Loader2, Plus, Edit, Trash2 } from 'lucide-react'
 import { Link, useRouter, usePathname } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
+import { formatCurrency } from '@/lib/currency/format-currency'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 export default function SellerProductsPage() {
   const { user, loading: authLoading } = useAuth()
@@ -50,6 +53,7 @@ export default function SellerProductsPage() {
       .from('products')
       .delete()
       .eq('id', productId)
+      .eq('seller_id', user!.id)
 
     if (error) {
       toast({
@@ -58,6 +62,14 @@ export default function SellerProductsPage() {
         description: tCommon('error') + ': ' + error.message,
       })
     } else {
+      logAudit({
+        action: 'delete_product',
+        userId: user!.id,
+        resourceId: productId,
+        resourceType: 'product',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+      })
       refetch()
     }
   }
@@ -119,7 +131,7 @@ export default function SellerProductsPage() {
                 {product.description}
               </p>
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-lg font-bold">¥{product.price.toFixed(2)}</span>
+                <span className="text-lg font-bold">{formatCurrency(product.price, (product.currency as Currency) || 'USD')}</span>
                 <span
                   className={`rounded-full px-2 py-1 text-xs ${
                     product.status === 'active'

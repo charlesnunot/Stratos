@@ -16,10 +16,21 @@ import { useToast } from '@/lib/hooks/useToast'
 import { getWeChatQRCodeUrl } from '@/lib/utils/share'
 import { ChatButton } from '@/components/social/ChatButton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ADDRESS_FIELD_LIMITS } from '@/lib/utils/address-validation'
+import { useTranslations } from 'next-intl'
+import { criticalFetch, CriticalPathTimeoutError } from '@/lib/critical-path/critical-fetch'
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
 )
+
+const PAYMENT_METHODS = ['stripe', 'paypal', 'alipay', 'wechat', 'bank'] as const
+type PaymentMethodType = (typeof PAYMENT_METHODS)[number]
+
+function filterPaymentMethods(arr: string[] | undefined): PaymentMethodType[] {
+  if (!arr) return []
+  return arr.filter((m): m is PaymentMethodType => PAYMENT_METHODS.includes(m as PaymentMethodType))
+}
 
 export default function OrderPayPage() {
   const params = useParams()
@@ -29,6 +40,10 @@ export default function OrderPayPage() {
   const { user } = useAuth()
   const supabase = createClient()
   const { toast } = useToast()
+  const tOrders = useTranslations('orders')
+  const tCheckout = useTranslations('checkout')
+  const tAddresses = useTranslations('addresses')
+  const tCommon = useTranslations('common')
   const [paymentMethod, setPaymentMethod] = useState<
     'stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank'
   >('stripe')
@@ -84,22 +99,17 @@ export default function OrderPayPage() {
     queryKey: ['availablePaymentMethods', order?.seller_id],
     queryFn: async () => {
       if (!order?.seller_id) return { availableMethods: [] }
-      
-      const response = await fetch('/api/orders/get-available-payment-methods', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sellerIds: [order.seller_id] }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || '加载支付方式失败')
-      }
-
-      const data = await response.json()
-      return { availableMethods: data.availableMethods || [] }
+      const { data } = await criticalFetch<{ availableMethods?: string[] }>(
+        'order_pay_get_payment_methods',
+        '/api/orders/get-available-payment-methods',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sellerIds: [order.seller_id] }),
+          timeoutMs: 8000,
+        }
+      )
+      return { availableMethods: data?.availableMethods || [] }
     },
     enabled: !!order?.seller_id,
     retry: 2,
@@ -148,6 +158,8 @@ export default function OrderPayPage() {
     }
   }, [order])
 
+  const PAYMENT_TIMEOUT_MS = 30000
+
   const handlePayment = async () => {
     if (!order || !user) return
 
@@ -184,8 +196,8 @@ export default function OrderPayPage() {
         if (updateError) {
           toast({
             variant: 'destructive',
-            title: '保存失败',
-            description: '无法保存收货地址，请重试',
+            title: tAddresses('saveFailed'),
+            description: tAddresses('saveFailedDescription'),
           })
           return
         }
@@ -193,8 +205,8 @@ export default function OrderPayPage() {
         console.error('Error saving shipping address:', error)
         toast({
           variant: 'destructive',
-          title: '保存失败',
-          description: error.message || '无法保存收货地址',
+          title: tAddresses('saveFailed'),
+          description: error.message || tAddresses('saveFailedDescription'),
         })
         return
       }
@@ -208,53 +220,60 @@ export default function OrderPayPage() {
       const orderPath = `${localePrefix}/orders/${orderId}`
 
       if (paymentMethod === 'stripe') {
-        // Create checkout session for order
-        const response = await fetch('/api/payments/stripe/create-order-checkout-session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderId: order.id,
-            successUrl: `${origin}${orderPath}?payment=success`,
-            cancelUrl: `${origin}${orderPath}/pay`,
-          }),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          
-          // Handle deposit requirement error
-          if (error.requiresDeposit) {
+        try {
+          const { data } = await criticalFetch<{ url?: string; error?: string; requiresDeposit?: boolean }>(
+            'order_pay_stripe_checkout',
+            '/api/payments/stripe/create-order-checkout-session',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderId: order.id,
+                successUrl: `${origin}${orderPath}?payment=success`,
+                cancelUrl: `${origin}${orderPath}/pay`,
+              }),
+              timeoutMs: 4000,
+            }
+          )
+          if (data?.requiresDeposit) {
             setDepositRequired(true)
             toast({
               variant: 'destructive',
-              title: '订单暂时无法支付',
-              description: '卖家需要支付保证金后才能接受订单。请联系卖家。',
+              title: tOrders('depositRequiredContactSeller'),
               duration: 5000,
             })
             setProcessing(false)
             return
           }
-          
-          throw new Error(error.error || 'Failed to create checkout session')
+          if (data?.url) {
+            window.location.href = data.url
+            return
+          }
+          throw new Error(data?.error || 'Failed to create checkout session')
+        } catch (err) {
+          if (err instanceof CriticalPathTimeoutError) {
+            toast({
+              variant: 'destructive',
+              title: tCheckout('validationTimeoutRetry'),
+              duration: 5000,
+            })
+            setProcessing(false)
+            return
+          }
+          throw err
         }
-
-        const { url } = await response.json()
-        
-        // Redirect to Stripe Checkout
-        window.location.href = url
       } else if (paymentMethod === 'paypal') {
         // PayPal payment is handled by PayPalButton component
         // This should not be reached if PayPal button is used
         toast({
           variant: 'info',
-          title: '提示',
-          description: '请使用PayPal按钮进行支付',
+          title: tCommon('notice'),
+          description: tCheckout('usePayPalBelow'),
         })
         return
       } else if (paymentMethod === 'alipay') {
-        // Create Alipay order
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), PAYMENT_TIMEOUT_MS)
         const response = await fetch('/api/payments/alipay/create-order', {
           method: 'POST',
           headers: {
@@ -267,7 +286,9 @@ export default function OrderPayPage() {
             returnUrl: `${origin}${orderPath}`,
             notifyUrl: `${origin}/api/payments/alipay/callback`,
           }),
+          signal: controller.signal,
         })
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
           const error = await response.json()
@@ -277,8 +298,7 @@ export default function OrderPayPage() {
             setDepositRequired(true)
             toast({
               variant: 'destructive',
-              title: '订单暂时无法支付',
-              description: '卖家需要支付保证金后才能接受订单。请联系卖家。',
+              title: tOrders('depositRequiredContactSeller'),
               duration: 5000,
             })
             setProcessing(false)
@@ -295,8 +315,8 @@ export default function OrderPayPage() {
         // In real implementation, use Alipay SDK to open payment page
         toast({
           variant: 'info',
-          title: '提示',
-          description: '正在跳转到支付宝支付页面...',
+          title: tCommon('notice'),
+          description: tCheckout('loadingPaymentMethods'),
         })
 
         // Simulate redirect (in production, use actual Alipay SDK)
@@ -304,7 +324,8 @@ export default function OrderPayPage() {
           router.push(`/orders/${orderId}`)
         }, 2000)
       } else if (paymentMethod === 'wechat') {
-        // Create WeChat Pay order
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), PAYMENT_TIMEOUT_MS)
         const response = await fetch('/api/payments/wechat/create-order', {
           method: 'POST',
           headers: {
@@ -316,7 +337,9 @@ export default function OrderPayPage() {
             description: `订单 ${order.order_number}`,
             notifyUrl: `${origin}/api/payments/wechat/notify`,
           }),
+          signal: controller.signal,
         })
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
           const error = await response.json()
@@ -343,14 +366,17 @@ export default function OrderPayPage() {
         setWeChatCodeUrl(codeUrl)
         setShowWeChatQR(true)
       } else if (paymentMethod === 'bank') {
-        // Initialize bank transfer via API (moved from client to server)
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), PAYMENT_TIMEOUT_MS)
         const response = await fetch('/api/payments/bank/init', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ orderId: order.id }),
+          signal: controller.signal,
         })
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
           const error = await response.json()
@@ -360,8 +386,7 @@ export default function OrderPayPage() {
             setDepositRequired(true)
             toast({
               variant: 'destructive',
-              title: '订单暂时无法支付',
-              description: '卖家需要支付保证金后才能接受订单。请联系卖家。',
+              title: tOrders('depositRequiredContactSeller'),
               duration: 5000,
             })
             setProcessing(false)
@@ -372,8 +397,8 @@ export default function OrderPayPage() {
           if (response.status === 403) {
             toast({
               variant: 'destructive',
-              title: '无权访问',
-              description: error.error || '此订单不属于您',
+              title: tOrders('noAccessToOrder'),
+              description: error.error || tOrders('noAccessToOrder'),
             })
             router.push('/orders')
             return
@@ -389,16 +414,18 @@ export default function OrderPayPage() {
         // Other payment methods - placeholder
         toast({
           variant: 'warning',
-          title: '提示',
-          description: `${paymentMethod} 支付功能开发中`,
+          title: tCommon('notice'),
+          description: `${paymentMethod} ${tCommon('processing')}`,
         })
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Payment error:', error)
+      const isTimeout = error instanceof CriticalPathTimeoutError
+      const isAbort = !isTimeout && (error as any)?.name === 'AbortError'
       toast({
         variant: 'destructive',
-        title: '错误',
-        description: `支付失败: ${error.message}`,
+        title: tCommon('error'),
+        description: isTimeout || isAbort ? tCheckout('validationTimeoutRetry') : `支付失败: ${(error as Error)?.message}`,
       })
     } finally {
       setProcessing(false)
@@ -422,13 +449,13 @@ export default function OrderPayPage() {
   if (!order) {
     return (
       <div className="py-12 text-center">
-        <p className="text-destructive">订单不存在</p>
+        <p className="text-destructive">{tOrders('orderNotFound')}</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/orders')}
         >
-          返回订单列表
+          {tOrders('backToOrders')}
         </Button>
       </div>
     )
@@ -438,14 +465,14 @@ export default function OrderPayPage() {
   if (order.buyer_id !== user.id) {
     return (
       <div className="py-12 text-center">
-        <p className="text-destructive">无权访问此订单</p>
-        <p className="mt-2 text-sm text-muted-foreground">此订单不属于您</p>
+        <p className="text-destructive">{tOrders('noAccessToOrder')}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{tOrders('noAccessToOrder')}</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/orders')}
         >
-          返回订单列表
+          {tOrders('backToOrders')}
         </Button>
       </div>
     )
@@ -460,12 +487,12 @@ export default function OrderPayPage() {
               <CreditCard className="h-8 w-8 text-green-600" />
             </div>
           </div>
-          <h2 className="mb-2 text-2xl font-bold">订单已支付</h2>
+          <h2 className="mb-2 text-2xl font-bold">{tOrders('orderPaidTitle')}</h2>
           <p className="mb-6 text-muted-foreground">
-            您的订单已成功支付，我们将尽快处理
+            {tOrders('orderPaidDescription')}
           </p>
           <Button onClick={() => router.push(`/orders/${orderId}`)}>
-            查看订单详情
+            {tOrders('viewOrderDetails')}
           </Button>
         </Card>
       </div>
@@ -474,32 +501,32 @@ export default function OrderPayPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">支付订单</h1>
+      <h1 className="text-2xl font-bold">{tOrders('payOrderTitle')}</h1>
 
       {/* Parent Order Info (if this is a child order) */}
       {order.parent_order_id && order.parent_order && (
         <Card className="p-6 border-primary/20">
-          <h2 className="mb-4 text-lg font-semibold">父订单信息</h2>
+          <h2 className="mb-4 text-lg font-semibold">{tOrders('parentOrderInfo')}</h2>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">父订单号</span>
+              <span className="text-muted-foreground">{tOrders('parentOrderNumber')}</span>
               <span className="font-semibold">{order.parent_order.order_group_number}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">父订单总金额</span>
+              <span className="text-muted-foreground">{tOrders('parentOrderTotal')}</span>
               <span className="font-semibold">¥{order.parent_order.total_amount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">父订单支付状态</span>
+              <span className="text-muted-foreground">{tOrders('parentOrderPaymentStatus')}</span>
               <span className={`font-semibold ${
                 order.parent_order.payment_status === 'paid' ? 'text-green-600' :
                 order.parent_order.payment_status === 'partial' ? 'text-yellow-600' :
                 'text-muted-foreground'
               }`}>
-                {order.parent_order.payment_status === 'paid' ? '已全部支付' :
-                 order.parent_order.payment_status === 'partial' ? '部分支付' :
-                 order.parent_order.payment_status === 'failed' ? '支付失败' :
-                 '待支付'}
+                {order.parent_order.payment_status === 'paid' ? tOrders('paidAll') :
+                 order.parent_order.payment_status === 'partial' ? tOrders('partialPaid') :
+                 order.parent_order.payment_status === 'failed' ? tOrders('paymentFailed') :
+                 tOrders('pendingPayment')}
               </span>
             </div>
           </div>
@@ -508,28 +535,28 @@ export default function OrderPayPage() {
 
       {/* Order Summary */}
       <Card className="p-6">
-        <h2 className="mb-4 text-lg font-semibold">订单信息</h2>
+        <h2 className="mb-4 text-lg font-semibold">{tOrders('orderInfo')}</h2>
         <div className="space-y-2">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">订单号</span>
+            <span className="text-muted-foreground">{tOrders('orderNumber')}</span>
             <span className="font-semibold">{order.order_number}</span>
           </div>
           {order.parent_order_id && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">子订单状态</span>
+              <span className="text-muted-foreground">{tOrders('childOrderStatus')}</span>
               <span className={`font-semibold ${
                 order.seller_payment_status === 'paid' ? 'text-green-600' :
                 order.seller_payment_status === 'failed' ? 'text-red-600' :
                 'text-muted-foreground'
               }`}>
-                {order.seller_payment_status === 'paid' ? '已支付' :
-                 order.seller_payment_status === 'failed' ? '支付失败' :
-                 '待支付'}
+                {order.seller_payment_status === 'paid' ? tOrders('paid') :
+                 order.seller_payment_status === 'failed' ? tOrders('paymentFailed') :
+                 tOrders('pendingPayment')}
               </span>
             </div>
           )}
           <div className="flex justify-between">
-            <span className="text-muted-foreground">订单金额</span>
+            <span className="text-muted-foreground">{tOrders('orderAmount')}</span>
             <span className="text-xl font-bold">
               ¥{order.total_amount.toFixed(2)}
             </span>
@@ -542,7 +569,7 @@ export default function OrderPayPage() {
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
-            <span>订单暂时无法支付，请联系卖家</span>
+            <span>{tOrders('depositRequiredContactSeller')}</span>
             <ChatButton
               targetUserId={order.seller_id}
               targetUserName={order.seller.display_name || order.seller.username}
@@ -551,7 +578,7 @@ export default function OrderPayPage() {
               className="ml-4"
             >
               <MessageCircle className="mr-2 h-4 w-4" />
-              联系卖家
+              {tOrders('contactSeller')}
             </ChatButton>
           </AlertDescription>
         </Alert>
@@ -560,84 +587,91 @@ export default function OrderPayPage() {
       {/* Shipping Address Form */}
       {showShippingForm && (
         <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold">收货信息</h2>
+          <h2 className="mb-4 text-lg font-semibold">{tOrders('shippingAddressFormTitle')}</h2>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">收货人姓名 *</label>
+                <label className="mb-1 block text-sm font-medium">{tAddresses('recipientName')} *</label>
                 <input
                   type="text"
                   value={shippingAddress.recipientName}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, recipientName: e.target.value })}
-                  placeholder="请输入收货人姓名"
+                  placeholder={tAddresses('recipientNamePlaceholder')}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   required
+                  maxLength={ADDRESS_FIELD_LIMITS.recipient_name}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">联系电话 *</label>
+                <label className="mb-1 block text-sm font-medium">{tAddresses('phone')} *</label>
                 <input
                   type="tel"
                   value={shippingAddress.phone}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, phone: e.target.value })}
-                  placeholder="请输入联系电话"
+                  placeholder={tAddresses('phonePlaceholder')}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   required
+                  maxLength={ADDRESS_FIELD_LIMITS.phone}
                 />
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">国家/地区 *</label>
+              <label className="mb-1 block text-sm font-medium">{tAddresses('country')} *</label>
               <input
                 type="text"
                 value={shippingAddress.country}
                 onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
-                placeholder="请输入国家/地区"
+                placeholder={tAddresses('countryPlaceholder')}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
+                maxLength={ADDRESS_FIELD_LIMITS.country}
               />
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">省/州</label>
+                <label className="mb-1 block text-sm font-medium">{tAddresses('state')}</label>
                 <input
                   type="text"
                   value={shippingAddress.state}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
-                  placeholder="请输入省/州"
+                  placeholder={tAddresses('statePlaceholder')}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  maxLength={ADDRESS_FIELD_LIMITS.state}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">城市</label>
+                <label className="mb-1 block text-sm font-medium">{tAddresses('city')}</label>
                 <input
                   type="text"
                   value={shippingAddress.city}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
-                  placeholder="请输入城市"
+                  placeholder={tAddresses('cityPlaceholder')}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  maxLength={ADDRESS_FIELD_LIMITS.city}
                 />
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">详细地址 *</label>
+              <label className="mb-1 block text-sm font-medium">{tAddresses('streetAddress')} *</label>
               <input
                 type="text"
                 value={shippingAddress.streetAddress}
                 onChange={(e) => setShippingAddress({ ...shippingAddress, streetAddress: e.target.value })}
-                placeholder="请输入详细地址"
+                placeholder={tAddresses('streetAddressPlaceholder')}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
+                maxLength={ADDRESS_FIELD_LIMITS.street_address}
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">邮政编码</label>
+              <label className="mb-1 block text-sm font-medium">{tAddresses('postalCode')}</label>
               <input
                 type="text"
                 value={shippingAddress.postalCode}
                 onChange={(e) => setShippingAddress({ ...shippingAddress, postalCode: e.target.value })}
-                placeholder="请输入邮政编码（可选）"
+                placeholder={tAddresses('postalCodePlaceholder')}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                maxLength={ADDRESS_FIELD_LIMITS.postal_code}
               />
             </div>
           </div>
@@ -646,33 +680,33 @@ export default function OrderPayPage() {
 
       {/* Payment Method Selection */}
       <Card className="p-6">
-        <h2 className="mb-4 text-lg font-semibold">选择支付方式</h2>
+        <h2 className="mb-4 text-lg font-semibold">{tOrders('selectPaymentMethodTitle')}</h2>
         {order.payment_method && (
           <div className="mb-4 rounded-md bg-muted p-3 text-sm">
             <p className="text-muted-foreground">
-              结算时已选择：<span className="font-semibold capitalize">{order.payment_method}</span>
+              {tOrders('selectedAtCheckout')}：<span className="font-semibold capitalize">{order.payment_method}</span>
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              您可以选择其他支付方式或继续使用已选择的支付方式
+              {tOrders('onlySellerMethodsHint')}
             </p>
           </div>
         )}
         {loadingPaymentMethods ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-sm text-muted-foreground">加载支付方式...</span>
+            <span className="ml-2 text-sm text-muted-foreground">{tCheckout('loadingPaymentMethods')}</span>
           </div>
         ) : paymentMethodsError ? (
           <div className="rounded-lg border border-destructive bg-destructive/10 p-4 space-y-3">
             <p className="text-sm text-destructive">
-              加载支付方式失败：{paymentMethodsError instanceof Error ? paymentMethodsError.message : '未知错误'}
+              {tOrders('paymentMethodsLoadFailedShort')}：{paymentMethodsError instanceof Error ? paymentMethodsError.message : tCommon('error')}
             </p>
             <Button
               variant="outline"
               size="sm"
               onClick={() => window.location.reload()}
             >
-              刷新页面
+              {tCommon('refreshPage')}
             </Button>
           </div>
         ) : (
@@ -680,11 +714,11 @@ export default function OrderPayPage() {
             <PaymentMethodSelector
               selectedMethod={paymentMethod}
               onSelect={setPaymentMethod}
-              availableMethods={availablePaymentMethods?.availableMethods}
+              availableMethods={filterPaymentMethods(availablePaymentMethods?.availableMethods)}
             />
-            {availablePaymentMethods?.availableMethods && availablePaymentMethods.availableMethods.length > 0 && (
+            {filterPaymentMethods(availablePaymentMethods?.availableMethods).length > 0 && (
               <p className="mt-2 text-xs text-muted-foreground">
-                提示：仅显示该卖家支持的支付方式
+                {tOrders('onlySellerMethodsHint')}
               </p>
             )}
           </>
@@ -694,7 +728,7 @@ export default function OrderPayPage() {
       {/* Payment Button */}
       {paymentMethod === 'paypal' ? (
         <Card className="p-6">
-          <h3 className="mb-4 text-sm font-semibold">使用PayPal支付</h3>
+          <h3 className="mb-4 text-sm font-semibold">{tCheckout('usePayPal')}</h3>
           <PayPalButton
             amount={order.total_amount}
             currency="CNY"
@@ -710,8 +744,8 @@ export default function OrderPayPage() {
             onError={(error) => {
               toast({
                 variant: 'destructive',
-                title: '错误',
-                description: `PayPal支付失败: ${error.message}`,
+                title: tCommon('error'),
+                description: `${tCheckout('paypalFailed')}: ${error.message}`,
               })
             }}
           />
@@ -721,7 +755,7 @@ export default function OrderPayPage() {
               onClick={() => router.back()}
               className="w-full"
             >
-              返回
+              {tCommon('back')}
             </Button>
           </div>
         </Card>
@@ -890,6 +924,41 @@ export default function OrderPayPage() {
                       variant: 'warning',
                       title: '提示',
                       description: '请上传转账凭证',
+                    })
+                    return
+                  }
+                  const amount = parseFloat(bankFormData.transferAmount)
+                  if (isNaN(amount) || amount <= 0) {
+                    toast({
+                      variant: 'destructive',
+                      title: '提示',
+                      description: '请输入有效的转账金额',
+                    })
+                    return
+                  }
+                  const diff = Math.abs(amount - order.total_amount)
+                  if (diff > 0.01) {
+                    toast({
+                      variant: 'warning',
+                      title: '提示',
+                      description: `转账金额应与订单金额一致（¥${order.total_amount.toFixed(2)}）`,
+                    })
+                    return
+                  }
+                  if (!bankFormData.bankName?.trim()) {
+                    toast({
+                      variant: 'destructive',
+                      title: '提示',
+                      description: '请输入您使用的银行名称',
+                    })
+                    return
+                  }
+                  const transferDate = new Date(bankFormData.transferDate)
+                  if (isNaN(transferDate.getTime()) || transferDate > new Date()) {
+                    toast({
+                      variant: 'destructive',
+                      title: '提示',
+                      description: '转账日期不能为未来日期',
                     })
                     return
                   }

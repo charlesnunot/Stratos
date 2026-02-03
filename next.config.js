@@ -5,10 +5,20 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // 兼容：部分 Next 版本下 domains 更稳定
+    domains: ['res.cloudinary.com'],
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: '**.supabase.co',
+        port: '',
+        pathname: '/**',
       },
     ],
   },

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -45,6 +45,18 @@ export default function RegisterPage() {
       setPasswordStrength(null)
     }
   }
+
+  // 已登录用户访问注册页时重定向到首页
+  useEffect(() => {
+    const checkAndRedirect = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.replace('/')
+        router.refresh()
+      }
+    }
+    checkAndRedirect()
+  }, [supabase.auth, router])
 
   // 用户名可用性检查（防抖）
   useEffect(() => {

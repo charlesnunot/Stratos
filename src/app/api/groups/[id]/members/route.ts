@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAudit } from '@/lib/api/audit'
 
 /**
  * Add members to a group
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: groupId } = await params
+    if (!groupId) {
+      return NextResponse.json({ error: 'Group ID required' }, { status: 400 })
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -18,8 +25,6 @@ export async function POST(
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const groupId = params.id
     const { memberIds } = await request.json()
 
     if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
@@ -29,18 +34,7 @@ export async function POST(
       )
     }
 
-    // Use service role client for admin operations
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabaseAdmin = await getSupabaseAdmin()
 
     // Check if user is owner or admin of the group
     const { data: membership } = await supabaseAdmin
@@ -103,32 +97,52 @@ export async function POST(
       .insert(memberInserts)
 
     if (insertError) {
+      logAudit({
+        action: 'group_add_member',
+        userId: user.id,
+        resourceId: groupId,
+        resourceType: 'conversation',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: insertError.message },
+      })
       return NextResponse.json(
         { error: insertError.message },
         { status: 500 }
       )
     }
 
-    // Create notifications for new members
+    logAudit({
+      action: 'group_add_member',
+      userId: user.id,
+      resourceId: groupId,
+      resourceType: 'conversation',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { addedCount: newMemberIds.length },
+    })
+
+    // Create notifications for new members (use content_key for i18n)
     for (const memberId of newMemberIds) {
       await supabaseAdmin.from('notifications').insert({
         user_id: memberId,
         type: 'system',
-        title: '加入群组',
-        content: `您已被添加到群组 "${group?.name || '未知群组'}"`,
+        title: 'Added to Group',
+        content: `You have been added to group "${group?.name || 'Group'}"`,
         related_id: groupId,
-        related_type: 'user',
-        link: `/groups/${groupId}`,
+        related_type: 'conversation',
+        link: `/messages/${groupId}`,
+        actor_id: user.id,
+        content_key: 'group_joined',
+        content_params: { groupName: group?.name || 'Group' },
       })
     }
 
     return NextResponse.json({ success: true, addedCount: newMemberIds.length })
-  } catch (error: any) {
-    console.error('Add group members error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to add members' },
-      { status: 500 }
-    )
+  } catch (err: unknown) {
+    console.error('Add group members error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to add members'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
@@ -137,9 +151,14 @@ export async function POST(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: groupId } = await params
+    if (!groupId) {
+      return NextResponse.json({ error: 'Group ID required' }, { status: 400 })
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -149,8 +168,6 @@ export async function DELETE(
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const groupId = params.id
     const { searchParams } = new URL(request.url)
     const memberId = searchParams.get('memberId')
 
@@ -161,18 +178,7 @@ export async function DELETE(
       )
     }
 
-    // Use service role client for admin operations
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabaseAdmin = await getSupabaseAdmin()
 
     // Check if user is owner or admin of the group, or if removing themselves
     const { data: membership } = await supabaseAdmin
@@ -212,6 +218,13 @@ export async function DELETE(
       )
     }
 
+    // Get group name for notification
+    const { data: groupForNotif } = await supabaseAdmin
+      .from('conversations')
+      .select('name')
+      .eq('id', groupId)
+      .single()
+
     // Remove member
     const { error: deleteError } = await supabaseAdmin
       .from('group_members')
@@ -220,18 +233,53 @@ export async function DELETE(
       .eq('user_id', memberId)
 
     if (deleteError) {
+      logAudit({
+        action: 'group_remove_member',
+        userId: user.id,
+        resourceId: groupId,
+        resourceType: 'conversation',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: deleteError.message },
+      })
       return NextResponse.json(
         { error: deleteError.message },
         { status: 500 }
       )
     }
 
+    logAudit({
+      action: 'group_remove_member',
+      userId: user.id,
+      resourceId: groupId,
+      resourceType: 'conversation',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { removedMemberId: memberId },
+    })
+
+    // Notify removed member (use content_key for i18n)
+    try {
+      await supabaseAdmin.from('notifications').insert({
+        user_id: memberId,
+        type: 'system',
+        title: 'Removed from Group',
+        content: `You have been removed from group "${groupForNotif?.name || 'Group'}"`,
+        related_id: groupId,
+        related_type: 'conversation',
+        link: '/messages',
+        actor_id: user.id,
+        content_key: 'group_member_removed',
+        content_params: { groupName: groupForNotif?.name || 'Group' },
+      })
+    } catch (notifErr) {
+      console.error('[groups/members] Failed to send removal notification:', notifErr)
+    }
+
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('Remove group member error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to remove member' },
-      { status: 500 }
-    )
+  } catch (err: unknown) {
+    console.error('Remove group member error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to remove member'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

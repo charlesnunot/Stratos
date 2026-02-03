@@ -53,11 +53,15 @@ export function lazyLoadComponent<T extends React.ComponentType<any>>(
 ) {
   const LazyComponent = React.lazy(importFn)
 
-  return (props: React.ComponentProps<T>) => (
-    <Suspense fallback={fallback || <div>Loading...</div>}>
-      <LazyComponent {...props} />
-    </Suspense>
-  )
+  function LazyLoadWrapper(props: React.ComponentProps<T>) {
+    return (
+      <Suspense fallback={fallback || <div>Loading...</div>}>
+        <LazyComponent {...props} />
+      </Suspense>
+    )
+  }
+  LazyLoadWrapper.displayName = 'LazyLoadWrapper'
+  return LazyLoadWrapper
 }
 
 /**

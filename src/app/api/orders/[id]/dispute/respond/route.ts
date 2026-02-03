@@ -5,12 +5,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: orderId } = await params
     const supabase = await createClient()
     const {
       data: { user },
@@ -34,7 +36,7 @@ export async function POST(
     const { data: dispute, error: disputeError } = await supabase
       .from('order_disputes')
       .select('*, orders!inner(seller_id, buyer_id)')
-      .eq('order_id', params.id)
+      .eq('order_id', orderId)
       .single()
 
     if (disputeError || !dispute) {
@@ -70,13 +72,13 @@ export async function POST(
       const { data: order } = await supabaseAdmin
         .from('orders')
         .select('total_amount, currency')
-        .eq('id', params.id)
+        .eq('id', orderId)
         .single()
 
       if (order) {
         // Create refund record
         await supabaseAdmin.from('order_refunds').insert({
-          order_id: params.id,
+          order_id: orderId,
           dispute_id: dispute.id,
           refund_amount: order.total_amount,
           currency: order.currency || 'USD',
@@ -121,18 +123,33 @@ export async function POST(
     await supabaseAdmin.from('notifications').insert({
       user_id: (dispute.orders as any).buyer_id,
       type: 'system',
-      title: '卖家已回应纠纷',
-      content: `卖家已对订单纠纷做出回应`,
-      related_id: params.id,
+      title: 'Seller Responded to Dispute',
+      content: 'The seller has responded to the order dispute',
+      related_id: orderId,
       related_type: 'order',
-      link: `/orders/${params.id}/dispute`,
+      link: `/orders/${orderId}/dispute`,
+      content_key: 'dispute_seller_responded',
+      content_params: { action },
+    })
+
+    logAudit({
+      action: 'dispute_respond',
+      userId: user.id,
+      resourceId: orderId,
+      resourceType: 'order',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { action },
     })
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('Dispute response error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Dispute response error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to respond to dispute'
     return NextResponse.json(
-      { error: error.message || 'Failed to respond to dispute' },
+      { error: message },
       { status: 500 }
     )
   }

@@ -8,6 +8,8 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/lib/hooks/useToast'
 import { Loader2, Plus, MapPin, Check } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { validateAddressFields, ADDRESS_FIELD_LIMITS } from '@/lib/utils/address-validation'
 
 interface Address {
   id: string
@@ -39,6 +41,7 @@ export function AddressSelector({
   const supabase = createClient()
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const t = useTranslations('addresses')
   const [showForm, setShowForm] = useState(false)
   const [newAddress, setNewAddress] = useState({
     label: '',
@@ -70,18 +73,29 @@ export function AddressSelector({
     enabled: !!user,
   })
 
-  // Set default address on load
+  // Set default address on load; clear selection if selected address was removed
   useEffect(() => {
-    if (addresses && addresses.length > 0 && !selectedAddressId) {
+    if (!addresses) return
+    if (addresses.length === 0) {
+      if (selectedAddressId) {
+        onSelectAddress(null)
+        toast({ variant: 'warning', title: t('addressRemovedSelectAgain') })
+      }
+      return
+    }
+    if (!selectedAddressId) {
       const defaultAddress = addresses.find((addr) => addr.is_default) || addresses[0]
       onSelectAddress(defaultAddress)
-    } else if (selectedAddressId && addresses) {
+    } else {
       const selected = addresses.find((addr) => addr.id === selectedAddressId)
       if (selected) {
         onSelectAddress(selected)
+      } else {
+        onSelectAddress(null)
+        toast({ variant: 'warning', title: t('addressRemovedSelectAgain') })
       }
     }
-  }, [addresses, selectedAddressId, onSelectAddress])
+  }, [addresses, selectedAddressId, onSelectAddress, toast, t])
 
   // Create new address mutation
   const createAddressMutation = useMutation({
@@ -125,25 +139,36 @@ export function AddressSelector({
       })
       toast({
         variant: 'default',
-        title: '地址已保存',
-        description: '地址已成功保存',
+        title: t('addressSaved'),
+        description: t('addressSavedDescription'),
       })
     },
     onError: (error: any) => {
       toast({
         variant: 'destructive',
-        title: '保存失败',
-        description: error.message || '无法保存地址，请重试',
+        title: t('saveFailed'),
+        description: error.message || t('saveFailedDescription'),
       })
     },
   })
 
   const handleAddAddress = () => {
-    if (!newAddress.recipientName || !newAddress.phone || !newAddress.streetAddress || !newAddress.country) {
+    const validation = validateAddressFields({
+      label: newAddress.label || null,
+      recipient_name: newAddress.recipientName,
+      phone: newAddress.phone,
+      country: newAddress.country,
+      state: newAddress.state || null,
+      city: newAddress.city || null,
+      street_address: newAddress.streetAddress,
+      postal_code: newAddress.postalCode || null,
+    })
+    if (!validation.valid) {
+      const firstError = Object.values(validation.errors)[0]
       toast({
         variant: 'destructive',
-        title: '信息不完整',
-        description: '请填写完整的收货地址信息（姓名、电话、地址、国家）',
+        title: t('infoError'),
+        description: firstError,
       })
       return
     }
@@ -186,7 +211,7 @@ export function AddressSelector({
                     )}
                     {address.is_default && (
                       <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">
-                        默认
+                        {t('default')}
                       </span>
                     )}
                     {selectedAddressId === address.id && (
@@ -202,7 +227,7 @@ export function AddressSelector({
                   </p>
                   {address.postal_code && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      邮政编码: {address.postal_code}
+                      {t('postalCode')}: {address.postal_code}
                     </p>
                   )}
                 </div>
@@ -215,94 +240,102 @@ export function AddressSelector({
       {/* Add New Address Form */}
       {showForm ? (
         <Card className="p-6">
-          <h3 className="mb-4 text-lg font-semibold">添加新地址</h3>
+          <h3 className="mb-4 text-lg font-semibold">{t('addNew')}</h3>
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">地址标签（可选）</label>
+              <label className="mb-1 block text-sm font-medium">{t('labelOptional')}</label>
               <input
                 type="text"
                 value={newAddress.label}
                 onChange={(e) => setNewAddress({ ...newAddress, label: e.target.value })}
-                placeholder="例如：家庭、工作、其他"
+                placeholder={t('labelPlaceholder')}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                maxLength={ADDRESS_FIELD_LIMITS.label}
               />
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">收货人姓名 *</label>
+                <label className="mb-1 block text-sm font-medium">{t('recipientName')} *</label>
                 <input
                   type="text"
                   value={newAddress.recipientName}
                   onChange={(e) => setNewAddress({ ...newAddress, recipientName: e.target.value })}
-                  placeholder="请输入收货人姓名"
+                  placeholder={t('recipientNamePlaceholder')}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   required
+                  maxLength={ADDRESS_FIELD_LIMITS.recipient_name}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">联系电话 *</label>
+                <label className="mb-1 block text-sm font-medium">{t('phone')} *</label>
                 <input
                   type="tel"
                   value={newAddress.phone}
                   onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
-                  placeholder="请输入联系电话"
+                  placeholder={t('phonePlaceholder')}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   required
+                  maxLength={ADDRESS_FIELD_LIMITS.phone}
                 />
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">国家/地区 *</label>
+              <label className="mb-1 block text-sm font-medium">{t('country')} *</label>
               <input
                 type="text"
                 value={newAddress.country}
                 onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })}
-                placeholder="请输入国家/地区"
+                placeholder={t('countryPlaceholder')}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
+                maxLength={ADDRESS_FIELD_LIMITS.country}
               />
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">省/州</label>
+                <label className="mb-1 block text-sm font-medium">{t('state')}</label>
                 <input
                   type="text"
                   value={newAddress.state}
                   onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
-                  placeholder="请输入省/州"
+                  placeholder={t('statePlaceholder')}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  maxLength={ADDRESS_FIELD_LIMITS.state}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">城市</label>
+                <label className="mb-1 block text-sm font-medium">{t('city')}</label>
                 <input
                   type="text"
                   value={newAddress.city}
                   onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-                  placeholder="请输入城市"
+                  placeholder={t('cityPlaceholder')}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  maxLength={ADDRESS_FIELD_LIMITS.city}
                 />
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">详细地址 *</label>
+              <label className="mb-1 block text-sm font-medium">{t('streetAddress')} *</label>
               <input
                 type="text"
                 value={newAddress.streetAddress}
                 onChange={(e) => setNewAddress({ ...newAddress, streetAddress: e.target.value })}
-                placeholder="请输入详细地址"
+                placeholder={t('streetAddressPlaceholder')}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
+                maxLength={ADDRESS_FIELD_LIMITS.street_address}
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">邮政编码</label>
+              <label className="mb-1 block text-sm font-medium">{t('postalCode')}</label>
               <input
                 type="text"
                 value={newAddress.postalCode}
                 onChange={(e) => setNewAddress({ ...newAddress, postalCode: e.target.value })}
-                placeholder="请输入邮政编码（可选）"
+                placeholder={t('postalCodePlaceholder')}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                maxLength={ADDRESS_FIELD_LIMITS.postal_code}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -314,7 +347,7 @@ export function AddressSelector({
                 className="h-4 w-4 rounded border-gray-300"
               />
               <label htmlFor="isDefault" className="text-sm">
-                设为默认地址
+                {t('setAsDefault')}
               </label>
             </div>
             <div className="flex gap-2">
@@ -336,7 +369,7 @@ export function AddressSelector({
                 }}
                 className="flex-1"
               >
-                取消
+                {t('cancel')}
               </Button>
               <Button
                 onClick={handleAddAddress}
@@ -346,10 +379,10 @@ export function AddressSelector({
                 {createAddressMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    保存中...
+                    {t('saving')}
                   </>
                 ) : (
-                  '保存地址'
+                  t('save')
                 )}
               </Button>
             </div>
@@ -363,7 +396,7 @@ export function AddressSelector({
             className="w-full"
           >
             <Plus className="mr-2 h-4 w-4" />
-            添加新地址
+            {t('addNew')}
           </Button>
         )
       )}
@@ -372,11 +405,11 @@ export function AddressSelector({
       {!isLoading && (!addresses || addresses.length === 0) && !showForm && (
         <Card className="p-6 text-center">
           <MapPin className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-          <p className="text-muted-foreground mb-4">您还没有保存的地址</p>
+          <p className="text-muted-foreground mb-4">{t('noAddresses')}</p>
           {showAddButton && (
             <Button onClick={() => setShowForm(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              添加地址
+              {t('addAddress')}
             </Button>
           )}
         </Card>

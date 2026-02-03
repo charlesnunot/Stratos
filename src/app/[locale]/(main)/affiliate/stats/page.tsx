@@ -10,6 +10,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { StatsChart } from '@/components/stats/StatsChart'
+import { formatCurrency } from '@/lib/currency/format-currency'
 
 export default function AffiliateStatsPage() {
   const { user, loading: authLoading } = useAuthGuard()
@@ -154,7 +155,7 @@ export default function AffiliateStatsPage() {
             <div>
               <p className="text-sm text-muted-foreground">{t('totalEarnings')}</p>
               <p className="text-2xl font-bold">
-                ¥{stats?.totalEarnings.toFixed(2) || '0.00'}
+                {formatCurrency(stats?.totalEarnings ?? 0, 'CNY')}
               </p>
             </div>
             <DollarSign className="h-8 w-8 text-green-600" />
@@ -164,9 +165,9 @@ export default function AffiliateStatsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">待结算</p>
+              <p className="text-sm text-muted-foreground">{t('pendingSettlement')}</p>
               <p className="text-2xl font-bold">
-                ¥{stats?.pendingEarnings.toFixed(2) || '0.00'}
+                {formatCurrency(stats?.pendingEarnings ?? 0, 'CNY')}
               </p>
             </div>
             <Clock className="h-8 w-8 text-yellow-600" />
@@ -186,7 +187,7 @@ export default function AffiliateStatsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">带货帖子</p>
+              <p className="text-sm text-muted-foreground">{t('affiliatePosts')}</p>
               <p className="text-2xl font-bold">{stats?.totalPosts || 0}</p>
             </div>
             <TrendingUp className="h-8 w-8 text-purple-600" />
@@ -196,7 +197,7 @@ export default function AffiliateStatsPage() {
 
       {/* Earnings Chart */}
       {stats?.chartData && stats.chartData.length > 0 && (
-        <StatsChart title="近7天佣金收入" data={stats.chartData} color="hsl(142, 76%, 36%)" />
+        <StatsChart title={t('chartTitle')} data={stats.chartData} color="hsl(142, 76%, 36%)" />
       )}
 
       {/* Recent Commissions */}
@@ -221,15 +222,15 @@ export default function AffiliateStatsPage() {
                   )}
                   <div>
                     <p className="font-semibold">
-                      {commission.product?.name || '商品'}
+                      {commission.product?.name || t('productLabel')}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      订单: {commission.order?.order_number || '-'}
+                      {t('orderLabel')}: {commission.order?.order_number || '-'}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold">¥{commission.amount.toFixed(2)}</p>
+                  <p className="font-semibold">{formatCurrency(commission.amount, 'CNY')}</p>
                   <p
                     className={`text-xs ${
                       commission.status === 'paid'
@@ -240,10 +241,10 @@ export default function AffiliateStatsPage() {
                     }`}
                   >
                     {commission.status === 'paid'
-                      ? '已结算'
+                      ? t('statusPaid')
                       : commission.status === 'pending'
-                      ? '待结算'
-                      : '已取消'}
+                        ? t('statusPending')
+                        : t('statusCancelled')}
                   </p>
                 </div>
               </div>

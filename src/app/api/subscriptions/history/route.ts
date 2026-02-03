@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (subscriptionsError) {
-      console.error('Error fetching subscription history:', subscriptionsError)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching subscription history:', subscriptionsError)
+      }
       return NextResponse.json(
         { error: subscriptionsError.message || 'Failed to fetch subscription history' },
         { status: 500 }
@@ -77,10 +79,13 @@ export async function GET(request: NextRequest) {
       subscriptions: subscriptionsWithPayments,
       stats,
     })
-  } catch (error: any) {
-    console.error('Subscription history error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Subscription history error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to fetch subscription history'
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch subscription history' },
+      { error: message },
       { status: 500 }
     )
   }

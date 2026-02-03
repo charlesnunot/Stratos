@@ -30,7 +30,7 @@ export async function processRefund({
     // Get order details (total_amount needed for WeChat refund)
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('seller_id, payment_method, payment_transaction_id, payment_intent_id, order_number, currency, total_amount')
+      .select('seller_id, payment_method, payment_transaction_id, payment_intent_id, order_number, currency, total_amount, order_status')
       .eq('id', orderId)
       .single()
 
@@ -139,7 +139,7 @@ export async function processRefund({
             })
             .eq('id', orderId)
         } else {
-          // Full refund: cancel order
+          // Full refund: update payment_transactions, then atomically cancel order and restore stock
           await supabaseAdmin
             .from('payment_transactions')
             .update({
@@ -150,13 +150,28 @@ export async function processRefund({
             .eq('type', 'order')
             .eq('status', 'paid')
 
-          await supabaseAdmin
-            .from('orders')
-            .update({
-              payment_status: 'refunded',
-              order_status: 'cancelled',
-            })
-            .eq('id', orderId)
+          // Only restore stock when order is not yet shipped/completed (RPC rejects those)
+          const canRestoreStock = order.order_status !== 'shipped' && order.order_status !== 'completed'
+          if (canRestoreStock) {
+            const { data: cancelResult, error: cancelError } = await supabaseAdmin
+              .rpc('cancel_order_and_restore_stock', { p_order_id: orderId })
+            if (cancelError || !cancelResult?.[0]?.success) {
+              logPayment(LogLevel.ERROR, 'cancel_order_and_restore_stock failed after full refund', {
+                orderId,
+                error: cancelError?.message ?? cancelResult?.[0]?.error_message ?? 'unknown',
+              })
+              return { success: false, error: cancelResult?.[0]?.error_message ?? cancelError?.message ?? 'Failed to restore stock' }
+            }
+            await supabaseAdmin
+              .from('orders')
+              .update({ payment_status: 'refunded' })
+              .eq('id', orderId)
+          } else {
+            await supabaseAdmin
+              .from('orders')
+              .update({ payment_status: 'refunded', order_status: 'cancelled' })
+              .eq('id', orderId)
+          }
         }
 
         return { success: true, transactionId: refundTransactionId }
@@ -220,7 +235,7 @@ export async function processRefund({
           })
           .eq('id', orderId)
       } else {
-        // Full refund: cancel order
+        // Full refund: update payment_transactions, then atomically cancel order and restore stock
         await supabaseAdmin
           .from('payment_transactions')
           .update({
@@ -231,13 +246,28 @@ export async function processRefund({
           .eq('type', 'order')
           .eq('status', 'paid')
 
-        await supabaseAdmin
-          .from('orders')
-          .update({
-            payment_status: 'refunded',
-            order_status: 'cancelled',
-          })
-          .eq('id', orderId)
+        // Only restore stock when order is not yet shipped/completed (RPC rejects those)
+        const canRestoreStock = order.order_status !== 'shipped' && order.order_status !== 'completed'
+        if (canRestoreStock) {
+          const { data: cancelResult, error: cancelError } = await supabaseAdmin
+            .rpc('cancel_order_and_restore_stock', { p_order_id: orderId })
+          if (cancelError || !cancelResult?.[0]?.success) {
+            logPayment(LogLevel.ERROR, 'cancel_order_and_restore_stock failed after platform full refund', {
+              orderId,
+              error: cancelError?.message ?? cancelResult?.[0]?.error_message ?? 'unknown',
+            })
+            return { success: false, error: cancelResult?.[0]?.error_message ?? cancelError?.message ?? 'Failed to restore stock' }
+          }
+          await supabaseAdmin
+            .from('orders')
+            .update({ payment_status: 'refunded' })
+            .eq('id', orderId)
+        } else {
+          await supabaseAdmin
+            .from('orders')
+            .update({ payment_status: 'refunded', order_status: 'cancelled' })
+            .eq('id', orderId)
+        }
       }
 
       // Update dispute status

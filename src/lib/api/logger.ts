@@ -1,6 +1,11 @@
 /**
  * API Request Logger
  * Logs API requests with timing, user, path, and error information
+ * 
+ * 认证日志规范：
+ * - 记录认证动作类型 (login, logout, register, reset-password, verify-email)
+ * - 记录用户ID和状态 (success, failed)
+ * - 绝不记录密码或其他敏感凭证
  */
 
 import { NextRequest } from 'next/server'
@@ -20,6 +25,23 @@ export interface ApiLogEntry {
   ip?: string
   requestId?: string
 }
+
+/**
+ * 认证动作日志条目
+ * 用于追踪认证相关操作
+ */
+export interface AuthActionLogEntry {
+  action: 'login' | 'logout' | 'register' | 'reset-password' | 'verify-email' | 'refresh-token'
+  userId?: string
+  status: 'success' | 'failed' | 'pending'
+  error?: string
+  timestamp: string
+  metadata?: Record<string, unknown>
+}
+
+// In-memory auth log buffer (for development)
+const authLogBuffer: AuthActionLogEntry[] = []
+const MAX_AUTH_LOG_BUFFER_SIZE = 500
 
 // In-memory log buffer (for development)
 // In production, send to logging service or database
@@ -136,6 +158,78 @@ export function getApiStatistics(): {
     errorRate,
     averageDuration,
     requestsByStatus,
+  }
+}
+
+/**
+ * 记录认证动作
+ * 用于追踪登录、登出、注册等认证操作
+ * 
+ * 重要：此函数绝不记录密码或其他敏感凭证
+ * 
+ * @param entry - 认证动作信息（不含密码）
+ */
+export function logAuthAction(entry: Omit<AuthActionLogEntry, 'timestamp'>): void {
+  const logEntry: AuthActionLogEntry = {
+    ...entry,
+    timestamp: new Date().toISOString(),
+  }
+  
+  // Add to buffer
+  authLogBuffer.push(logEntry)
+  
+  // Keep buffer size manageable
+  if (authLogBuffer.length > MAX_AUTH_LOG_BUFFER_SIZE) {
+    authLogBuffer.shift()
+  }
+  
+  // Structured logging
+  const logLevel = entry.status === 'failed' ? 'warn' : 'info'
+  
+  // 构建安全的日志对象（确保不包含敏感信息）
+  const safeLogData = {
+    action: logEntry.action,
+    userId: logEntry.userId ? `${logEntry.userId.substring(0, 8)}...` : undefined, // 截断 userId
+    status: logEntry.status,
+    error: logEntry.error,
+    timestamp: logEntry.timestamp,
+    level: logLevel,
+  }
+  
+  console.log(`[AUTH ${logLevel.toUpperCase()}]`, JSON.stringify(safeLogData))
+}
+
+/**
+ * 获取认证日志
+ */
+export function getAuthLogs(limit = 100): AuthActionLogEntry[] {
+  return authLogBuffer.slice(-limit).reverse()
+}
+
+/**
+ * 获取认证统计
+ */
+export function getAuthStatistics(): {
+  totalActions: number
+  successRate: number
+  actionsByType: Record<string, number>
+  failedActions: number
+} {
+  const totalActions = authLogBuffer.length
+  const successActions = authLogBuffer.filter(log => log.status === 'success')
+  const failedActions = authLogBuffer.filter(log => log.status === 'failed')
+  const successRate = totalActions > 0 ? successActions.length / totalActions : 0
+  
+  const actionsByType: Record<string, number> = {}
+  authLogBuffer.forEach(log => {
+    actionsByType[log.action] = (actionsByType[log.action] || 0) + 1
+  })
+  
+  return {
+    totalActions,
+    successRate,
+    actionsByType,
+    failedActions: failedActions.length,
   }
 }
 

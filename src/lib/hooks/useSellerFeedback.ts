@@ -91,6 +91,9 @@ export function useUpdateSellerFeedback() {
       if (result.sellerId) {
         queryClient.invalidateQueries({ queryKey: ['sellerFeedbackStats', result.sellerId] })
       }
+      if (result.data?.order_id) {
+        queryClient.invalidateQueries({ queryKey: ['orderFeedback', result.data.order_id] })
+      }
     },
   })
 }

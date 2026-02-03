@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/lib/hooks/useToast'
@@ -9,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Loader2, DollarSign } from 'lucide-react'
 
 export function CommissionManagement() {
+  const t = useTranslations('admin')
+  const tCommon = useTranslations('common')
   const supabase = createClient()
   const queryClient = useQueryClient()
   const { toast } = useToast()
@@ -43,22 +46,22 @@ export function CommissionManagement() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to settle commission')
+        throw new Error(error.error || t('commissionSettleFailed'))
       }
 
       // Refresh commissions list
       queryClient.invalidateQueries({ queryKey: ['adminCommissions'] })
       toast({
         variant: 'success',
-        title: '成功',
-        description: '佣金已结算',
+        title: tCommon('success'),
+        description: t('commissionSettled'),
       })
     } catch (error: any) {
       console.error('Settle commission error:', error)
       toast({
         variant: 'destructive',
-        title: '错误',
-        description: `结算失败: ${error.message}`,
+        title: tCommon('error'),
+        description: `${t('commissionSettleFailed')}: ${error.message}`,
       })
     } finally {
       setSettlingId(null)
@@ -80,17 +83,17 @@ export function CommissionManagement() {
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">待结算佣金</h2>
+        <h2 className="text-lg font-semibold">{t('pendingCommissionsTitle')}</h2>
         <div className="flex items-center gap-2">
           <DollarSign className="h-5 w-5 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
-            总计: ¥{totalPending.toFixed(2)}
+            {t('totalLabel')}: ¥{totalPending.toFixed(2)}
           </span>
         </div>
       </div>
 
       {!commissions || commissions.length === 0 ? (
-        <p className="py-8 text-center text-muted-foreground">暂无待结算佣金</p>
+        <p className="py-8 text-center text-muted-foreground">{t('noPendingCommissions')}</p>
       ) : (
         <div className="space-y-3 max-h-[600px] overflow-y-auto">
           {commissions.map((commission: any) => (
@@ -108,13 +111,13 @@ export function CommissionManagement() {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold truncate">
-                    {commission.product?.name || '商品'}
+                    {commission.product?.name || t('productDefault')}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    带货者: {commission.affiliate?.display_name || commission.affiliate?.username || '-'}
+                    {t('affiliateLabel')}: {commission.affiliate?.display_name || commission.affiliate?.username || '-'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    订单: {commission.order?.order_number || '-'} 
+                    {t('orderLabel')}: {commission.order?.order_number || '-'} 
                     {commission.order?.order_status && ` (${commission.order.order_status})`}
                   </p>
                 </div>
@@ -123,7 +126,7 @@ export function CommissionManagement() {
                 <div className="text-right">
                   <p className="font-semibold">¥{commission.amount.toFixed(2)}</p>
                   <p className="text-xs text-muted-foreground">
-                    佣金率: {commission.commission_rate}%
+                    {t('commissionRateLabel')}: {commission.commission_rate}%
                   </p>
                 </div>
                 <Button
@@ -132,17 +135,17 @@ export function CommissionManagement() {
                   disabled={settlingId === commission.id || commission.order?.order_status !== 'completed'}
                   title={
                     commission.order?.order_status !== 'completed'
-                      ? '订单完成后方可结算'
-                      : '结算佣金'
+                      ? t('settleAfterOrderComplete')
+                      : t('settle')
                   }
                 >
                   {settlingId === commission.id ? (
                     <>
                       <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                      结算中
+                      {t('settling')}
                     </>
                   ) : (
-                    '结算'
+                    t('settle')
                   )}
                 </Button>
               </div>

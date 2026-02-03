@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -37,13 +37,25 @@ export default function ResetPasswordPage() {
     setSuccess(false)
 
     try {
-      // 验证密码
-      if (password.length < 6) {
-        throw new Error(t('passwordTooShort'))
-      }
-
       if (password !== confirmPassword) {
         throw new Error(t('passwordMismatch'))
+      }
+
+      // 与注册一致：使用 /api/auth/validate-password 校验密码强度
+      const validationRes = await fetch('/api/auth/validate-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+      const validation = await validationRes.json()
+      if (!validation.valid) {
+        setError(
+          validation.errors?.join(' ') ??
+            t('passwordTooShort') ??
+            '密码强度不足，请使用更强的密码'
+        )
+        setLoading(false)
+        return
       }
 
       // 更新密码

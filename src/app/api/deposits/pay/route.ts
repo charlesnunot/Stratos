@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/payments/stripe'
 import { checkSellerDepositRequirement } from '@/lib/deposits/check-deposit-requirement'
+import { checkSellerPermission } from '@/lib/auth/check-subscription'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +20,20 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
+    if (!sellerCheck.hasPermission) {
+      return NextResponse.json(
+        { error: sellerCheck.reason || 'Seller subscription required' },
+        { status: 403 }
+      )
     }
 
     const { amount, currency = 'USD', paymentMethod = 'stripe' } = await request.json()
@@ -33,22 +49,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
     }
 
-    // Get Supabase admin client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!supabaseUrl || !serviceRoleKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-
-    // Check current deposit requirement
+    // Check current deposit requirement (supabaseAdmin from seller check above)
     const depositCheck = await checkSellerDepositRequirement(user.id, 0, supabaseAdmin)
 
     if (!depositCheck.requiresDeposit) {
@@ -121,6 +122,17 @@ export async function POST(request: NextRequest) {
     const localePrefix = locale !== 'zh' ? `/${locale}` : ''
     const successUrl = `${origin}${localePrefix}/seller/deposit/pay/success?lotId=${depositLotId}`
     const cancelUrl = `${origin}${localePrefix}/seller/deposit/pay`
+
+    // Log audit for deposit payment initiation
+    logAudit({
+      action: 'deposit_payment_initiate',
+      userId: user.id,
+      resourceId: depositLotId,
+      resourceType: 'deposit_lot',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { paymentMethod, currency },
+    })
 
     // Handle different payment methods
     if (paymentMethod === 'stripe') {

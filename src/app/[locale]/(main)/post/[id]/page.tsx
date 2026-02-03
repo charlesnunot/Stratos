@@ -11,7 +11,7 @@ import { ReportDialog } from '@/components/social/ReportDialog'
 import { ChatButton } from '@/components/social/ChatButton'
 import { ProductCard } from '@/components/ecommerce/ProductCard'
 import { Button } from '@/components/ui/button'
-import { Loader2, MessageCircle, Share2, ChevronLeft, ChevronRight, Flag, Repeat2, ShoppingBag } from 'lucide-react'
+import { Loader2, MessageCircle, Share2, ChevronLeft, ChevronRight, Flag, Repeat2, ShoppingBag, Upload } from 'lucide-react'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useParams } from 'next/navigation'
@@ -21,21 +21,36 @@ import { useTrackView } from '@/lib/hooks/useTrackView'
 import { RepostDialog } from '@/components/social/RepostDialog'
 import { ShareDialog } from '@/components/social/ShareDialog'
 import { showSuccess, showInfo, showError, showWarning } from '@/lib/utils/toast'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { useQueryClient } from '@tanstack/react-query'
 import { usePostPage } from '@/lib/hooks/usePostPage'
+import { useAuth } from '@/lib/hooks/useAuth'
+import { useProfile } from '@/lib/hooks/useProfile'
+import { getDisplayContent } from '@/lib/ai/display-translated'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import { formatCurrency } from '@/lib/currency/format-currency'
 
 export default function PostPage() {
   const params = useParams()
   const postId = params.id as string
   const state = usePostPage(postId)
+  const queryClient = useQueryClient()
+  const { user: authUser } = useAuth()
+  const supabase = createClient()
+  const { data: currentProfileData } = useProfile(authUser?.id ?? '')
+  const isAdminOrSupport =
+    currentProfileData?.profile?.role === 'admin' || currentProfileData?.profile?.role === 'support'
   const t = useTranslations('posts')
   const tMessages = useTranslations('messages')
   const tCommon = useTranslations('common')
   const tAffiliate = useTranslations('affiliate')
+  const locale = useLocale()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [showRepostDialog, setShowRepostDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
+  const [migrateLoading, setMigrateLoading] = useState(false)
   
   // 转发相关
   const repostMutation = useRepost()
@@ -79,10 +94,14 @@ export default function PostPage() {
     return null
   }
 
-  const { post, user, capabilities } = state
+  const { post, user, capabilities, tipDisabledReason } = state
 
   const images = post.image_urls || []
   const hasMultipleImages = images.length > 1
+  const postType = (post as { post_type?: string }).post_type ?? 'normal'
+  const videoInfo = (post as { video_info?: { video_url: string; duration_seconds?: number; cover_url?: string | null } }).video_info
+  const musicInfo = (post as { music_info?: { music_url: string; duration_seconds?: number; cover_url?: string | null } }).music_info
+  const storyInfo = (post as { story_info?: { chapter_number?: number; content_length?: number } }).story_info
 
   const handlePreviousImage = () => {
     setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
@@ -94,6 +113,29 @@ export default function PostPage() {
 
   const handleShare = () => {
     setShowShareDialog(true)
+  }
+
+  const handleMigrateImages = async () => {
+    if (migrateLoading) return
+    setMigrateLoading(true)
+    try {
+      const res = await fetch('/api/cloudinary/migrate-post-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body?.ok) {
+        showSuccess(t('migrateImagesSuccess', { count: body.migrated ?? 0 }))
+        queryClient.invalidateQueries({ queryKey: ['post', postId] })
+      } else {
+        showError(body?.error ?? t('migrateImagesFailed'))
+      }
+    } catch {
+      showError(t('migrateImagesFailed'))
+    } finally {
+      setMigrateLoading(false)
+    }
   }
 
   const handleRepost = () => {
@@ -136,9 +178,42 @@ export default function PostPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-2 sm:px-4 py-4 md:py-6">
       <div className="grid gap-4 md:gap-6 lg:grid-cols-[40%_60%] min-w-0">
-        {/* Left Column: Image Display */}
+        {/* Left Column: Media by post_type */}
         <div className="min-w-0">
-          {images.length > 0 ? (
+          {postType === 'short_video' && videoInfo?.video_url ? (
+            <div className="relative w-full max-w-full overflow-hidden rounded-lg bg-muted space-y-2">
+              <div className="relative w-full" style={{ aspectRatio: '9/16', maxHeight: 'min(80vh, 600px)' }}>
+                <video
+                  src={videoInfo.video_url}
+                  poster={videoInfo.cover_url || images[0] || undefined}
+                  controls
+                  className="h-full w-full object-contain"
+                  preload="metadata"
+                />
+              </div>
+              <Link
+                href={`/post/${postId}/video`}
+                className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                {t('enterVideoStream')}
+              </Link>
+            </div>
+          ) : postType === 'music' && musicInfo?.music_url ? (
+            <div className="relative w-full max-w-full overflow-hidden rounded-lg bg-muted">
+              <div className="relative aspect-video w-full md:min-h-[300px] flex flex-col items-center justify-center p-4">
+                {(musicInfo.cover_url || images[0]) ? (
+                  <img src={musicInfo.cover_url || images[0]} alt="" className="w-full max-h-[50vh] object-contain rounded" />
+                ) : (
+                  <span className="text-muted-foreground text-4xl mb-2">♪</span>
+                )}
+                <audio src={musicInfo.music_url} controls className="w-full mt-4 max-w-md" preload="metadata" />
+              </div>
+            </div>
+          ) : (postType === 'story' || postType === 'series') && !images.length ? (
+            <div className="flex aspect-[4/3] items-center justify-center rounded-lg bg-muted md:min-h-[300px]">
+              <span className="text-muted-foreground text-sm">{tCommon('noImage')}</span>
+            </div>
+          ) : images.length > 0 ? (
             <div className="relative w-full max-w-full overflow-hidden rounded-lg bg-muted">
               <div className="relative aspect-[4/3] w-full md:min-h-[600px]">
                 <img
@@ -147,8 +222,6 @@ export default function PostPage() {
                   className="h-full w-full max-w-full object-contain"
                   loading="eager"
                 />
-                
-                {/* Image Navigation */}
                 {hasMultipleImages && (
                   <>
                     <Button
@@ -167,17 +240,13 @@ export default function PostPage() {
                     >
                       <ChevronRight className="h-5 w-5" />
                     </Button>
-                    
-                    {/* Image Indicators */}
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                       {images.map((_, index) => (
                         <button
                           key={index}
                           onClick={() => setCurrentImageIndex(index)}
                           className={`h-2 rounded-full transition-all ${
-                            index === currentImageIndex
-                              ? 'w-8 bg-white'
-                              : 'w-2 bg-white/50 hover:bg-white/70'
+                            index === currentImageIndex ? 'w-8 bg-white' : 'w-2 bg-white/50 hover:bg-white/70'
                           }`}
                           aria-label={t('viewImage', { index: index + 1 })}
                         />
@@ -230,7 +299,7 @@ export default function PostPage() {
                     {capabilities.canFollowAuthor && (
                       <FollowButton userId={post.user_id} />
                     )}
-                    {/* ChatButton 目前仍主要依赖自身内部登录与校验逻辑，仅按是否为作者本人做控制 */}
+                    {capabilities.canChat && (
                     <ChatButton
                       targetUserId={post.user_id}
                       variant="outline"
@@ -245,6 +314,7 @@ export default function PostPage() {
                     >
                       {tMessages('chatWithAuthor')}
                     </ChatButton>
+                    )}
                     {capabilities.canReport && (
                       <Button
                         variant="outline"
@@ -266,11 +336,19 @@ export default function PostPage() {
               </div>
             )}
 
-            {/* Content Description */}
-            {post.content && (
+            {/* Story/Series 元信息：章节号、字数 */}
+            {(postType === 'story' || postType === 'series') && storyInfo && (storyInfo.chapter_number != null || storyInfo.content_length != null) && (
+              <p className="text-sm text-muted-foreground">
+                {storyInfo.chapter_number != null && `${t('chapterShort')}${storyInfo.chapter_number} `}
+                {storyInfo.content_length != null && ` · ${t('wordCountWithUnit', { count: storyInfo.content_length })}`}
+              </p>
+            )}
+
+            {/* Content Description（按 locale 显示原文或译文） */}
+            {(post.content || post.content_translated) && (
               <div className="space-y-2 min-w-0 overflow-hidden">
                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
-                  {post.content}
+                  {getDisplayContent(locale, post.content_lang ?? null, post.content, post.content_translated)}
                 </p>
               </div>
             )}
@@ -321,6 +399,23 @@ export default function PostPage() {
                 <Share2 className="h-4 w-4" />
                 <span className="text-sm">{post.share_count || 0}</span>
               </Button>
+              {isAdminOrSupport && images.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleMigrateImages}
+                  disabled={migrateLoading}
+                  title={t('migrateImages')}
+                >
+                  {migrateLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  <span className="text-sm">{t('migrateImages')}</span>
+                </Button>
+              )}
             </div>
 
             {/* Tip Button */}
@@ -330,8 +425,43 @@ export default function PostPage() {
                 postAuthorId={post.user_id}
                 currentAmount={post.tip_amount || 0}
                 enabled={capabilities.canTip}
+                reasonDisabled={tipDisabledReason}
               />
             </div>
+
+            {/* 关联商品（帖子内嵌） */}
+            {post.linkedProducts && post.linkedProducts.length > 0 && (
+              <div className="pt-4 border-t min-w-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <ShoppingBag className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">{t('linkedProducts')}</h3>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {post.linkedProducts
+                    .filter((lp) => lp.product)
+                    .map((lp) => (
+                      <ProductCard
+                        key={lp.product_id}
+                        product={{
+                          id: lp.product!.id,
+                          name: lp.product!.name,
+                          description: null,
+                          price: lp.product!.price,
+                          images: lp.product!.images ?? [],
+                          seller_id: lp.product!.seller_id,
+                          stock: 0,
+                          status: 'active',
+                          like_count: 0,
+                          want_count: 0,
+                          share_count: 0,
+                          repost_count: 0,
+                          favorite_count: 0,
+                        }}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
 
             {/* Affiliate Product */}
             {post.affiliatePost?.product && (() => {

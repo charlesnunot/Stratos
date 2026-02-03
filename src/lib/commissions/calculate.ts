@@ -1,5 +1,10 @@
 /**
  * Calculate and create commission records for orders
+ * 
+ * 审计日志规范：
+ * - 记录佣金创建操作（action: create_commission）
+ * - 记录订单ID、产品ID、佣金金额、佣金率
+ * - 不记录敏感支付信息
  */
 
 interface OrderDetails {
@@ -106,8 +111,34 @@ export async function calculateAndCreateCommissions(
 
       if (error) {
         console.error('Error creating commission:', error)
+        // 记录失败的审计日志
+        console.log('[AUDIT WARN]', JSON.stringify({
+          action: 'create_commission',
+          userId: affiliateId,
+          resourceId: order.id,
+          resourceType: 'order',
+          result: 'fail',
+          timestamp: new Date().toISOString(),
+          meta: { productId: item.product_id, error: error.message },
+        }))
       } else if (commission) {
         commissions.push(commission)
+
+        // 记录成功的审计日志
+        console.log('[AUDIT INFO]', JSON.stringify({
+          action: 'create_commission',
+          userId: affiliateId,
+          resourceId: order.id,
+          resourceType: 'order',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: {
+            commissionId: commission.id,
+            productId: item.product_id,
+            commissionRate,
+            // 不记录具体金额，只记录费率
+          },
+        }))
 
         // Update order commission_amount
         await supabaseAdmin
@@ -117,15 +148,17 @@ export async function calculateAndCreateCommissions(
           })
           .eq('id', order.id)
 
-        // Create notification for affiliate
+        // Create notification for affiliate (use content_key for i18n)
         await supabaseAdmin.from('notifications').insert({
           user_id: affiliateId,
           type: 'commission',
-          title: '收到新佣金',
-          content: `订单 ${order.id.substring(0, 8)}... 产生了 ¥${commissionAmount.toFixed(2)} 佣金`,
+          title: 'New Commission Received',
+          content: `Commission of ¥${commissionAmount.toFixed(2)} from order ${order.id.substring(0, 8)}...`,
           related_id: order.id,
           related_type: 'order',
           link: `/affiliate/commissions?order=${order.id}`,
+          content_key: 'commission_pending',
+          content_params: { orderId: order.id.substring(0, 8) + '...', amount: commissionAmount.toFixed(2) },
         })
       }
     }
@@ -179,8 +212,34 @@ export async function calculateAndCreateCommissions(
 
           if (error) {
             console.error('Error creating commission:', error)
+            // 记录失败的审计日志
+            console.log('[AUDIT WARN]', JSON.stringify({
+              action: 'create_commission',
+              userId: affiliateId,
+              resourceId: order.id,
+              resourceType: 'order',
+              result: 'fail',
+              timestamp: new Date().toISOString(),
+              meta: { productId: order.product_id, error: error.message },
+            }))
           } else if (commission) {
             commissions.push(commission)
+
+            // 记录成功的审计日志
+            console.log('[AUDIT INFO]', JSON.stringify({
+              action: 'create_commission',
+              userId: affiliateId,
+              resourceId: order.id,
+              resourceType: 'order',
+              result: 'success',
+              timestamp: new Date().toISOString(),
+              meta: {
+                commissionId: commission.id,
+                productId: order.product_id,
+                commissionRate,
+                // 不记录具体金额，只记录费率
+              },
+            }))
 
             // Update order commission_amount
             await supabaseAdmin
@@ -190,14 +249,17 @@ export async function calculateAndCreateCommissions(
               })
               .eq('id', order.id)
 
-            // Create notification for affiliate
+            // Create notification for affiliate (use content_key for i18n)
             await supabaseAdmin.from('notifications').insert({
               user_id: affiliateId,
               type: 'commission',
-              title: '收到新佣金',
-              content: `订单 ${order.id.substring(0, 8)}... 产生了 ¥${commissionAmount.toFixed(2)} 佣金`,
+              title: 'New Commission Received',
+              content: `Commission of ¥${commissionAmount.toFixed(2)} from order ${order.id.substring(0, 8)}...`,
               related_id: order.id,
               related_type: 'order',
+              link: `/affiliate/commissions?order=${order.id}`,
+              content_key: 'commission_pending',
+              content_params: { orderId: order.id.substring(0, 8) + '...', amount: commissionAmount.toFixed(2) },
             })
           }
         }

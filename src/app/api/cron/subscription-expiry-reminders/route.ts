@@ -5,32 +5,33 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAudit } from '@/lib/api/audit'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   try {
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { verifyCronSecret } = await import('@/lib/cron/verify-cron-secret')
+    const unauth = verifyCronSecret(request)
+    if (unauth) return unauth
 
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabaseAdmin = await getSupabaseAdmin()
 
-    const startTime = Date.now()
     const { data, error } = await supabaseAdmin.rpc('send_subscription_expiry_reminders')
 
     if (error) {
+      const duration = Date.now() - startTime
+      try {
+        await supabaseAdmin.from('cron_logs').insert({
+          job_name: 'subscription_expiry_reminders',
+          status: 'failed',
+          execution_time_ms: duration,
+          executed_at: new Date().toISOString(),
+          error_message: error.message,
+        })
+      } catch (_) {}
       return NextResponse.json(
         { error: error.message || 'Failed to send subscription expiry reminders' },
         { status: 500 }
@@ -43,19 +44,22 @@ export async function GET(request: NextRequest) {
     const reminders1d = row?.reminders_1d_sent ?? 0
 
     try {
-      const { error: logError } = await supabaseAdmin.from('cron_logs').insert({
+      await supabaseAdmin.from('cron_logs').insert({
         job_name: 'subscription_expiry_reminders',
         status: 'success',
         execution_time_ms: duration,
         executed_at: new Date().toISOString(),
         metadata: { reminders_3d: reminders3d, reminders_1d: reminders1d },
       })
-      if (logError) {
-        console.warn('[Cron] Failed to log execution:', logError)
-      }
-    } catch {
-      // Ignore - cron_logs table might not exist
-    }
+    } catch (_) {}
+
+    logAudit({
+      action: 'cron_subscription_expiry_reminders',
+      resourceType: 'cron',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { reminders_3d: reminders3d, reminders_1d: reminders1d },
+    })
 
     return NextResponse.json({
       success: true,
@@ -64,9 +68,27 @@ export async function GET(request: NextRequest) {
       reminders1d,
       executionTime: duration,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to send subscription expiry reminders'
+    try {
+      const supabaseAdmin = await getSupabaseAdmin()
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'subscription_expiry_reminders',
+        status: 'failed',
+        execution_time_ms: Date.now() - startTime,
+        executed_at: new Date().toISOString(),
+        error_message: message,
+      })
+    } catch (_) {}
+    logAudit({
+      action: 'cron_subscription_expiry_reminders',
+      resourceType: 'cron',
+      result: 'fail',
+      timestamp: new Date().toISOString(),
+      meta: { error: message },
+    })
     return NextResponse.json(
-      { error: error.message || 'Failed to send subscription expiry reminders' },
+      { error: message },
       { status: 500 }
     )
   }

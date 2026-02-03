@@ -8,6 +8,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Check, Sparkles } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { formatCurrency } from '@/lib/currency/format-currency'
 import type { Currency } from '@/lib/currency/detect-currency'
 
@@ -34,6 +35,7 @@ export function TieredSubscriptionCard({
   onSelectTier,
   loading = false,
 }: TieredSubscriptionCardProps) {
+  const t = useTranslations('subscription')
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {tiers.map((tier) => {
@@ -49,28 +51,28 @@ export function TieredSubscriptionCard({
             {tier.recommended && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
-                  推荐
+                  {t('recommended')}
                 </span>
               </div>
             )}
             {isCurrentTier && (
               <div className="absolute -top-3 right-3">
                 <span className="rounded-full bg-green-500 px-3 py-1 text-xs font-semibold text-white">
-                  当前
+                  {t('current')}
                 </span>
               </div>
             )}
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5" />
-                {formatCurrency(tier.price, currency)}/月
+                {formatCurrency(tier.price, currency)}{t('perMonth')}
               </CardTitle>
               <CardDescription>
-                免费保证金额度: {formatCurrency(tier.depositCredit, currency)}
+                {t('depositCredit')}: {formatCurrency(tier.depositCredit, currency)}
               </CardDescription>
               <div className="mt-2">
                 <span className="text-2xl font-bold">{formatCurrency(tier.price, currency)}</span>
-                <span className="text-muted-foreground">/月</span>
+                <span className="text-muted-foreground">{t('perMonth')}</span>
               </div>
             </CardHeader>
             <CardContent>
@@ -91,14 +93,14 @@ export function TieredSubscriptionCard({
                 variant={isCurrentTier ? 'outline' : 'default'}
               >
                 {loading
-                  ? '处理中...'
+                  ? t('processing')
                   : isCurrentTier
-                    ? '当前档位'
+                    ? t('currentTier')
                     : isUpgrade
-                      ? '升级'
+                      ? t('upgrade')
                       : isDowngrade
-                        ? '降级'
-                        : '选择'}
+                        ? t('downgrade')
+                        : t('select')}
               </Button>
             </CardFooter>
           </Card>

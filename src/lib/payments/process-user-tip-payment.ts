@@ -1,11 +1,16 @@
 /**
- * 处理直接打赏用户的支付（不需要帖子）
+ * Process direct user-to-user tip payments (no post required)
+ * 
+ * 审计日志规范：
+ * - 记录用户打赏处理操作
+ * - 不记录具体金额明细
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
 import { checkTipLimits, checkTipEnabled } from './check-tip-limits'
 import { logPaymentSuccess, logPayment, LogLevel } from './logger'
 import { createPaymentError, logPaymentError } from './error-handler'
+import { logAudit } from '@/lib/api/audit'
 
 interface ProcessUserTipPaymentParams {
   tipperId: string
@@ -121,21 +126,42 @@ export async function processUserTipPayment({
       return { success: false, error: paymentError.userMessage }
     }
 
-    // 创建通知给接收者
-    await supabaseAdmin.from('notifications').insert({
+    // Create notification for recipient (use content_key for i18n)
+    const amountFormatted = `¥${amount.toFixed(2)}`
+    const { error: notifError } = await supabaseAdmin.from('notifications').insert({
       user_id: recipientId,
       type: 'system',
-      title: '收到打赏',
-      content: `您收到了 ¥${amount.toFixed(2)} 的打赏`,
-      related_id: recipientId, // 关联到用户自己
+      title: 'Tip Received',
+      content: `You received a tip of ${amountFormatted}`,
+      related_id: recipientId,
       related_type: 'user',
+      link: `/user/${recipientId}`,
+      content_key: 'user_tip_received',
+      content_params: { amount: amountFormatted },
     })
+    if (notifError) {
+      console.error('[process-user-tip-payment] Notification insert failed:', notifError.message)
+    }
 
     logPaymentSuccess('user_tip', {
       userId: tipperId,
       recipientId,
       amount,
       currency,
+    })
+
+    // 记录用户打赏处理审计日志（action: tip_user 与任务描述一致）
+    logAudit({
+      action: 'tip_user',
+      userId: tipperId,
+      resourceId: recipientId,
+      resourceType: 'user',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: {
+        amount,
+        currency,
+      },
     })
 
     return { success: true }

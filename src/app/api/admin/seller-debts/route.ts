@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAudit } from '@/lib/api/audit'
 import { collectDebtFromDeposit } from '@/lib/debts/collect-debt'
 import { deductFromDeposit } from '@/lib/deposits/deduct-from-deposit'
 
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
     if (!authResult.success) {
       return authResult.response
     }
+    const adminId = authResult.data.user.id
 
     const supabaseAdmin = await getSupabaseAdmin()
 
@@ -114,12 +116,29 @@ export async function POST(request: NextRequest) {
 
         const collectResult = await collectDebtFromDeposit(sellerId, supabaseAdmin)
         if (!collectResult.success) {
+          logAudit({
+            action: 'seller_debt_adjust',
+            userId: adminId,
+            resourceId: sellerId,
+            resourceType: 'seller_debt',
+            result: 'fail',
+            timestamp: new Date().toISOString(),
+            meta: { action: 'collect_from_deposit', reason: collectResult.error },
+          })
           return NextResponse.json(
             { error: collectResult.error || 'Failed to collect debt from deposit' },
             { status: 500 }
           )
         }
-
+        logAudit({
+          action: 'seller_debt_adjust',
+          userId: adminId,
+          resourceId: sellerId,
+          resourceType: 'seller_debt',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: { action: 'collect_from_deposit', collectedCount: collectResult.collectedCount },
+        })
         return NextResponse.json({
           success: true,
           collectedCount: collectResult.collectedCount,
@@ -159,6 +178,15 @@ export async function POST(request: NextRequest) {
         })
 
         if (!deductResult.success) {
+          logAudit({
+            action: 'seller_debt_adjust',
+            userId: adminId,
+            resourceId: sellerId,
+            resourceType: 'seller_debt',
+            result: 'fail',
+            timestamp: new Date().toISOString(),
+            meta: { action: 'deduct_from_deposit', debtId, reason: deductResult.error },
+          })
           return NextResponse.json(
             { error: deductResult.error || 'Failed to deduct from deposit' },
             { status: 500 }
@@ -175,6 +203,15 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', debtId)
 
+        logAudit({
+          action: 'seller_debt_adjust',
+          userId: adminId,
+          resourceId: sellerId,
+          resourceType: 'seller_debt',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: { action: 'deduct_from_deposit', debtId },
+        })
         return NextResponse.json({
           success: true,
           deductedAmount: deductResult.deductedAmount,
@@ -198,6 +235,15 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', debtId)
 
+        logAudit({
+          action: 'seller_debt_adjust',
+          userId: adminId,
+          resourceId: debtId,
+          resourceType: 'seller_debt',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: { action: 'mark_paid' },
+        })
         return NextResponse.json({ success: true })
 
       case 'forgive':
@@ -217,6 +263,15 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', debtId)
 
+        logAudit({
+          action: 'seller_debt_adjust',
+          userId: adminId,
+          resourceId: debtId,
+          resourceType: 'seller_debt',
+          result: 'success',
+          timestamp: new Date().toISOString(),
+          meta: { action: 'forgive' },
+        })
         return NextResponse.json({ success: true })
 
       default:

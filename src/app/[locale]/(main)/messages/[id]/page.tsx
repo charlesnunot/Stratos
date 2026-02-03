@@ -23,6 +23,9 @@ export default async function ChatPage({
     .from('conversations')
     .select(`
       id,
+      conversation_type,
+      name,
+      avatar_url,
       participant1_id,
       participant2_id,
       participant1:profiles!conversations_participant1_id_fkey(id, username, display_name, avatar_url),
@@ -35,22 +38,66 @@ export default async function ChatPage({
     notFound()
   }
 
-  const isParticipant =
+  const isPrivateParticipant =
     conversation.participant1_id === currentUser.id ||
     conversation.participant2_id === currentUser.id
 
-  if (!isParticipant) {
+  const isGroup =
+    (conversation as { conversation_type?: string }).conversation_type === 'group'
+
+  let groupMembers: Array<{ id: string; username: string | null; display_name: string | null; avatar_url: string | null }> = []
+  if (isGroup) {
+    const { data: membership } = await supabase
+      .from('group_members')
+      .select('user_id')
+      .eq('group_id', id)
+      .eq('user_id', currentUser.id)
+      .maybeSingle()
+    if (!membership) {
+      redirect({ href: '/messages', locale })
+    }
+    const { data: members } = await supabase
+      .from('group_members')
+      .select(`
+        user_id,
+        profile:profiles!group_members_user_id_fkey(id, username, display_name, avatar_url)
+      `)
+      .eq('group_id', id)
+    if (members?.length) {
+      groupMembers = members
+        .map((m: any) => m.profile)
+        .filter(Boolean)
+        .map((p: any) => ({
+          id: p.id,
+          username: p.username ?? null,
+          display_name: p.display_name ?? null,
+          avatar_url: p.avatar_url ?? null,
+        }))
+    }
+  } else if (!isPrivateParticipant) {
     redirect({ href: '/messages', locale })
   }
 
   type ParticipantProfile = { id: string; username: string | null; display_name: string | null; avatar_url: string | null }
   const p1 = conversation.participant1 as unknown as ParticipantProfile
   const p2 = conversation.participant2 as unknown as ParticipantProfile
-  const otherParticipant = conversation.participant1_id === currentUser.id ? p2 : p1
+  const conv = conversation as { name?: string | null; avatar_url?: string | null }
+  const otherParticipant = isGroup
+    ? {
+        id: conversation.id,
+        username: null as string | null,
+        display_name: conv.name ?? 'Group',
+        avatar_url: conv.avatar_url ?? null,
+      }
+    : conversation.participant1_id === currentUser.id
+      ? p2
+      : p1
 
   return (
     <ChatPageClient
       conversationId={id}
+      isGroup={isGroup}
+      groupMembers={groupMembers}
       otherParticipant={{
         id: otherParticipant.id,
         username: otherParticipant.username ?? null,

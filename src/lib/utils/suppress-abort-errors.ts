@@ -100,18 +100,19 @@ export function setupAbortErrorSuppression() {
     return false
   }
 
-  // 拦截未处理的 Promise 拒绝
-  window.addEventListener('unhandledrejection', (event) => {
+  // 拦截未处理的 Promise 拒绝（阻止 Next.js 等将 AbortError 显示为 Unhandled Runtime Error）
+  const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
     const error = event.reason
     if (isAbortError(error)) {
-      // 静默处理 AbortError
       event.preventDefault()
-      return
+      event.stopImmediatePropagation()
     }
-  })
+  }
+  window.addEventListener('unhandledrejection', handleUnhandledRejection, true)
 
   // 返回清理函数
   return () => {
+    window.removeEventListener('unhandledrejection', handleUnhandledRejection, true)
     console.error = originalConsoleError
     window.onerror = originalErrorHandler
   }

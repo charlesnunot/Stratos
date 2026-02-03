@@ -7,6 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/lib/hooks/useToast'
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+
 interface ImageUploadProps {
   bucket: string
   folder?: string
@@ -42,11 +45,32 @@ export function ImageUpload({
       return
     }
 
-    const newImages = [...images, ...files]
+    const validFiles: File[] = []
+    for (const file of files) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast({
+          variant: 'warning',
+          title: '警告',
+          description: `文件 ${file.name} 不是有效的图片格式（仅支持 JPG、PNG、GIF、WebP）`,
+        })
+        continue
+        }
+      if (file.size > MAX_FILE_SIZE) {
+        toast({
+          variant: 'warning',
+          title: '警告',
+          description: `文件 ${file.name} 超过 5MB 限制，请压缩后上传`,
+        })
+        continue
+      }
+      validFiles.push(file)
+    }
+    if (validFiles.length === 0) return
+
+    const newImages = [...images, ...validFiles]
     setImages(newImages)
 
-    // Create previews for new files
-    const newPreviews = files.map((file) => URL.createObjectURL(file))
+    const newPreviews = validFiles.map((file) => URL.createObjectURL(file))
     setPreviews([...previews, ...newPreviews])
   }
 
@@ -72,6 +96,15 @@ export function ImageUpload({
     if (images.length === 0) return existingImages
 
     if (!user) throw new Error('Not authenticated')
+
+    for (const image of images) {
+      if (!ALLOWED_TYPES.includes(image.type)) {
+        throw new Error(`文件 ${image.name} 不是有效的图片格式`)
+      }
+      if (image.size > MAX_FILE_SIZE) {
+        throw new Error(`文件 ${image.name} 超过 5MB 限制`)
+      }
+    }
 
     setUploading(true)
     const uploadedUrls: string[] = [...existingImages]
@@ -127,7 +160,7 @@ export function ImageUpload({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
             multiple
             onChange={handleFileSelect}
             className="hidden"

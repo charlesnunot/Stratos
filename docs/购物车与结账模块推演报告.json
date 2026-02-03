@@ -1,0 +1,269 @@
+{
+  "reportMeta": {
+    "page": "购物车与结账模块",
+    "scope": "ShoppingCart, CheckoutPage, AddressSelector, PaymentMethodSelector, OrderPayPage, useProductCardActions, useProductDetailActions, cartStore",
+    "generatedAt": "2025-01-31",
+    "method": "Code audit + trace",
+    "lastFixedAt": "2025-01-31",
+    "fixSummary": "All findings with severity 高/中/关键路径 and most 低 have been addressed."
+  },
+  "findings": [
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "清空购物车 (clearCart - ShoppingCart)",
+      "observedIssue": "清空按钮直接调用 clearCart()，无确认弹窗。用户误点即清空全部商品，无法撤销。",
+      "enhancementSuggestion": "增加确认弹窗（与评论删除一致），提示「确定要清空购物车吗？」",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "增加商品数量 (handleIncreaseQuantity) 快速连续点击",
+      "observedIssue": "updateQuantity 为同步操作，无 debounce。Plus 按钮在达到库存上限时 disabled，可防止超买。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "减少商品数量 (updateQuantity / Minus) 快速连续点击",
+      "observedIssue": "同步更新，quantity 减至 0 时自动 removeItem。无防重复点击问题。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "选择地址 (onSelectAddress - AddressSelector)",
+      "observedIssue": "点击卡片调用 onSelectAddress(address)，选中态通过 selectedAddressId 高亮。若用户在另一 tab 删除当前选中地址，CheckoutPage 的 selectedAddress 仍持有已删地址的 id，可能提交无效地址。",
+      "enhancementSuggestion": "提交前校验 selectedAddress.id 是否仍在 addresses 列表中；或 addresses 变化时若当前选中已不存在则清空 selectedAddress。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "添加地址 (handleAddAddress) 保存按钮",
+      "observedIssue": "保存按钮 disabled={createAddressMutation.isPending}，有防重复提交。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "显示/隐藏地址表单 (setShowForm)",
+      "observedIssue": "取消时清空 newAddress 表单，逻辑正确。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "立即购买 (Buy Now - useProductCardActions)",
+      "observedIssue": "buyNow 无 AbortController/超时，validate-product 请求可能长时间挂起。useProductDetailActions 有 8 秒超时，useProductCardActions 无，不一致。buyNow 期间按钮 disabled，可防重复点击。",
+      "enhancementSuggestion": "useProductCardActions.buyNow 增加与 useProductDetailActions 一致的 8 秒超时，保证 10 秒内必达关键路径。",
+      "severity": "关键路径",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "立即购买 (Buy Now - useProductDetailActions)",
+      "observedIssue": "有 VALIDATE_TIMEOUT_MS=8000，buying 时按钮 disabled。满足关键路径要求。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "结账页确认订单 (handleCheckout)",
+      "observedIssue": "fetch('/api/orders/create') 无 AbortController/超时。网络异常或后端挂起时，用户会一直看到 loading，无超时提示或重试。按钮 disabled={loading}，可防重复点击。",
+      "enhancementSuggestion": "为 orders/create 请求增加 15–20 秒超时，超时后 toast 提示并 setLoading(false)，允许用户重试。",
+      "severity": "关键路径",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "支付页确认支付 (handlePayment - OrderPayPage)",
+      "observedIssue": "Stripe/Alipay/WeChat/Bank 等 API 调用均无超时控制。支付按钮 disabled={processing}，可防重复点击。",
+      "enhancementSuggestion": "为各支付 API 调用增加超时（如 30 秒），超时后提示并 setProcessing(false)。",
+      "severity": "关键路径",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "点击",
+      "scenario": "银行转账提交凭证",
+      "observedIssue": "disabled={uploadingProof || !proofFile}，有防重复提交。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "输入",
+      "scenario": "收货地址表单字段 (AddressSelector)",
+      "observedIssue": "label, recipient_name, phone, country, state, city, street_address, postal_code 均有 validateAddressFields 校验（必填、长度限制）。但输入框无 maxLength 属性，用户可输入超长后提交才报错。",
+      "enhancementSuggestion": "地址表单各 input 增加 maxLength 与 ADDRESS_FIELD_LIMITS 一致，提供实时输入限制。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "输入",
+      "scenario": "电话/邮编格式校验 (address-validation)",
+      "observedIssue": "validateAddressFields 仅校验必填与长度，无 phone 格式（如数字、长度）或 postal_code 格式校验。非法格式可能写入数据库。",
+      "enhancementSuggestion": "增加 phone 基础格式校验（如仅数字/常见符号，长度 6–20）；postal_code 可按国家宽松校验或至少限制字符集。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "输入",
+      "scenario": "银行转账表单 (bankFormData)",
+      "observedIssue": "bankName, transactionNumber, transferAmount, transferDate 无格式/范围校验。transferAmount 可为空或非法数值；transferDate 可填未来日期。",
+      "enhancementSuggestion": "transferAmount 校验为正数且与订单金额一致（或允许小额误差）；transferDate 限制为过去或今日；bankName 必填。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "选择器",
+      "scenario": "支付方式选择 (PaymentMethodSelector)",
+      "observedIssue": "onSelect 更新 selectedPaymentMethod，结账页与支付页均正确传递到 API。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "选择器",
+      "scenario": "地址表单国家/省份/城市",
+      "observedIssue": "均为自由文本 input，非下拉选择器。无国家/省/市联动。",
+      "enhancementSuggestion": "可选：引入国家/省/市级联选择器，提升体验与数据一致性。",
+      "severity": "低"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "边界/异常",
+      "scenario": "清空购物车后提交结账",
+      "observedIssue": "CheckoutPage 在 items.length===0 且 selectedItems.length===0 时 redirect 到 /cart。若 product_id 在 URL 则显示 loading 但无实际逻辑处理，会永久 loading。",
+      "enhancementSuggestion": "当 cart 为空且 URL 有 product_id 时，应调用 validate-product 并加购后跳转结账，或提示「请先在商品页加入购物车」并 redirect。当前会无限 loading，属严重 bug。",
+      "severity": "高",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "边界/异常",
+      "scenario": "快速连续增加/减少商品数量",
+      "observedIssue": "cartStore.updateQuantity 为同步，无 race。ShoppingCart 的 handleIncreaseQuantity 有库存校验。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "边界/异常",
+      "scenario": "网络中断 / API 异常",
+      "observedIssue": "orders/create、validate-product、get-available-payment-methods 等失败时有 toast 提示。get-available-payment-methods 有 10 秒超时。orders/create 和 validate-product（卡片）无超时，网络挂起时无反馈。",
+      "enhancementSuggestion": "为关键 API（orders/create、validate-product）增加超时与明确错误提示；失败时允许重试。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "边界/异常",
+      "scenario": "非法表单提交（空字段、非法字符）",
+      "observedIssue": "地址表单有 validateAddressFields；结账 handleCheckout 有 selectedAddress、selectedPaymentMethod 校验。部分错误信息硬编码中文。",
+      "enhancementSuggestion": "统一使用 t() 国际化错误提示。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "边界/异常",
+      "scenario": "选择不存在或已删除的地址",
+      "observedIssue": "API 已校验 shipping_address_id 存在于 user_addresses 且 user_id 匹配，地址不存在时返回 404。前端 selectedAddress 若指向已删地址，会收到 API 错误。建议前端在 addresses 变化时同步校验 selectedAddress。",
+      "enhancementSuggestion": "AddressSelector 或 CheckoutPage 在 addresses 变化时，若 selectedAddressId 对应地址已不在列表中，则清空 selectedAddress 并提示用户重新选择。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "边界/异常",
+      "scenario": "重复点击支付按钮",
+      "observedIssue": "结账确认、支付页支付按钮均有 disabled={loading/processing}，可防止重复提交。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "边界/异常",
+      "scenario": "模拟支付失败 / 超时",
+      "observedIssue": "Stripe 跳转外部，失败在回调处理。Alipay/WeChat/Bank 有 toast 提示。各 API 无超时，长时间无响应时用户无感知。",
+      "enhancementSuggestion": "为支付相关 fetch 增加超时，超时后提示「请求超时，请重试」并恢复按钮状态。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "UX/提示",
+      "scenario": "结账页/支付页硬编码文案",
+      "observedIssue": "多处硬编码中文：'购物车为空'、'请选择收货地址'、'请选择支付方式'、'订单创建成功'、'部分商品无法结算'、'加载可用支付方式...'、'当前订单中的卖家没有可用的支付方式' 等。",
+      "enhancementSuggestion": "统一使用 t() 从 checkout/orders/payments 等 namespace 读取。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "UX/提示",
+      "scenario": "AddressSelector 硬编码文案",
+      "observedIssue": "'地址已保存'、'保存失败'、'添加新地址'、'默认'、'邮政编码' 等为硬编码。",
+      "enhancementSuggestion": "使用 useTranslations 做国际化。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "UX/提示",
+      "scenario": "支付方式加载 10 秒超时",
+      "observedIssue": "get-available-payment-methods 有 10 秒超时，超时后显示 paymentMethodsError（requestTimeoutRefresh）。符合 10 秒内必达要求。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "加载",
+      "scenario": "购物车商品验证 (useCartValidation)",
+      "observedIssue": "Realtime 订阅 products 表变更，有重试机制。validate 失败时 onInvalidItems 回调移除无效商品并 toast。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "购物车与结账模块",
+      "event": "安全",
+      "scenario": "订单创建 shipping_address 校验",
+      "observedIssue": "API 已正确实现：当提供 shipping_address_id 时从 user_addresses 按 user_id 查询，不存在或非归属时返回 404。最终使用库表数据构建 finalShippingAddress，防止伪造。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    }
+  ],
+  "summary": {
+    "totalFindings": 26,
+    "bySeverity": {
+      "关键路径": 3,
+      "高": 1,
+      "中": 5,
+      "低": 8,
+      "无": 9
+    },
+    "topPriorities": [
+      "Checkout 页 cart 空且 URL 有 product_id 时无限 loading（高）",
+      "清空购物车无确认弹窗（中）",
+      "useProductCardActions.buyNow 无超时（关键路径）",
+      "handleCheckout/orders/create 无超时（关键路径）",
+      "OrderPayPage 支付 API 无超时（关键路径）",
+      "selectedAddress 可能指向已删地址（低）"
+    ]
+  }
+}

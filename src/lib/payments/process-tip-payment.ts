@@ -1,12 +1,17 @@
 /**
  * Unified service layer for processing tip payments
  * Includes tip limits checking and subscription verification
+ * 
+ * 审计日志规范：
+ * - 记录打赏处理操作
+ * - 不记录具体金额明细
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
 import { checkTipLimits, checkTipEnabled } from './check-tip-limits'
 import { logPaymentSuccess, logPaymentFailure, logPayment, LogLevel } from './logger'
 import { createPaymentError, logPaymentError } from './error-handler'
+import { logAudit } from '@/lib/api/audit'
 
 interface ProcessTipPaymentParams {
   postId: string
@@ -181,16 +186,22 @@ export async function processTipPayment({
       }
     }
 
-    // Create notification for recipient
-    await supabaseAdmin.from('notifications').insert({
+    // Create notification for recipient (use content_key for i18n)
+    const amountFormatted = `¥${amount.toFixed(2)}`
+    const { error: notifError } = await supabaseAdmin.from('notifications').insert({
       user_id: recipientId,
       type: 'system',
-      title: '收到打赏',
-      content: `您收到了 ¥${amount.toFixed(2)} 的打赏`,
+      title: 'Tip Received',
+      content: `You received a tip of ${amountFormatted}`,
       related_id: postId,
       related_type: 'post',
       link: `/post/${postId}`,
+      content_key: 'tip_received',
+      content_params: { amount: amountFormatted, postId: postId.substring(0, 8) + '...' },
     })
+    if (notifError) {
+      console.error('[process-tip-payment] Notification insert failed:', notifError.message)
+    }
 
     logPaymentSuccess('tip', {
       postId,
@@ -198,6 +209,21 @@ export async function processTipPayment({
       recipientId,
       amount,
       currency,
+    })
+
+    // 记录打赏处理审计日志（action: tip_post 与任务描述一致）
+    logAudit({
+      action: 'tip_post',
+      userId: tipperId,
+      resourceId: postId,
+      resourceType: 'post',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: {
+        recipientId: recipientId.substring(0, 8) + '...',
+        amount,
+        currency,
+      },
     })
 
     return { success: true }

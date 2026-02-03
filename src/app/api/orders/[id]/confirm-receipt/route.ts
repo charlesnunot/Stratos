@@ -6,12 +6,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRecoveryOnOrderCompletion } from '@/lib/orders/auto-recovery'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: orderId } = await params
     const supabase = await createClient()
     const {
       data: { user },
@@ -39,7 +41,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .select('id, buyer_id, seller_id, order_status, order_number')
-      .eq('id', params.id)
+      .eq('id', orderId)
       .single()
 
     if (orderError || !order) {
@@ -73,7 +75,7 @@ export async function POST(
         received_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', orderId)
 
     if (updateError) {
       console.error('[orders/confirm-receipt] Error updating order:', updateError)
@@ -89,18 +91,30 @@ export async function POST(
         await supabaseAdmin.from('notifications').insert({
           user_id: order.seller_id,
           type: 'order',
-          title: '买家已确认收货',
-          content: `订单 ${order.order_number} 的买家已确认收货`,
+          title: 'Order Confirmed',
+          content: `Buyer has confirmed receipt for order ${order.order_number}`,
           related_id: order.id,
           related_type: 'order',
-          link: `/orders/${order.id}`,
-          actor_id: user.id, // Buyer ID
+          link: `/seller/orders/${order.id}`,
+          actor_id: user.id,
+          content_key: 'order_confirmed',
+          content_params: { orderNumber: order.order_number },
         })
       } catch (notificationError) {
         // Log error but don't fail the request
         console.error('[orders/confirm-receipt] Failed to send notification:', notificationError)
       }
     }
+
+    logAudit({
+      action: 'confirm_receipt',
+      userId: user.id,
+      resourceId: orderId,
+      resourceType: 'order',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { orderNumber: order.order_number },
+    })
 
     // Check and recover seller payment if unfilled orders drop below tier
     // This is async and non-blocking - errors won't affect the main response
@@ -114,10 +128,13 @@ export async function POST(
       success: true,
       message: 'Receipt confirmed successfully',
     })
-  } catch (error: any) {
-    console.error('[orders/confirm-receipt] Error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[orders/confirm-receipt] Error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to confirm receipt'
     return NextResponse.json(
-      { error: error.message || 'Failed to confirm receipt' },
+      { error: message },
       { status: 500 }
     )
   }

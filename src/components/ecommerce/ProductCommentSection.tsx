@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Edit2, Reply, ChevronDown, ChevronUp, Flag, Image as ImageIcon, X } from 'lucide-react'
@@ -10,15 +10,27 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useImageUpload } from '@/lib/hooks/useImageUpload'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { EmojiPicker } from '@/components/ui/EmojiPicker'
 import { ReportDialog } from '@/components/social/ReportDialog'
 import { handleError } from '@/lib/utils/handleError'
 import { showInfo, showSuccess, showWarning } from '@/lib/utils/toast'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { sanitizeContent } from '@/lib/utils/sanitize-content'
+import { getDisplayContent } from '@/lib/ai/display-translated'
 
 interface ProductComment {
   id: string
   content: string
+  content_lang?: 'zh' | 'en' | null
+  content_translated?: string | null
   user_id: string
   parent_id: string | null
   image_urls?: string[]
@@ -47,6 +59,27 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
   const [replyContent, setReplyContent] = useState('')
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null)
+  const [lastSubmitTime, setLastSubmitTime] = useState(0)
+  const RATE_LIMIT_MS = 2000
+  const locale = useLocale()
+  const tCommon = useTranslations('common')
+
+  const { data: userProfile } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user) return null
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      if (error) throw error
+      return data
+    },
+    enabled: !!user,
+  })
 
   // Image upload for new comment
   const newCommentImageUpload = useImageUpload({
@@ -113,7 +146,6 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
         `
         )
         .eq('product_id', productId)
-        .eq('status', 'approved')
         .order('created_at', { ascending: true })
 
       if (error) throw error
@@ -146,6 +178,16 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
     }
   }, [productId, supabase, queryClient])
 
+  const checkRateLimit = useCallback(() => {
+    const now = Date.now()
+    if (now - lastSubmitTime < RATE_LIMIT_MS) {
+      showWarning(t('rateLimitComment'))
+      return false
+    }
+    setLastSubmitTime(now)
+    return true
+  }, [lastSubmitTime, t])
+
   const addCommentMutation = useMutation({
     mutationFn: async ({
       content,
@@ -166,6 +208,8 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
         throw new Error(t('commentTooLongError') || 'Comment too long')
       }
 
+      const sanitizedContent = sanitizeContent(trimmedContent) || ''
+
       let uploadedImageUrls: string[] = []
       if (parentId) {
         if (replyImageUpload.images.length > 0) {
@@ -181,15 +225,19 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
         }
       }
 
+      const isAdminOrSupport =
+        userProfile?.role === 'admin' || userProfile?.role === 'support'
+      const commentStatus = isAdminOrSupport ? 'approved' : 'pending'
+
       const { data, error } = await supabase
         .from('product_comments')
         .insert({
           product_id: productId,
           user_id: user.id,
-          content: trimmedContent || '',
+          content: sanitizedContent,
           parent_id: parentId || null,
           image_urls: uploadedImageUrls,
-          status: 'approved',
+          status: commentStatus,
         })
         .select()
         .single()
@@ -209,11 +257,11 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
     onError: (err: any) => {
       const errorMessage = String(err?.message || '')
       if (errorMessage.includes('Rate limit exceeded')) {
-        showWarning('操作过于频繁，请稍后再试')
-      } else if (errorMessage.includes('不能为空') || errorMessage.includes('不能超过')) {
+        showWarning(t('rateLimitComment'))
+      } else if (errorMessage.includes(t('commentEmptyError')) || errorMessage.includes(t('commentTooLongError'))) {
         showWarning(errorMessage)
       } else {
-        handleError(err, '评论失败，请重试')
+        handleError(err, t('operationFailed'))
       }
     },
   })
@@ -228,7 +276,7 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
       showSuccess(t('commentDeleted') || 'Deleted')
     },
     onError: (err: any) => {
-      handleError(err, '删除失败，请重试')
+      handleError(err, t('deleteCommentFailed'))
     },
   })
 
@@ -238,11 +286,12 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
       if (trimmedContent.length > 500) {
         throw new Error(t('commentTooLongError') || 'Comment too long')
       }
+      const sanitizedContent = sanitizeContent(trimmedContent) || ''
 
       const { data, error } = await supabase
         .from('product_comments')
         .update({
-          content: trimmedContent || '',
+          content: sanitizedContent,
         })
         .eq('id', commentId)
         .select()
@@ -259,10 +308,10 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
     },
     onError: (err: any) => {
       const errorMessage = String(err?.message || '')
-      if (errorMessage.includes('不能为空') || errorMessage.includes('不能超过')) {
+      if (errorMessage.includes(t('commentEmptyError')) || errorMessage.includes(t('commentTooLongError'))) {
         showWarning(errorMessage)
       } else {
-        handleError(err, '更新失败，请重试')
+        handleError(err, t('updateFailedRetry'))
       }
     },
   })
@@ -283,7 +332,16 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
   }
 
   const handleDelete = (id: string) => {
-    deleteCommentMutation.mutate(id)
+    setCommentToDelete(id)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDelete = () => {
+    if (commentToDelete) {
+      deleteCommentMutation.mutate(commentToDelete)
+      setShowDeleteDialog(false)
+      setCommentToDelete(null)
+    }
   }
 
   const handleReport = (id: string) => {
@@ -323,11 +381,13 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
       showInfo(t('loginToComment') || 'Please login to comment')
       return
     }
+    if (!checkRateLimit()) return
     addCommentMutation.mutate({ content: newComment, parentId: null })
   }
 
   const handleReplySubmit = (e: React.FormEvent, parentId: string) => {
     e.preventDefault()
+    if (!checkRateLimit()) return
     addCommentMutation.mutate({ content: replyContent, parentId })
   }
 
@@ -342,15 +402,19 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
 
       <Card className="p-4">
         <form onSubmit={handleSubmitNew} className="flex gap-2 min-w-0">
-          <input
-            ref={commentInputRef}
-            type="text"
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder={t('discussionPlaceholder') || 'Ask or share your thoughts…'}
-            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm min-w-0"
-            disabled={!user}
-          />
+          <div className="flex-1 min-w-0">
+            <input
+              ref={commentInputRef}
+              type="text"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder={t('discussionPlaceholder') || 'Ask or share your thoughts…'}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-w-0"
+              disabled={!user}
+              maxLength={500}
+            />
+            <p className="mt-1 text-right text-xs text-muted-foreground">{newComment.length}/500</p>
+          </div>
           <EmojiPicker onEmojiSelect={handleNewCommentEmoji} />
           <Button
             type="button"
@@ -416,6 +480,7 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
               key={comment.id}
               comment={comment}
               user={user}
+              locale={locale ?? 'en'}
               t={t}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -434,6 +499,7 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
               getParentCommentUser={getParentCommentUser}
               comments={comments}
               productId={productId}
+              tCommon={tCommon}
               newCommentImageUpload={newCommentImageUpload}
               replyImageUpload={replyImageUpload}
               replyFileInputRef={replyFileInputRef}
@@ -451,9 +517,36 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
           setShowReportDialog(false)
           setSelectedCommentId(null)
         }}
-        reportedType="comment"
+        reportedType="product_comment"
         reportedId={selectedCommentId || ''}
       />
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('confirmDeleteComment')}</DialogTitle>
+            <DialogDescription>{t('confirmDeleteComment')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false)
+                setCommentToDelete(null)
+              }}
+            >
+              {tCommon('cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteCommentMutation.isPending}
+            >
+              {deleteCommentMutation.isPending ? tCommon('loading') : tCommon('delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -461,7 +554,9 @@ export function ProductCommentSection({ productId }: ProductCommentSectionProps)
 interface CommentItemProps {
   comment: ProductComment
   user: any
+  locale: string
   t: (key: string) => string
+  tCommon: (key: string) => string
   onEdit: (comment: ProductComment) => void
   onDelete: (id: string) => void
   onReport: (id: string) => void
@@ -491,7 +586,9 @@ interface CommentItemProps {
 function CommentItem({
   comment,
   user,
+  locale,
   t,
+  tCommon,
   onEdit,
   onDelete,
   onReport,
@@ -545,11 +642,11 @@ function CommentItem({
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <Link href={`/profile/${comment.user_id}`} className="text-sm font-medium truncate">
-                {comment.user?.display_name || comment.user?.username || '用户'}
+                {comment.user?.display_name || comment.user?.username || tCommon('user')}
               </Link>
               {parentCommentUser && (
                 <span className="ml-2 text-xs text-muted-foreground">
-                  回复 @{parentCommentUser.display_name || parentCommentUser.username || '用户'}
+                  {t('reply')} @{parentCommentUser.display_name || parentCommentUser.username || tCommon('user')}
                 </span>
               )}
             </div>
@@ -578,7 +675,14 @@ function CommentItem({
 
           {!isEditing ? (
             <>
-              <p className="mt-1 text-sm whitespace-pre-wrap break-words">{comment.content}</p>
+              <p className="mt-1 text-sm whitespace-pre-wrap break-words">
+                {getDisplayContent(
+                  locale,
+                  comment.content_lang ?? null,
+                  comment.content,
+                  comment.content_translated
+                )}
+              </p>
               {(comment.image_urls?.length || 0) > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {comment.image_urls?.map((src, idx) => (
@@ -594,14 +698,16 @@ function CommentItem({
                 onChange={(e) => setEditingContent(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 rows={3}
+                maxLength={500}
               />
+              <p className="text-xs text-muted-foreground text-right">{editingContent.length}/500</p>
               <div className="flex items-center gap-2">
                 <EmojiPicker onEmojiSelect={(emoji) => onEditEmoji?.(comment.id, emoji)} />
                 <Button type="button" size="sm" onClick={() => onSaveEdit(comment.id)}>
-                  保存
+                  {tCommon('save')}
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={onCancelEdit}>
-                  取消
+                  {tCommon('cancel')}
                 </Button>
               </div>
             </div>
@@ -617,6 +723,7 @@ function CommentItem({
                   onChange={(e) => setReplyContent(e.target.value)}
                   placeholder={t('replyPlaceholder') || 'Write a reply...'}
                   className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm min-w-0"
+                  maxLength={500}
                 />
                 <EmojiPicker onEmojiSelect={(emoji) => onReplyEmoji?.(emoji)} />
                 <Button
@@ -657,6 +764,7 @@ function CommentItem({
                   key={r.id}
                   comment={r}
                   user={user}
+                  locale={locale}
                   t={t}
                   onEdit={onEdit}
                   onDelete={onDelete}
@@ -676,6 +784,7 @@ function CommentItem({
                   comments={[]}
                   productId=""
                   depth={1}
+                  tCommon={tCommon}
                   replyImageUpload={replyImageUpload}
                   replyFileInputRef={replyFileInputRef}
                   replyInputRef={replyInputRef}
@@ -693,11 +802,11 @@ function CommentItem({
                 >
                   {isExpanded ? (
                     <>
-                      收起回复 <ChevronUp className="h-4 w-4" />
+                      {t('collapseReplies')} <ChevronUp className="h-4 w-4" />
                     </>
                   ) : (
                     <>
-                      查看更多回复 <ChevronDown className="h-4 w-4" />
+                      {t('expandReplies')} <ChevronDown className="h-4 w-4" />
                     </>
                   )}
                 </Button>

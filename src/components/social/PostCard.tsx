@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react'
 import Image from 'next/image'
 import { Link, useRouter } from '@/i18n/navigation'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { getDisplayContent } from '@/lib/ai/display-translated'
 import { Heart, MessageCircle, MoreHorizontal, MoreVertical, Flag, UserMinus, Star, ExternalLink, Share2, Repeat2, Link2, X, Pencil, Trash2, BarChart3 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,23 +22,25 @@ import { createClient } from '@/lib/supabase/client'
 import { showSuccess, showError, showInfo, showWarning } from '@/lib/utils/toast'
 import { useQueryClient } from '@tanstack/react-query'
 
-function formatPostDate(createdAt: string, updatedAt?: string): string | null {
+function formatPostDate(
+  createdAt: string,
+  updatedAt: string | undefined,
+  t: (key: string, values?: Record<string, number>) => string
+): string | null {
   const date = updatedAt ? new Date(updatedAt) : new Date(createdAt)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / 86400000)
-  
-  // 超过3天，不显示
+
   if (diffDays > 3) return null
-  
-  // 3天内显示相对时间
+
   const diffMins = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMs / 3600000)
-  
-  if (diffMins < 1) return '刚刚'
-  if (diffMins < 60) return `${diffMins}分钟前`
-  if (diffHours < 24) return `${diffHours}小时前`
-  return `${diffDays}天前`
+
+  if (diffMins < 1) return t('timeJustNow')
+  if (diffMins < 60) return t('timeMinutesAgo', { count: diffMins })
+  if (diffHours < 24) return t('timeHoursAgo', { count: diffHours })
+  return t('timeDaysAgo', { count: diffDays })
 }
 
 interface PostCardProps {
@@ -45,6 +48,8 @@ interface PostCardProps {
     id: string
     user_id: string
     content: string | null
+    content_lang?: 'zh' | 'en' | null
+    content_translated?: string | null
     image_urls: string[]
     like_count: number
     comment_count: number
@@ -73,6 +78,13 @@ export function PostCard({ post }: PostCardProps) {
   const router = useRouter()
   const t = useTranslations('posts')
   const tCommon = useTranslations('common')
+  const locale = useLocale()
+  const displayContent = getDisplayContent(
+    locale,
+    post.content_lang ?? null,
+    post.content,
+    post.content_translated
+  )
   const supabase = useMemo(() => {
     if (typeof window !== 'undefined') {
       return createClient()
@@ -333,7 +345,7 @@ export function PostCard({ post }: PostCardProps) {
           <div className="relative aspect-auto w-full">
             <img
               src={post.image_urls[0]}
-              alt={post.content || 'Post image'}
+              alt={displayContent || 'Post image'}
               className="w-full h-auto object-cover"
               onError={() => setImageError(true)}
               loading="lazy"
@@ -343,9 +355,9 @@ export function PostCard({ post }: PostCardProps) {
 
         {/* Post Content */}
         <div className="p-3 md:p-4 min-w-0">
-          {/* Post Text */}
-          {post.content && (
-            <p className="mb-3 line-clamp-3 text-sm break-words">{post.content}</p>
+          {/* Post Text（按 locale 显示原文或译文） */}
+          {displayContent && (
+            <p className="mb-3 line-clamp-3 text-sm break-words">{displayContent}</p>
           )}
 
           {/* Topics: 卡片上只显示 1 个标签 */}
@@ -393,9 +405,9 @@ export function PostCard({ post }: PostCardProps) {
                 <p className="text-sm font-semibold truncate">{post.user.display_name || post.user.username}</p>
               </Link>
               <div className="flex items-center gap-2 shrink-0">
-                {formatPostDate(post.created_at, post.updated_at) && (
+                {formatPostDate(post.created_at, post.updated_at, (k, v) => tCommon(k, v as Record<string, number>)) && (
                   <span className="text-xs text-muted-foreground shrink-0">
-                    {formatPostDate(post.created_at, post.updated_at)}
+                    {formatPostDate(post.created_at, post.updated_at, (k, v) => tCommon(k, v as Record<string, number>))}
                   </span>
                 )}
                 <div className="relative" ref={menuRef} onClick={(e) => e.stopPropagation()}>

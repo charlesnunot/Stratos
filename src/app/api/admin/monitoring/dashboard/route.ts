@@ -220,10 +220,13 @@ export async function GET(request: NextRequest) {
       health: healthStatus,
       timestamp: now.toISOString(),
     })
-  } catch (error: any) {
-    console.error('Monitoring dashboard error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Monitoring dashboard error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to fetch monitoring data'
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch monitoring data' },
+      { error: message },
       { status: 500 }
     )
   }

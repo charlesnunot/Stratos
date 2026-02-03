@@ -12,6 +12,7 @@ import { createAlipayOrder } from '@/lib/payments/alipay'
 import { createWeChatOrder } from '@/lib/payments/wechat'
 import { getCurrencyFromBrowser } from '@/lib/currency/detect-currency'
 import type { Currency } from '@/lib/currency/detect-currency'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -82,7 +83,18 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (txError || !transaction) {
-      console.error('Failed to create payment transaction:', txError)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to create payment transaction:', txError)
+      }
+      logAudit({
+        action: 'platform_fee',
+        userId: user.id,
+        resourceId: userId,
+        resourceType: 'platform_fee',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: txError?.message },
+      })
       return NextResponse.json(
         { error: 'Failed to create payment transaction' },
         { status: 500 }
@@ -197,23 +209,45 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           )
       }
-    } catch (paymentError: any) {
-      console.error('Payment creation error:', paymentError)
+    } catch (paymentError: unknown) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Payment creation error:', paymentError)
+      }
+      const paymentErrorMessage = paymentError instanceof Error ? paymentError.message : String(paymentError)
+      logAudit({
+        action: 'platform_fee',
+        userId: user.id,
+        resourceId: userId,
+        resourceType: 'platform_fee',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: paymentErrorMessage },
+      })
       // Update transaction status to failed
       await supabaseAdmin
         .from('payment_transactions')
         .update({
           status: 'failed',
           failed_at: new Date().toISOString(),
-          failure_reason: paymentError.message || 'Payment creation failed',
+          failure_reason: paymentErrorMessage || 'Payment creation failed',
         })
         .eq('id', transaction.id)
 
       return NextResponse.json(
-        { error: `Failed to create payment: ${paymentError.message}` },
+        { error: `Failed to create payment: ${paymentErrorMessage}` },
         { status: 500 }
       )
     }
+
+    logAudit({
+      action: 'platform_fee',
+      userId: user.id,
+      resourceId: userId,
+      resourceType: 'platform_fee',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { transactionId: transaction.id },
+    })
 
     return NextResponse.json({
       success: true,
@@ -224,10 +258,13 @@ export async function POST(request: NextRequest) {
       codeUrl,
       message: '平台服务费支付已创建',
     })
-  } catch (error: any) {
-    console.error('Platform fee charge error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Platform fee charge error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to charge platform fee'
     return NextResponse.json(
-      { error: error.message || 'Failed to charge platform fee' },
+      { error: message },
       { status: 500 }
     )
   }

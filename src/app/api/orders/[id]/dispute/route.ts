@@ -5,12 +5,15 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: orderId } = await params
     const supabase = await createClient()
     const {
       data: { user },
@@ -34,7 +37,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('id, buyer_id, seller_id, payment_status')
-      .eq('id', params.id)
+      .eq('id', orderId)
       .single()
 
     if (orderError || !order) {
@@ -56,7 +59,7 @@ export async function POST(
     const { data: existingDispute } = await supabase
       .from('order_disputes')
       .select('id')
-      .eq('order_id', params.id)
+      .eq('order_id', orderId)
       .in('status', ['pending', 'reviewing'])
       .maybeSingle()
 
@@ -71,7 +74,7 @@ export async function POST(
     const { data: dispute, error: disputeError } = await supabase
       .from('order_disputes')
       .insert({
-        order_id: params.id,
+        order_id: orderId,
         dispute_type: disputeType,
         status: 'pending',
         initiated_by: user.id,
@@ -84,39 +87,60 @@ export async function POST(
 
     if (disputeError) {
       console.error('Error creating dispute:', disputeError)
+      logAudit({
+        action: 'dispute_open',
+        userId: user.id,
+        resourceId: orderId,
+        resourceType: 'order',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: disputeError.message },
+      })
       return NextResponse.json(
         { error: `Failed to create dispute: ${disputeError.message}` },
         { status: 500 }
       )
     }
 
-    // Create notification for the other party
+    // Create notification for the other party (use admin to bypass RLS: user can only insert for self)
     const notifyUserId = order.buyer_id === user.id ? order.seller_id : order.buyer_id
-    await supabase.from('notifications').insert({
+    const admin = await getSupabaseAdmin()
+    await admin.from('notifications').insert({
       user_id: notifyUserId,
       type: 'system',
-      title: '订单纠纷',
-      content: `订单 ${params.id.substring(0, 8)}... 有新的纠纷申请`,
-      related_id: params.id,
+      title: 'Order Dispute',
+      content: `A new dispute has been opened for order ${orderId.substring(0, 8)}...`,
+      related_id: orderId,
       related_type: 'order',
-      link: `/orders/${params.id}/dispute`,
+      link: `/orders/${orderId}/dispute`,
+      content_key: 'dispute_created',
+      content_params: { orderIdPrefix: orderId.substring(0, 8) },
+    })
+
+    logAudit({
+      action: 'dispute_open',
+      userId: user.id,
+      resourceId: orderId,
+      resourceType: 'order',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { disputeId: dispute.id },
     })
 
     return NextResponse.json({ dispute }, { status: 201 })
-  } catch (error: any) {
-    console.error('Create dispute error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to create dispute' },
-      { status: 500 }
-    )
+  } catch (err: unknown) {
+    console.error('Create dispute error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to create dispute'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: orderId } = await params
     const supabase = await createClient()
     const {
       data: { user },
@@ -131,7 +155,7 @@ export async function GET(
     const { data: dispute, error: disputeError } = await supabase
       .from('order_disputes')
       .select('*')
-      .eq('order_id', params.id)
+      .eq('order_id', orderId)
       .maybeSingle()
 
     if (disputeError) {
@@ -142,11 +166,9 @@ export async function GET(
     }
 
     return NextResponse.json({ dispute })
-  } catch (error: any) {
-    console.error('Get dispute error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to get dispute' },
-      { status: 500 }
-    )
+  } catch (err: unknown) {
+    console.error('Get dispute error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to get dispute'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

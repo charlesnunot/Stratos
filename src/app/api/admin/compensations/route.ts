@@ -8,6 +8,7 @@ import { requireAdmin } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { detectCompensationNeeded, processCompensation } from '@/lib/payments/compensation'
+import { logAudit } from '@/lib/api/audit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -101,12 +102,28 @@ export async function POST(request: NextRequest) {
       const result = await processCompensation(compensationId, supabaseAdmin)
 
       if (!result.success) {
+        logAudit({
+          action: 'compensation',
+          userId: user.id,
+          resourceId: compensationId,
+          resourceType: 'payment_compensation',
+          result: 'fail',
+          timestamp: new Date().toISOString(),
+          meta: { reason: result.error },
+        })
         return NextResponse.json(
           { error: result.error || 'Failed to process compensation' },
           { status: 500 }
         )
       }
-
+      logAudit({
+        action: 'compensation',
+        userId: user.id,
+        resourceId: compensationId,
+        resourceType: 'payment_compensation',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+      })
       return NextResponse.json({ success: true })
     }
 

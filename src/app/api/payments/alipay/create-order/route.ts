@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate amount
+    // Validate amount (required and positive; actual order amount comes from DB below)
     const numericAmount = parseFloat(amount)
     if (isNaN(numericAmount) || numericAmount <= 0) {
       console.error('Invalid amount:', amount)
@@ -56,6 +56,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Order not found' },
         { status: 404 }
+      )
+    }
+
+    // 订单支付：强制使用服务端订单金额，防止前端篡改
+    const orderTotalAmount = typeof order.total_amount === 'number' ? order.total_amount : parseFloat(String(order.total_amount))
+    if (isNaN(orderTotalAmount) || orderTotalAmount <= 0) {
+      return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 })
+    }
+    if (Math.abs(numericAmount - orderTotalAmount) > 0.01) {
+      return NextResponse.json(
+        { error: 'Amount does not match order total' },
+        { status: 400 }
       )
     }
 
@@ -138,10 +150,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create Alipay order FIRST (before deposit check)
+    // Create Alipay order FIRST (before deposit check)，使用服务端订单金额
     const alipayOrder = await createAlipayOrder({
       outTradeNo: order.order_number || orderId,
-      totalAmount: numericAmount,
+      totalAmount: orderTotalAmount,
       subject: subject || `订单 ${order.order_number}`,
       body: `订单号: ${order.order_number}`,
       returnUrl: returnUrl || `${request.nextUrl.origin}/orders/${orderId}`,

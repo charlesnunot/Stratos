@@ -8,6 +8,8 @@ export interface ProductComment {
   product_id: string
   user_id: string
   content: string
+  content_lang?: 'zh' | 'en' | null
+  content_translated?: string | null
   parent_id: string | null
   image_urls: string[] | null
   status: ProductCommentStatus
@@ -56,6 +58,7 @@ export function useCreateProductComment() {
       content: string
       parentId?: string | null
       imageUrls?: string[]
+      status?: 'pending' | 'approved'
     }) => {
       const { data, error } = await supabase
         .from('product_comments')
@@ -65,7 +68,7 @@ export function useCreateProductComment() {
           content: input.content,
           parent_id: input.parentId || null,
           image_urls: input.imageUrls || [],
-          status: 'approved',
+          status: input.status ?? 'pending',
         })
         .select()
         .single()

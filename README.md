@@ -34,7 +34,7 @@ npm install
 
 2. 配置环境变量:
 ```bash
-cp .env.local.example .env.local
+cp .env.example .env.local
 # 编辑 .env.local 填入你的 Supabase 配置
 ```
 

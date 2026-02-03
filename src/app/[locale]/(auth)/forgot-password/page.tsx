@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Link } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,8 +12,21 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const router = useRouter()
   const supabase = createClient()
   const t = useTranslations('auth')
+
+  // 已登录用户访问忘记密码页时重定向到首页
+  useEffect(() => {
+    const checkAndRedirect = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.replace('/')
+        router.refresh()
+      }
+    }
+    checkAndRedirect()
+  }, [supabase.auth, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

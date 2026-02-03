@@ -58,7 +58,7 @@ export function useNewFollowers(userId: string, limit = 30) {
 
 /**
  * 获取「推荐朋友」列表（仅用于当前用户自己）
- * 逻辑：你的粉丝也关注了谁 → 这些人你可能认识，排除已关注的
+ * 逻辑由 RPC recommend_friends 实现：你的粉丝也关注的人 + 冷启动时活跃用户补足
  */
 export function useRecommendedForMe(limit = 12) {
   const { user } = useAuth()
@@ -69,61 +69,27 @@ export function useRecommendedForMe(limit = 12) {
     queryFn: async (): Promise<PeopleUser[]> => {
       if (!user) return []
 
-      const suggestions: PeopleUser[] = []
-      const seen = new Set<string>([user.id])
+      const { data: rows, error } = await supabase.rpc('recommend_friends', {
+        p_limit: limit,
+        p_cursor: undefined,
+      })
 
-      // 1. 我的粉丝
-      const { data: myFollowers } = await supabase
-        .from('follows')
-        .select('follower_id')
-        .eq('followee_id', user.id)
-
-      const followerIds = (myFollowers || []).map((f: any) => f.follower_id)
-      if (followerIds.length === 0) return []
-
-      // 2. 我已关注的人
-      const { data: myFollowing } = await supabase
-        .from('follows')
-        .select('followee_id')
-        .eq('follower_id', user.id)
-
-      const followingIds = new Set((myFollowing || []).map((f: any) => f.followee_id))
-      followerIds.forEach((id) => seen.add(id))
-
-      // 3. 粉丝们关注的人（排除我和已关注）
-      const { data: fansFollowing } = await supabase
-        .from('follows')
-        .select(
-          `
-          followee_id,
-          followee:profiles!follows_followee_id_fkey (
-            id,
-            username,
-            display_name,
-            avatar_url
-          )
-        `
-        )
-        .in('follower_id', followerIds)
-        .limit(limit * 5)
-
-      const cands = (fansFollowing || []) as any[]
-      for (const c of cands) {
-        const id = c.followee_id
-        if (!id || seen.has(id) || followingIds.has(id) || !c.followee) continue
-        seen.add(id)
-        suggestions.push({
-          id: c.followee.id,
-          username: c.followee.username ?? '',
-          display_name: c.followee.display_name ?? null,
-          avatar_url: c.followee.avatar_url ?? null,
-          isMutualFriend: false,
-        })
-        if (suggestions.length >= limit) break
+      if (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[usePeople] recommend_friends RPC failed:', error.message)
+        }
+        return []
       }
 
-      return suggestions
+      return (rows || []).map((r: { id: string; username: string | null; display_name: string | null; avatar_url: string | null }) => ({
+        id: r.id,
+        username: r.username ?? '',
+        display_name: r.display_name ?? null,
+        avatar_url: r.avatar_url ?? null,
+        isMutualFriend: false,
+      }))
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000,
   })
 }

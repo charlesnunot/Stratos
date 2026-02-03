@@ -27,6 +27,8 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.test
+.env.test
 
 # vercel
 .vercel
@@ -34,3 +36,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# standalone AI microservice (lives in its own repo)
+/ai-language-service

@@ -8,8 +8,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/lib/hooks/useToast'
-import { Loader2, Plus, Pencil, Trash2, MapPin, Check } from 'lucide-react'
+import { Loader2, Plus, Pencil, Trash2, MapPin } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import { validateAddressFields } from '@/lib/utils/address-validation'
+import { useTranslations } from 'next-intl'
 
 interface Address {
   id: string
@@ -27,6 +29,9 @@ interface Address {
 }
 
 export default function AddressesPage() {
+  const t = useTranslations('addresses')
+  const tCommon = useTranslations('common')
+  const tAuth = useTranslations('auth')
   const router = useRouter()
   const { user } = useAuth()
   const supabase = createClient()
@@ -77,21 +82,21 @@ export default function AddressesPage() {
       queryClient.invalidateQueries({ queryKey: ['userAddresses', user?.id] })
       toast({
         variant: 'default',
-        title: '已设置默认地址',
+        title: t('defaultSet'),
       })
     },
     onError: (error: any) => {
       toast({
         variant: 'destructive',
-        title: '设置失败',
-        description: error.message || '无法设置默认地址',
+        title: t('setDefaultFailed'),
+        description: error.message || t('saveFailedDescription'),
       })
     },
   })
 
-  // Delete address mutation
+  // Delete address mutation（删除默认地址时，若有剩余地址则自动将第一个设为默认）
   const deleteMutation = useMutation({
-    mutationFn: async (addressId: string) => {
+    mutationFn: async ({ addressId, wasDefault }: { addressId: string; wasDefault: boolean }) => {
       if (!user) throw new Error('User not authenticated')
 
       const { error } = await supabase
@@ -101,6 +106,17 @@ export default function AddressesPage() {
         .eq('user_id', user.id)
 
       if (error) throw error
+
+      if (wasDefault && addresses && addresses.length > 1) {
+        const remaining = addresses.filter((a) => a.id !== addressId)
+        if (remaining.length > 0) {
+          await supabase
+            .from('user_addresses')
+            .update({ is_default: true })
+            .eq('id', remaining[0].id)
+            .eq('user_id', user.id)
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userAddresses', user?.id] })
@@ -147,14 +163,14 @@ export default function AddressesPage() {
       setEditForm({})
       toast({
         variant: 'default',
-        title: '地址已更新',
+        title: t('addressUpdated'),
       })
     },
     onError: (error: any) => {
       toast({
         variant: 'destructive',
-        title: '更新失败',
-        description: error.message || '无法更新地址',
+        title: t('updateFailed'),
+        description: error.message || t('saveFailedDescription'),
       })
     },
   })
@@ -177,11 +193,22 @@ export default function AddressesPage() {
   const handleSaveEdit = () => {
     if (!editingId) return
 
-    if (!editForm.recipient_name || !editForm.phone || !editForm.street_address || !editForm.country) {
+    const validation = validateAddressFields({
+      label: editForm.label || null,
+      recipient_name: editForm.recipient_name,
+      phone: editForm.phone,
+      country: editForm.country,
+      state: editForm.state || null,
+      city: editForm.city || null,
+      street_address: editForm.street_address,
+      postal_code: editForm.postal_code || null,
+    })
+    if (!validation.valid) {
+      const firstError = Object.values(validation.errors)[0]
       toast({
         variant: 'destructive',
-        title: '信息不完整',
-        description: '请填写完整的收货地址信息（姓名、电话、地址、国家）',
+        title: '信息有误',
+        description: firstError,
       })
       return
     }
@@ -197,9 +224,9 @@ export default function AddressesPage() {
   if (!user) {
     return (
       <div className="mx-auto max-w-2xl py-12 text-center">
-        <p className="text-muted-foreground">请先登录</p>
+        <p className="text-muted-foreground">{t('pleaseLogin')}</p>
         <Link href="/login">
-          <Button className="mt-4">登录</Button>
+          <Button className="mt-4">{tAuth('login')}</Button>
         </Link>
       </div>
     )
@@ -218,9 +245,9 @@ export default function AddressesPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">收货地址管理</h1>
+        <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
         <Link href="/checkout">
-          <Button variant="outline">返回结算</Button>
+          <Button variant="outline">{t('backToCheckout')}</Button>
         </Link>
       </div>
 
@@ -231,20 +258,20 @@ export default function AddressesPage() {
             <Card key={address.id} className="p-6">
               {editingId === address.id ? (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">编辑地址</h3>
+                  <h3 className="text-lg font-semibold">{t('editAddress')}</h3>
                   <div>
-                    <label className="mb-1 block text-sm font-medium">地址标签（可选）</label>
+                    <label className="mb-1 block text-sm font-medium">{t('labelOptional')}</label>
                     <input
                       type="text"
                       value={editForm.label || ''}
                       onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
-                      placeholder="例如：家庭、工作、其他"
+                      placeholder={t('labelPlaceholder')}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     />
                   </div>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-sm font-medium">收货人姓名 *</label>
+                      <label className="mb-1 block text-sm font-medium">{t('recipientName')} *</label>
                       <input
                         type="text"
                         value={editForm.recipient_name || ''}
@@ -254,7 +281,7 @@ export default function AddressesPage() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium">联系电话 *</label>
+                      <label className="mb-1 block text-sm font-medium">{t('phone')} *</label>
                       <input
                         type="tel"
                         value={editForm.phone || ''}
@@ -265,7 +292,7 @@ export default function AddressesPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium">国家/地区 *</label>
+                    <label className="mb-1 block text-sm font-medium">{t('country')} *</label>
                     <input
                       type="text"
                       value={editForm.country || ''}
@@ -276,7 +303,7 @@ export default function AddressesPage() {
                   </div>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-sm font-medium">省/州</label>
+                      <label className="mb-1 block text-sm font-medium">{t('state')}</label>
                       <input
                         type="text"
                         value={editForm.state || ''}
@@ -285,7 +312,7 @@ export default function AddressesPage() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium">城市</label>
+                      <label className="mb-1 block text-sm font-medium">{t('city')}</label>
                       <input
                         type="text"
                         value={editForm.city || ''}
@@ -295,7 +322,7 @@ export default function AddressesPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium">详细地址 *</label>
+                    <label className="mb-1 block text-sm font-medium">{t('streetAddress')} *</label>
                     <input
                       type="text"
                       value={editForm.street_address || ''}
@@ -305,7 +332,7 @@ export default function AddressesPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium">邮政编码</label>
+                    <label className="mb-1 block text-sm font-medium">{t('postalCodeLabel')}</label>
                     <input
                       type="text"
                       value={editForm.postal_code || ''}
@@ -322,7 +349,7 @@ export default function AddressesPage() {
                       className="h-4 w-4 rounded border-gray-300"
                     />
                     <label htmlFor={`isDefault-${address.id}`} className="text-sm">
-                      设为默认地址
+                      {t('setAsDefault')}
                     </label>
                   </div>
                   <div className="flex gap-2">
@@ -332,7 +359,7 @@ export default function AddressesPage() {
                       disabled={updateMutation.isPending}
                       className="flex-1"
                     >
-                      取消
+                      {t('cancel')}
                     </Button>
                     <Button
                       onClick={handleSaveEdit}
@@ -342,10 +369,10 @@ export default function AddressesPage() {
                       {updateMutation.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          保存中...
+                          {t('saving')}
                         </>
                       ) : (
-                        '保存'
+                        tCommon('save')
                       )}
                     </Button>
                   </div>
@@ -362,7 +389,7 @@ export default function AddressesPage() {
                         )}
                         {address.is_default && (
                           <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">
-                            默认
+                            {t('default')}
                           </span>
                         )}
                       </div>
@@ -375,7 +402,7 @@ export default function AddressesPage() {
                       </p>
                       {address.postal_code && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          邮政编码: {address.postal_code}
+                          {t('postalCode')}: {address.postal_code}
                         </p>
                       )}
                     </div>
@@ -391,7 +418,7 @@ export default function AddressesPage() {
                         {setDefaultMutation.isPending ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          '设为默认'
+                          t('setAsDefault')
                         )}
                       </Button>
                     )}
@@ -401,20 +428,20 @@ export default function AddressesPage() {
                       onClick={() => handleEdit(address)}
                     >
                       <Pencil className="mr-2 h-4 w-4" />
-                      编辑
+                      {tCommon('edit')}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        if (confirm('确定要删除这个地址吗？')) {
-                          deleteMutation.mutate(address.id)
+                        if (confirm(t('confirmDelete'))) {
+                          deleteMutation.mutate({ addressId: address.id, wasDefault: address.is_default })
                         }
                       }}
                       disabled={deleteMutation.isPending}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      删除
+                      {tCommon('delete')}
                     </Button>
                   </div>
                 </div>
@@ -425,11 +452,11 @@ export default function AddressesPage() {
       ) : (
         <Card className="p-8 text-center">
           <MapPin className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-          <p className="text-muted-foreground mb-4">您还没有保存的地址</p>
+          <p className="text-muted-foreground mb-4">{t('noAddresses')}</p>
           <Link href="/checkout">
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              添加地址
+              {t('addAddress')}
             </Button>
           </Link>
         </Card>

@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logAudit } from '@/lib/api/audit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -76,7 +77,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { obligationId, paymentTransactionId } = await request.json()
+    const body = await request.json()
+    const { obligationId, paymentTransactionId, paymentMethod: bodyPaymentMethod } = body
+    const paymentMethod = bodyPaymentMethod ?? 'stripe'
 
     if (!obligationId) {
       return NextResponse.json(
@@ -176,10 +179,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Transfer money to each affiliate
-      const body = await request.json()
-      const paymentMethod = body.paymentMethod || 'stripe' // Default to stripe, can be passed from frontend
-
+      // Transfer money to each affiliate (paymentMethod from body parsed above)
       for (const [affiliateId, commissionData] of commissionsByAffiliate) {
         try {
           const { transferToSeller } = await import('@/lib/payments/transfer-to-seller')
@@ -213,14 +213,27 @@ export async function POST(request: NextRequest) {
         .in('id', commissionIds)
     }
 
+    logAudit({
+      action: 'commission_pay',
+      userId: user.id,
+      resourceId: obligationId,
+      resourceType: 'commission_obligation',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { obligationId },
+    })
+
     return NextResponse.json({
       success: true,
       message: 'Commission payment recorded successfully',
     })
-  } catch (error: any) {
-    console.error('Pay commission error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Pay commission error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to pay commission'
     return NextResponse.json(
-      { error: error.message || 'Failed to pay commission' },
+      { error: message },
       { status: 500 }
     )
   }

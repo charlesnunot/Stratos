@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import dynamic from "next/dynamic"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { QueryProvider } from "@/lib/providers/QueryProvider"
+import { QueryProvider, AuthProvider } from "@/lib/providers"
 import { defaultLocale } from "@/i18n/config"
 import { ErrorSuppressor } from "@/components/ErrorSuppressor"
 
@@ -24,7 +24,8 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Stratos - Social E-commerce Platform",
   description: "An integrated platform combining social networking, e-commerce, and instant messaging",
-  icons: { icon: "/icon.svg" },
+  // 使用与侧边栏一致的 logo；若需标签页仅显示猫形（无 Stratos 文字），可放 logo-icon.png 并改为 icon: "/logo-icon.png"
+  icons: { icon: "/logo.png" },
 }
 
 export default function RootLayout({
@@ -33,13 +34,33 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   // Default locale, will be updated by LocaleScript component
+  const abortErrorSuppressScript = `
+(function(){
+  function isAbort(e){
+    if(!e) return false;
+    var n=(e&&e.name)||'', m=String((e&&e.message)||'');
+    if(n==='AbortError') return true;
+    return /aborted|cancelled|signal is aborted/i.test(m);
+  }
+  window.addEventListener('unhandledrejection',function(ev){
+    if(isAbort(ev.reason)){
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+    }
+  },true);
+})();
+`.replace(/\n\s*/g, ' ')
+
   return (
     <html lang={defaultLocale} dir="ltr">
       <body className={inter.className}>
+        <script dangerouslySetInnerHTML={{ __html: abortErrorSuppressScript }} />
         <ErrorSuppressor />
         <QueryProvider>
-          {children}
-          <Toaster />
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

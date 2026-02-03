@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -126,6 +126,23 @@ export function ChatList() {
   const formatLastMessage = (message: any) => {
     if (!message) return t('noMessages')
     const content = message.content || ''
+    if (!content.trim()) return t('noMessages')
+    // 分享的帖子/商品：content 为 JSON，显示友好预览而非原始 JSON
+    try {
+      const parsed = JSON.parse(content)
+      if (parsed && typeof parsed === 'object' && (parsed.type === 'product' || parsed.type === 'post')) {
+        if (parsed.type === 'product') {
+          const name = parsed.name || parsed.title
+          return name ? t('sharedProductPreviewWithName', { name }) : t('sharedProductPreview')
+        }
+        if (parsed.type === 'post') {
+          const title = parsed.title
+          return title ? t('sharedPostPreviewWithTitle', { title }) : t('sharedPostPreview')
+        }
+      }
+    } catch {
+      // 非 JSON，按普通文本处理
+    }
     return content.length > 30 ? content.substring(0, 30) + '...' : content
   }
 
@@ -150,7 +167,7 @@ export function ChatList() {
           onClick={() => setShowCreateGroup(true)}
         >
           <Users className="mr-2 h-4 w-4" />
-          创建群组
+          {t('createGroup')}
         </Button>
       </div>
 
@@ -216,7 +233,7 @@ export function ChatList() {
                     <div className="flex items-center justify-between mb-1">
                       <p className="font-semibold truncate">
                         {isGroup
-                          ? conversation.name || '未命名群组'
+                          ? conversation.name || t('unnamedGroup')
                           : other?.display_name || other?.username || t('unknownUser')}
                       </p>
                       {lastMessage ? (

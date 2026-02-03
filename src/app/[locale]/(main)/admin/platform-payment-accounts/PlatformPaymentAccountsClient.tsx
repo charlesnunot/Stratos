@@ -6,6 +6,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,14 +40,16 @@ interface PlatformPaymentAccount {
   created_at: string
 }
 
-const ACCOUNT_TYPE_INFO: Record<string, { name: string; icon: any }> = {
+const ACCOUNT_TYPE_INFO: Record<string, { nameKey?: string; name?: string; icon: any }> = {
   stripe: { name: 'Stripe', icon: CreditCard },
   paypal: { name: 'PayPal', icon: Wallet },
-  alipay: { name: '支付宝', icon: Smartphone },
-  wechat: { name: '微信支付', icon: Smartphone },
+  alipay: { nameKey: 'providerAlipay', icon: Smartphone },
+  wechat: { nameKey: 'providerWechat', icon: Smartphone },
 }
 
 export function PlatformPaymentAccountsClient() {
+  const t = useTranslations('admin')
+  const tCommon = useTranslations('common')
   const { toast } = useToast()
   const [accounts, setAccounts] = useState<PlatformPaymentAccount[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,8 +70,8 @@ export function PlatformPaymentAccountsClient() {
       const data = await response.json()
       setAccounts(data.accounts || [])
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '加载平台支付账户失败'
-      toast({ variant: 'destructive', title: '错误', description: msg })
+      const msg = e instanceof Error ? e.message : t('loadPlatformAccountsFailed')
+      toast({ variant: 'destructive', title: tCommon('error'), description: msg })
     } finally {
       setLoading(false)
     }
@@ -88,9 +91,9 @@ export function PlatformPaymentAccountsClient() {
 
   const handleToggleStatus = async (account: PlatformPaymentAccount) => {
     const newStatus = account.status === 'active' ? 'disabled' : 'active'
-    const action = newStatus === 'disabled' ? '停用' : '启用'
-    const actionText = newStatus === 'disabled' ? '停用此平台支付账户' : '启用此平台支付账户'
-    if (!confirm(`确定要${actionText}吗？`)) return
+    const action = newStatus === 'disabled' ? t('disable') : t('enable')
+    const confirmMsg = newStatus === 'disabled' ? t('confirmDisablePlatformAccount') : t('confirmEnablePlatformAccount')
+    if (!confirm(confirmMsg)) return
     setTogglingId(account.id)
     try {
       const response = await fetch(`/api/admin/platform-payment-accounts/${account.id}`, {
@@ -100,13 +103,13 @@ export function PlatformPaymentAccountsClient() {
       })
       if (!response.ok) {
         const err = await response.json()
-        throw new Error(err.error || `${action}失败`)
+        throw new Error(err.error || action)
       }
-      toast({ variant: 'success', title: '成功', description: `平台支付账户已${action}` })
+      toast({ variant: 'success', title: tCommon('success'), description: t('platformAccountUpdated', { action }) })
       loadAccounts()
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : `${action}失败`
-      toast({ variant: 'destructive', title: '错误', description: msg })
+      const msg = e instanceof Error ? e.message : action
+      toast({ variant: 'destructive', title: tCommon('error'), description: msg })
     } finally {
       setTogglingId(null)
     }
@@ -158,19 +161,25 @@ export function PlatformPaymentAccountsClient() {
 
   const existingAccountTypes = accounts.filter((a) => a.status === 'active').map((a) => a.account_type)
 
+  const getAccountTypeName = (type: string) => {
+    const Info = ACCOUNT_TYPE_INFO[type]
+    if (!Info) return type
+    return Info.nameKey ? t(Info.nameKey) : (Info.name ?? type)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">平台支付账户管理</h1>
-          <p className="mt-2 text-muted-foreground">管理平台用于接收订阅费用的支付账户配置</p>
+          <h1 className="text-3xl font-bold">{t('platformPaymentAccounts')}</h1>
+          <p className="mt-2 text-muted-foreground">{t('platformPaymentAccountsCardDesc')}</p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>添加平台支付账户</CardTitle>
-          <CardDescription>每种支付方式只能配置一个平台账户</CardDescription>
+          <CardTitle>{t('addPlatformAccount')}</CardTitle>
+          <CardDescription>{t('addPlatformAccountDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -178,6 +187,7 @@ export function PlatformPaymentAccountsClient() {
               const Info = ACCOUNT_TYPE_INFO[type]
               const Icon = Info.icon
               const exists = existingAccountTypes.includes(type)
+              const name = getAccountTypeName(type)
               return (
                 <Button
                   key={type}
@@ -187,10 +197,10 @@ export function PlatformPaymentAccountsClient() {
                   disabled={exists}
                 >
                   <Icon className="h-6 w-6" />
-                  <span>{Info.name}</span>
+                  <span>{name}</span>
                   {exists && (
                     <Badge variant="secondary" className="text-xs">
-                      已配置
+                      {t('configured')}
                     </Badge>
                   )}
                 </Button>
@@ -203,29 +213,30 @@ export function PlatformPaymentAccountsClient() {
       {accounts.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">暂无平台支付账户</p>
-            <p className="mt-2 text-sm text-muted-foreground">点击上方按钮添加平台支付账户</p>
+            <p className="text-muted-foreground">{t('noPlatformAccounts')}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{t('addPlatformAccountHint')}</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4">
           {accounts.map((account) => {
             const Info = ACCOUNT_TYPE_INFO[account.account_type]
-            const Icon = Info.icon
+            const Icon = Info?.icon
+            const name = getAccountTypeName(account.account_type)
             return (
               <Card key={account.id} className={account.status === 'disabled' ? 'opacity-60' : ''}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                        <Icon className="h-5 w-5" />
+                        {Icon && <Icon className="h-5 w-5" />}
                       </div>
                       <div>
-                        <CardTitle>{account.account_name || Info.name}</CardTitle>
+                        <CardTitle>{account.account_name || name}</CardTitle>
                         <CardDescription>
-                          {Info.name} • {account.currency}
+                          {name} • {account.currency}
                           {account.supported_currencies.length > 1 && (
-                            <span className="ml-2">(支持: {account.supported_currencies.join(', ')})</span>
+                            <span className="ml-2">({account.supported_currencies.join(', ')})</span>
                           )}
                         </CardDescription>
                       </div>
@@ -233,16 +244,16 @@ export function PlatformPaymentAccountsClient() {
                     <div className="flex items-center gap-2">
                       {account.status === 'active' ? (
                         <Badge variant="default" className="gap-1">
-                          <CheckCircle className="h-3 w-3" />已启用
+                          <CheckCircle className="h-3 w-3" />{t('statusEnabled')}
                         </Badge>
                       ) : (
                         <Badge variant="secondary" className="gap-1">
-                          <XCircle className="h-3 w-3" />已停用
+                          <XCircle className="h-3 w-3" />{t('statusDisabled')}
                         </Badge>
                       )}
                       {account.is_verified && account.status === 'active' && (
                         <Badge variant="outline" className="gap-1">
-                          <CheckCircle className="h-3 w-3" />已验证
+                          <CheckCircle className="h-3 w-3" />{t('verified')}
                         </Badge>
                       )}
                       <Button
@@ -251,7 +262,7 @@ export function PlatformPaymentAccountsClient() {
                         onClick={() => handleEdit(account)}
                         disabled={account.status === 'disabled'}
                       >
-                        <Edit className="mr-2 h-4 w-4" />编辑
+                        <Edit className="mr-2 h-4 w-4" />{t('editLabel')}
                       </Button>
                       <Button
                         variant="outline"
@@ -263,11 +274,11 @@ export function PlatformPaymentAccountsClient() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : account.status === 'active' ? (
                           <>
-                            <Power className="mr-2 h-4 w-4" />停用
+                            <Power className="mr-2 h-4 w-4" />{t('disable')}
                           </>
                         ) : (
                           <>
-                            <Power className="mr-2 h-4 w-4" />启用
+                            <Power className="mr-2 h-4 w-4" />{t('enable')}
                           </>
                         )}
                       </Button>
@@ -276,13 +287,13 @@ export function PlatformPaymentAccountsClient() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm text-muted-foreground">
-                    <p>创建时间: {new Date(account.created_at).toLocaleString('zh-CN')}</p>
-                    <p className="mt-1">账户类型: {account.account_type}</p>
+                    <p>{t('createdAtLabel')}: {new Date(account.created_at).toLocaleString()}</p>
+                    <p className="mt-1">{t('accountType')}: {account.account_type}</p>
                     {account.status === 'disabled' && account.disabled_at && (
-                      <p className="mt-1 text-orange-600">停用时间: {new Date(account.disabled_at).toLocaleString('zh-CN')}</p>
+                      <p className="mt-1 text-orange-600">{t('disabledAt')}: {new Date(account.disabled_at).toLocaleString()}</p>
                     )}
                     {account.status === 'active' && account.enabled_at && (
-                      <p className="mt-1 text-green-600">启用时间: {new Date(account.enabled_at).toLocaleString('zh-CN')}</p>
+                      <p className="mt-1 text-green-600">{t('enabledAt')}: {new Date(account.enabled_at).toLocaleString()}</p>
                     )}
                   </div>
                 </CardContent>

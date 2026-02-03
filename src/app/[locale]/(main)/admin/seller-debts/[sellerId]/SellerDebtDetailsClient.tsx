@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,8 @@ interface DepositLot {
 }
 
 export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
+  const t = useTranslations('admin')
+  const tCommon = useTranslations('common')
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [seller, setSeller] = useState<{ display_name?: string; username?: string } | null>(null)
@@ -69,7 +72,7 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
   }
 
   const handleCollectFromDeposit = async () => {
-    if (!confirm('确定要从保证金中扣除该卖家的债务吗？')) return
+    if (!confirm(t('confirmCollectFromDeposit'))) return
     try {
       const res = await fetch('/api/admin/seller-debts', {
         method: 'POST',
@@ -78,11 +81,11 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
       })
       const data = await res.json()
       if (data.success) {
-        alert(`成功扣除 ${data.totalCollected} 的债务`)
+        alert(t('debtCollected', { amount: data.totalCollected }))
         loadData()
-      } else alert(`操作失败: ${data.error}`)
+      } else alert(`${t('collectFailed')}: ${data.error}`)
     } catch {
-      alert('操作失败')
+      alert(t('collectFailed'))
     }
   }
 
@@ -91,7 +94,7 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
       pending: 'destructive', collected: 'default', paid: 'default', forgiven: 'secondary',
     }
     const l: Record<string, string> = {
-      pending: '待偿还', collected: '已扣除', paid: '已支付', forgiven: '已免除',
+      pending: t('debtStatusPending'), collected: t('debtStatusCollected'), paid: t('debtStatusPaid'), forgiven: t('debtStatusForgiven'),
     }
     return <Badge variant={v[status] || 'outline'}>{l[status] || status}</Badge>
   }
@@ -101,7 +104,7 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-          <p className="mt-4 text-muted-foreground">加载中...</p>
+          <p className="mt-4 text-muted-foreground">{tCommon('loading')}</p>
         </div>
       </div>
     )
@@ -111,40 +114,40 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
     <div className="mx-auto max-w-7xl space-y-6 p-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />返回
+          <ArrowLeft className="mr-2 h-4 w-4" />{tCommon('back')}
         </Button>
         <div>
           <h1 className="text-3xl font-bold">
-            卖家债务详情: {seller?.display_name || seller?.username || sellerId}
+            {t('debtDetailsTitle')}: {seller?.display_name || seller?.username || sellerId}
           </h1>
-          <p className="mt-2 text-muted-foreground">查看该卖家的详细债务信息和历史记录</p>
+          <p className="mt-2 text-muted-foreground">{t('debtDetailsSubtitle')}</p>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2"><CardDescription>待偿还债务</CardDescription></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>{t('pendingDebtDesc')}</CardDescription></CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{formatCurrency(statistics.totalDebt, 'USD')}</div>
-            <p className="text-xs text-muted-foreground">{statistics.pendingDebtCount} 笔待偿还</p>
+            <p className="text-xs text-muted-foreground">{t('pendingDebtCountLabel', { count: statistics.pendingDebtCount })}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardDescription>已扣除债务</CardDescription></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>{t('collectedDebtDesc')}</CardDescription></CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(statistics.totalCollected, 'USD')}</div>
-            <p className="text-xs text-muted-foreground">{statistics.collectedDebtCount} 笔已扣除</p>
+            <p className="text-xs text-muted-foreground">{t('collectedDebtCountLabel', { count: statistics.collectedDebtCount })}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardDescription>保证金余额</CardDescription></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>{t('depositBalance')}</CardDescription></CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(statistics.depositBalance, 'USD')}</div>
-            <p className="text-xs text-muted-foreground">{statistics.depositLotsCount} 个保证金批次</p>
+            <p className="text-xs text-muted-foreground">{t('depositLotsCountLabel', { count: statistics.depositLotsCount })}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardDescription>操作</CardDescription></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>{t('action')}</CardDescription></CardHeader>
           <CardContent>
             <Button
               variant="default"
@@ -152,7 +155,7 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
               onClick={handleCollectFromDeposit}
               disabled={statistics.totalDebt === 0 || statistics.depositBalance === 0}
             >
-              从保证金扣除
+              {t('collectFromDeposit')}
             </Button>
           </CardContent>
         </Card>
@@ -161,8 +164,8 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
       {depositLots.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>保证金批次</CardTitle>
-            <CardDescription>该卖家的保证金详情</CardDescription>
+            <CardTitle>{t('depositLotsTitle')}</CardTitle>
+            <CardDescription>{t('depositLotsDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {depositLots.map((lot) => (
@@ -170,7 +173,7 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
                 <div>
                   <p className="font-semibold">{formatCurrency(lot.required_amount, (lot.currency as Currency) || 'USD')}</p>
                   <p className="text-sm text-muted-foreground">
-                    状态: {lot.status} | 持有时间: {lot.held_at ? new Date(lot.held_at).toLocaleString('zh-CN') : 'N/A'}
+                    {t('statusLabel')}: {lot.status} | {t('heldAtLabel')}: {lot.held_at ? new Date(lot.held_at).toLocaleString() : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -181,8 +184,8 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>债务历史记录</CardTitle>
-          <CardDescription>该卖家的所有债务记录</CardDescription>
+          <CardTitle>{t('debtHistoryTitle')}</CardTitle>
+          <CardDescription>{t('debtHistoryDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {debts.map((debt) => (
@@ -197,18 +200,18 @@ export function SellerDebtDetailsClient({ sellerId }: { sellerId: string }) {
                       {getStatusBadge(debt.status)}
                       {debt.collection_method && <Badge variant="outline">{debt.collection_method}</Badge>}
                     </div>
-                    <p className="text-sm text-muted-foreground">原因: {debt.debt_reason}</p>
-                    {debt.order && <p className="text-sm text-muted-foreground">订单: {debt.order.order_number}</p>}
-                    <p className="text-sm text-muted-foreground">创建时间: {new Date(debt.created_at).toLocaleString('zh-CN')}</p>
+                    <p className="text-sm text-muted-foreground">{t('reason')}: {debt.debt_reason}</p>
+                    {debt.order && <p className="text-sm text-muted-foreground">{t('orderLabel')}: {debt.order.order_number}</p>}
+                    <p className="text-sm text-muted-foreground">{t('createdAtLabel')}: {new Date(debt.created_at).toLocaleString()}</p>
                     {debt.collected_at && (
-                      <p className="text-sm text-muted-foreground">扣除时间: {new Date(debt.collected_at).toLocaleString('zh-CN')}</p>
+                      <p className="text-sm text-muted-foreground">{t('deductedAt')}: {new Date(debt.collected_at).toLocaleString()}</p>
                     )}
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
-          {debts.length === 0 && <p className="py-8 text-center text-muted-foreground">暂无债务记录</p>}
+          {debts.length === 0 && <p className="py-8 text-center text-muted-foreground">{t('noDebtRecords')}</p>}
         </CardContent>
       </Card>
     </div>

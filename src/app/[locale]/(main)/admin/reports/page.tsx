@@ -1,10 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { ReportManagement } from '@/components/admin/ReportManagement'
 import { Button } from '@/components/ui/button'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 
-export default async function AdminReportsPage() {
+type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> }
+
+export default async function AdminReportsPage({ searchParams }: PageProps) {
+  const t = await getTranslations('admin')
   const supabase = await createClient()
   const {
     data: { user },
@@ -88,13 +92,21 @@ export default async function AdminReportsPage() {
 
   // 获取用户角色，传递给客户端组件用于权限控制
   const userRole = profile.role || 'user'
+  // URL 参数 reportId：从举报通知点「查看举报」时传入，用于高亮并滚动到该条
+  const params = searchParams
+    ? typeof (searchParams as Promise<unknown>).then === 'function'
+      ? await (searchParams as Promise<Record<string, string | string[] | undefined>>)
+      : (searchParams as Record<string, string | string[] | undefined>)
+    : {}
+  const reportIdRaw = params.reportId
+  const highlightReportId = reportIdRaw == null ? undefined : Array.isArray(reportIdRaw) ? reportIdRaw[0] : reportIdRaw
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">
-        {userRole === 'admin' || userRole === 'support' ? '举报管理' : '我的举报'}
+        {userRole === 'admin' || userRole === 'support' ? t('reportsTitle') : t('myReports')}
       </h1>
-      <ReportManagement userRole={userRole} />
+      <ReportManagement userRole={userRole} highlightReportId={highlightReportId} />
     </div>
   )
 }

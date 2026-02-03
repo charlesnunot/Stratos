@@ -4,37 +4,40 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAudit } from '@/lib/api/audit'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   try {
-    // Verify cron secret (if using Vercel Cron)
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { verifyCronSecret } = await import('@/lib/cron/verify-cron-secret')
+    const unauth = verifyCronSecret(request)
+    if (unauth) return unauth
+
+    const supabaseAdmin = await getSupabaseAdmin()
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Starting shipping timeout check at', new Date().toISOString())
     }
 
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
-
-    // Call database function to auto-create shipping disputes
-    const startTime = Date.now()
-    console.log('[Cron] Starting shipping timeout check at', new Date().toISOString())
-    
     const { error, data } = await supabaseAdmin.rpc('auto_create_shipping_dispute')
 
     if (error) {
-      console.error('[Cron] Error auto-creating shipping disputes:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Cron] Error auto-creating shipping disputes:', error)
+      }
+      const duration = Date.now() - startTime
+      try {
+        await supabaseAdmin.from('cron_logs').insert({
+          job_name: 'check_shipping_timeout',
+          status: 'failed',
+          execution_time_ms: duration,
+          executed_at: new Date().toISOString(),
+          error_message: error.message,
+        })
+      } catch (_) {}
       return NextResponse.json(
         { error: error.message || 'Failed to check shipping timeouts' },
         { status: 500 }
@@ -42,32 +45,54 @@ export async function GET(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime
-    console.log('[Cron] Shipping timeout check completed in', duration, 'ms')
-
-    // Log execution result (ignore errors - cron_logs table might not exist)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Cron] Shipping timeout check completed in', duration, 'ms')
+    }
     try {
-      const { error: logError } = await supabaseAdmin.from('cron_logs').insert({
+      await supabaseAdmin.from('cron_logs').insert({
         job_name: 'check_shipping_timeout',
         status: 'success',
         execution_time_ms: duration,
         executed_at: new Date().toISOString(),
       })
-      if (logError) {
-        console.warn('[Cron] Failed to log execution:', logError)
-      }
-    } catch (logError) {
-      console.warn('[Cron] Failed to log execution:', logError)
-    }
+    } catch (_) {}
+
+    logAudit({
+      action: 'cron_check_shipping_timeout',
+      resourceType: 'cron',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+    })
 
     return NextResponse.json({ 
       success: true, 
       message: 'Shipping timeouts checked',
       executionTime: duration 
     })
-  } catch (error: any) {
-    console.error('Cron job error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Cron job error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to check shipping timeouts'
+    try {
+      const supabaseAdmin = await getSupabaseAdmin()
+      await supabaseAdmin.from('cron_logs').insert({
+        job_name: 'check_shipping_timeout',
+        status: 'failed',
+        execution_time_ms: Date.now() - startTime,
+        executed_at: new Date().toISOString(),
+        error_message: message,
+      })
+    } catch (_) {}
+    logAudit({
+      action: 'cron_check_shipping_timeout',
+      resourceType: 'cron',
+      result: 'fail',
+      timestamp: new Date().toISOString(),
+      meta: { error: message },
+    })
     return NextResponse.json(
-      { error: error.message || 'Failed to check shipping timeouts' },
+      { error: message },
       { status: 500 }
     )
   }

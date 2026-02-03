@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     if (!authResult.success) {
       return authResult.response
     }
+    const adminId = authResult.data.user.id
 
     const { refundId, orderId } = await request.json()
 
@@ -72,20 +73,43 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', refundId)
 
+      const { logAudit } = await import('@/lib/api/audit')
+      logAudit({
+        action: 'admin_refund_process',
+        userId: adminId,
+        resourceId: refundId,
+        resourceType: 'order_refund',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { orderId, reason: refundResult.error },
+      })
       return NextResponse.json(
         { error: refundResult.error || 'Failed to process refund' },
         { status: 500 }
       )
     }
 
+    const { logAudit } = await import('@/lib/api/audit')
+    logAudit({
+      action: 'admin_refund_process',
+      userId: adminId,
+      resourceId: refundId,
+      resourceType: 'order_refund',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { orderId },
+    })
     return NextResponse.json({
       success: true,
       message: 'Refund processed successfully',
     })
-  } catch (error: any) {
-    console.error('Process refund error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Process refund error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to process refund'
     return NextResponse.json(
-      { error: error.message || 'Failed to process refund' },
+      { error: message },
       { status: 500 }
     )
   }

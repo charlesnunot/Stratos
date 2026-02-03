@@ -152,6 +152,25 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // P3 可选：Stripe event.id 去重需单独表（如 stripe_webhook_events）存储已处理 event.id，
+  // 当前已通过 payment_transactions 按 provider_ref（session_id/capture_id 等）做幂等，重复回调不会重复入账。
+  // 若需严格按 event.id 去重，可新增迁移表后在此处查询并提前 return 200。
+
+  // 支付回调统一审计日志（不记录卡号、密码、secret）
+  try {
+    const { logAudit } = await import('@/lib/api/audit')
+    logAudit({
+      action: 'stripe_webhook',
+      resourceId: event.id,
+      resourceType: 'stripe_event',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { eventType: event.type },
+    })
+  } catch (_) {
+    // 忽略审计日志失败，不影响主流程
+  }
+
   // Extract currency from event if available
   if (event && event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
@@ -293,8 +312,8 @@ export async function POST(request: NextRequest) {
             console.error('Failed to process tip payment:', result.error)
           }
         }
-        // Handle subscription payment
-        else if (metadata.type === 'subscription' && metadata.userId && metadata.subscriptionType) {
+        // Handle subscription payment (creator/paid chapters no longer supported)
+        else if (metadata.type === 'subscription' && metadata.userId && metadata.subscriptionType && metadata.subscriptionType !== 'creator') {
           const userId = metadata.userId
           const subscriptionType = metadata.subscriptionType as 'seller' | 'affiliate' | 'tip'
           const currency = session.currency?.toUpperCase() || 'USD'
@@ -387,15 +406,17 @@ export async function POST(request: NextRequest) {
           if (txError) {
             console.error('Failed to update platform fee transaction:', txError)
           } else {
-            // Create notification for user
+            // Create notification for user (use content_key for i18n)
             await supabaseAdmin.from('notifications').insert({
               user_id: userId,
               type: 'system',
-              title: '平台服务费支付成功',
-              content: `您已成功支付平台服务费 ${amount.toFixed(2)} ${currency}。原因：${metadata.reason || '平台服务费'}`,
+              title: 'Platform Fee Payment Successful',
+              content: `Platform fee of ${amount.toFixed(2)} ${currency} paid successfully.`,
               related_type: 'order',
               related_id: transactionId,
               link: '/orders',
+              content_key: 'platform_fee_paid',
+              content_params: { amount: amount.toFixed(2), currency, reason: metadata.reason || 'Platform service fee' },
             })
           }
         }
@@ -459,15 +480,17 @@ export async function POST(request: NextRequest) {
             const { enableSellerPayment } = await import('@/lib/deposits/payment-control')
             await enableSellerPayment(userId, supabaseAdmin)
 
-            // Create notification for seller
+            // Create notification for seller (use content_key for i18n)
             await supabaseAdmin.from('notifications').insert({
               user_id: userId,
               type: 'system',
-              title: '保证金支付成功',
-              content: `您的保证金已成功支付，商品销售功能已恢复。`,
+              title: 'Deposit Payment Successful',
+              content: `Your deposit has been paid successfully, product sales enabled.`,
               related_id: depositLotId,
-              related_type: null,
+              related_type: 'deposit',
               link: '/seller/deposit/pay',
+              content_key: 'deposit_paid',
+              content_params: {},
             })
           }
         }

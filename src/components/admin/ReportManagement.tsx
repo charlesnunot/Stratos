@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -42,22 +43,28 @@ interface ReportWithContent {
 
 interface ReportManagementProps {
   userRole?: string
+  /** 来自 URL 的 reportId，用于高亮并滚动到该条（从举报通知「查看举报」进入时传入） */
+  highlightReportId?: string | null
 }
 
-const REPORT_TYPE_LABELS: Record<string, string> = {
-  post: '帖子',
-  product: '商品',
-  comment: '评论',
-  user: '用户',
-  order: '订单',
-  affiliate_post: '带货帖子',
-  tip: '打赏',
-  message: '聊天内容'
+const REPORT_TYPE_KEYS: Record<string, string> = {
+  post: 'reportTypePost',
+  product: 'reportTypeProduct',
+  comment: 'reportTypeComment',
+  product_comment: 'reportTypeProductComment',
+  user: 'reportTypeUser',
+  order: 'reportTypeOrder',
+  affiliate_post: 'reportTypeAffiliatePost',
+  tip: 'reportTypeTip',
+  message: 'reportTypeMessage',
 }
 
-export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
+export function ReportManagement({ userRole = 'user', highlightReportId }: ReportManagementProps) {
+  const t = useTranslations('admin')
+  const tCommon = useTranslations('common')
   const [reports, setReports] = useState<ReportWithContent[]>([])
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({})
+  const highlightRef = useRef<HTMLDivElement | null>(null)
   const { user } = useAuth()
   const supabase = useMemo(() => {
     if (typeof window !== 'undefined') {
@@ -122,6 +129,15 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
                   .single()
                 content = commentData
                 reported_user = commentData?.user
+                break
+              case 'product_comment':
+                const { data: productCommentData } = await supabase
+                  .from('product_comments')
+                  .select('*, user:profiles!product_comments_user_id_fkey(id, username, display_name)')
+                  .eq('id', report.reported_id)
+                  .single()
+                content = productCommentData
+                reported_user = productCommentData?.user
                 break
               case 'user':
                 const { data: userData } = await supabase
@@ -202,6 +218,17 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
     loadReports()
   }, [loadReports])
 
+  // URL 传入 highlightReportId 时：列表加载后滚动到该条并高亮
+  useEffect(() => {
+    if (!highlightReportId || reports.length === 0) return
+    const hasMatch = reports.some((r) => r.id === highlightReportId)
+    if (!hasMatch) return
+    const t = setTimeout(() => {
+      highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 300)
+    return () => clearTimeout(t)
+  }, [highlightReportId, reports])
+
   const getReportedContentLink = (report: ReportWithContent): string | null => {
     switch (report.reported_type) {
       case 'post':
@@ -225,17 +252,22 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
     }
   }
 
+  const getReportTypeLabel = (type: string) => {
+    const key = REPORT_TYPE_KEYS[type ?? '']
+    return key ? t(key) : (type || t('unknownType'))
+  }
+
   const handleDeleteContent = async (report: ReportWithContent) => {
     if (!user) return
     if (!supabase) {
-      showError('客户端未初始化')
+      showError(t('clientNotInitialized'))
       return
     }
     if (!report.id) {
-      showError('举报记录无效')
+      showError(t('invalidReport'))
       return
     }
-    if (!confirm(`确定要删除这个${REPORT_TYPE_LABELS[report.reported_type ?? ''] ?? report.reported_type ?? '未知'}吗？此操作不可撤销。`)) {
+    if (!confirm(t('confirmDeleteReport', { type: getReportTypeLabel(report.reported_type ?? '') }))) {
       return
     }
 
@@ -254,31 +286,31 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
         case 'comment':
           tableName = 'comments'
           break
+        case 'product_comment':
+          tableName = 'product_comments'
+          break
         case 'order':
-          // 订单通常不应该被删除，只能取消
-          showError('订单不能删除，只能取消')
+          showError(t('orderCannotDelete'))
           return
         case 'affiliate_post':
           tableName = 'affiliate_posts'
           break
         case 'tip':
-          // 打赏记录不应该被删除
-          showError('打赏记录不能删除')
+          showError(t('tipCannotDelete'))
           return
         case 'message':
           tableName = 'messages'
           break
         case 'user':
-          // 用户不能被删除，只能禁用
-          const { error: banError } = await supabase
-            .from('profiles')
-            .update({ status: 'banned' })
-            .eq('id', report.reported_id)
-          
-          if (banError) throw banError
-          
-          showSuccess('用户已被禁用')
+          // 用户不能被删除，只能禁用（通过 API 使用 service role，RLS 不允许客户端直接更新他人 profile）
+          const banRes = await fetch(`/api/admin/profiles/${report.reported_id}/ban`, { method: 'POST' })
+          if (!banRes.ok) {
+            const errBody = await banRes.json().catch(() => ({}))
+            throw new Error(errBody?.error ?? t('verifyFailed'))
+          }
+          showSuccess(t('userBanned'))
           await handleResolve(report.id, 'resolved', true)
+          await sendReportNotifications(report, 'content_deleted')
           return
       }
 
@@ -290,12 +322,13 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
 
         if (error) throw error
 
-        showSuccess('内容已删除')
+        showSuccess(t('contentDeleted'))
         await handleResolve(report.id, 'resolved', true)
+        await sendReportNotifications(report, 'content_deleted')
       }
     } catch (error: any) {
       console.error('Delete error:', error)
-      showError(`删除失败: ${error.message || '未知错误'}`)
+      showError(`${t('deleteFailed')}: ${error.message || tCommon('error')}`)
     } finally {
       setLoading(prev => {
         const newState = { ...prev }
@@ -308,7 +341,7 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
   const handleResolve = async (reportId: string, action: 'resolved' | 'rejected', skipNotification = false) => {
     if (!user) return
     if (!supabase) {
-      showError('客户端未初始化')
+      showError(t('clientNotInitialized'))
       return
     }
 
@@ -344,11 +377,11 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
         await sendReportNotifications(report, action)
       }
 
-      showSuccess(action === 'resolved' ? '举报已处理' : '举报已驳回')
+      showSuccess(action === 'resolved' ? t('reportResolved') : t('reportRejected'))
       loadReports()
     } catch (error: any) {
       console.error('Resolve error:', error)
-      showError(`操作失败: ${error.message || '未知错误'}`)
+      showError(`${t('operationFailedReport')}: ${error.message || tCommon('error')}`)
     } finally {
       setLoading(prev => {
         const newState = { ...prev }
@@ -358,178 +391,109 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
     }
   }
 
-  const sendReportNotifications = async (report: any, action: 'resolved' | 'rejected') => {
-    if (!supabase) return
-    
-    try {
-      // 通知举报人
-      const { error: reporterNotificationError } = await supabase.from('notifications').insert({
-        user_id: report.reporter_id,
-        type: 'report',
-        title: '举报处理结果',
-        content: `您的举报已${action === 'resolved' ? '处理' : '驳回'}`,
-        related_id: report.id,
-        related_type: 'report',
-        link: '/admin/reports',
-      })
-
-      if (reporterNotificationError) {
-        console.error('Failed to insert notification for reporter:', reporterNotificationError)
-        throw reporterNotificationError
+  /** 根据举报类型解析被举报人 user_id，用于发通知。优先用已加载的 report.content，避免删除内容后查不到。 */
+  const getReportedUserId = async (report: any): Promise<string | null> => {
+    const c = report.content
+    if (!supabase) return null
+    switch (report.reported_type) {
+      case 'post':
+        return c?.user_id ?? (await supabase.from('posts').select('user_id').eq('id', report.reported_id).single()).data?.user_id ?? null
+      case 'product':
+        return c?.seller_id ?? (await supabase.from('products').select('seller_id').eq('id', report.reported_id).single()).data?.seller_id ?? null
+      case 'comment':
+        return c?.user_id ?? (await supabase.from('comments').select('user_id').eq('id', report.reported_id).single()).data?.user_id ?? null
+      case 'product_comment':
+        return c?.user_id ?? (await supabase.from('product_comments').select('user_id').eq('id', report.reported_id).single()).data?.user_id ?? null
+      case 'user':
+        return report.reported_id ?? null
+      case 'order': {
+        const data = c ? (c.buyer_id ?? c.seller_id) : (await supabase.from('orders').select('buyer_id, seller_id').eq('id', report.reported_id).single()).data
+        return data?.buyer_id ?? data?.seller_id ?? null
       }
-
-      // 如果处理通过，通知被举报用户
-      if (action === 'resolved') {
-        let notifiedUserId = null
-
-        switch (report.reported_type) {
-          case 'post':
-            const { data: post } = await supabase
-              .from('posts')
-              .select('user_id')
-              .eq('id', report.reported_id)
-              .single()
-            notifiedUserId = post?.user_id
-            break
-          case 'product':
-            const { data: product } = await supabase
-              .from('products')
-              .select('seller_id')
-              .eq('id', report.reported_id)
-              .single()
-            notifiedUserId = product?.seller_id
-            break
-          case 'comment':
-            const { data: comment } = await supabase
-              .from('comments')
-              .select('user_id')
-              .eq('id', report.reported_id)
-              .single()
-            notifiedUserId = comment?.user_id
-            break
-          case 'user':
-            notifiedUserId = report.reported_id
-            break
-          case 'order':
-            const { data: order } = await supabase
-              .from('orders')
-              .select('buyer_id, seller_id')
-              .eq('id', report.reported_id)
-              .single()
-            // 通知买家或卖家（优先通知买家）
-            notifiedUserId = order?.buyer_id || order?.seller_id
-            break
-          case 'affiliate_post':
-            const { data: affiliatePost } = await supabase
-              .from('affiliate_posts')
-              .select('affiliate_id, post_id')
-              .eq('id', report.reported_id)
-              .single()
-            if (affiliatePost?.post_id) {
-              const { data: postData } = await supabase
-                .from('posts')
-                .select('user_id')
-                .eq('id', affiliatePost.post_id)
-                .single()
-              // 优先通知帖子作者，其次通知推广者
-              notifiedUserId = postData?.user_id || affiliatePost?.affiliate_id
-            } else {
-              notifiedUserId = affiliatePost?.affiliate_id
-            }
-            break
-          case 'tip':
-            const { data: tip } = await supabase
-              .from('tips')
-              .select('tipper_id, post_id')
-              .eq('id', report.reported_id)
-              .single()
-            if (tip?.post_id) {
-              const { data: postData } = await supabase
-                .from('posts')
-                .select('user_id')
-                .eq('id', tip.post_id)
-                .single()
-              // 优先通知帖子作者，其次通知打赏者
-              notifiedUserId = postData?.user_id || tip?.tipper_id
-            } else {
-              notifiedUserId = tip?.tipper_id
-            }
-            break
-          case 'message':
-            const { data: message } = await supabase
-              .from('messages')
-              .select('sender_id, conversation_id')
-              .eq('id', report.reported_id)
-              .single()
-            if (message?.conversation_id) {
-              const { data: conversation } = await supabase
-                .from('conversations')
-                .select('participant1_id, participant2_id')
-                .eq('id', message.conversation_id)
-                .single()
-              // 通知对话中的另一方
-              notifiedUserId = conversation?.participant1_id === message.sender_id 
-                ? conversation?.participant2_id 
-                : conversation?.participant1_id
-            } else {
-              notifiedUserId = message?.sender_id
-            }
-            break
+      case 'affiliate_post': {
+        if (c?.post?.user_id) return c.post.user_id
+        if (c?.affiliate_id) return c.affiliate_id
+        const { data } = await supabase.from('affiliate_posts').select('affiliate_id, post_id').eq('id', report.reported_id).single()
+        if (data?.post_id) {
+          const { data: postData } = await supabase.from('posts').select('user_id').eq('id', data.post_id).single()
+          return postData?.user_id ?? data?.affiliate_id ?? null
         }
-
-        if (notifiedUserId) {
-          const { error: reportedUserNotificationError } = await supabase.from('notifications').insert({
-            user_id: notifiedUserId,
-            type: 'report',
-            title: '内容被处理',
-            content: `您的${REPORT_TYPE_LABELS[report.reported_type ?? ''] ?? report.reported_type ?? '未知'}因举报被处理`,
-            related_id: report.reported_id,
-            related_type: report.reported_type,
-          })
-
-          if (reportedUserNotificationError) {
-            console.error('Failed to insert notification for reported user:', reportedUserNotificationError)
-            throw reportedUserNotificationError
-          }
+        return data?.affiliate_id ?? null
+      }
+      case 'tip': {
+        if (c?.post?.user_id) return c.post.user_id
+        if (c?.tipper_id) return c.tipper_id
+        const { data } = await supabase.from('tips').select('tipper_id, post_id').eq('id', report.reported_id).single()
+        if (data?.post_id) {
+          const { data: postData } = await supabase.from('posts').select('user_id').eq('id', data.post_id).single()
+          return postData?.user_id ?? data?.tipper_id ?? null
         }
+        return data?.tipper_id ?? null
+      }
+      case 'message': {
+        if (c?.sender_id) return c.sender_id
+        const { data } = await supabase.from('messages').select('sender_id, conversation_id').eq('id', report.reported_id).single()
+        if (data?.conversation_id) {
+          const { data: conv } = await supabase.from('conversations').select('participant1_id, participant2_id').eq('id', data.conversation_id).single()
+          return conv?.participant1_id === data.sender_id ? conv?.participant2_id ?? null : conv?.participant1_id ?? null
+        }
+        return data?.sender_id ?? null
+      }
+      default:
+        return null
+    }
+  }
+
+  /** Send report result notifications via admin API (RLS only allows inserting for self). */
+  const sendReportNotifications = async (report: any, action: 'resolved' | 'rejected' | 'content_deleted') => {
+    if (!report?.id) return
+    try {
+      const res = await fetch(`/api/admin/reports/${report.id}/send-result-notification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || res.statusText)
       }
     } catch (error) {
       console.error('Notification error:', error)
-      // 通知失败不影响主流程
     }
   }
 
   const getContentPreview = (report: ReportWithContent): string => {
-    if (!report.content) return '内容已删除或不存在'
+    if (!report.content) return t('contentDeletedOrMissing')
     
     switch (report.reported_type) {
       case 'post':
-        return report.content.content || '无文字内容'
+        return report.content.content || t('noTextContent')
       case 'product':
-        return report.content.name || '无名称'
+        return report.content.name || t('noName')
       case 'comment':
-        return report.content.content || '无内容'
+      case 'product_comment':
+        return report.content.content || t('noContent')
       case 'user':
-        return report.reported_user?.display_name || report.reported_user?.username || '无用户名'
+        return report.reported_user?.display_name || report.reported_user?.username || t('noUsername')
       case 'order':
-        return `订单 ${report.content.order_number || (report.reported_id ?? '').substring(0, 8)}...` || '订单信息'
+        return `${t('reportOrderInfo')} ${report.content.order_number || (report.reported_id ?? '').substring(0, 8)}...` || t('reportOrderInfo')
       case 'affiliate_post':
-        return report.content.post?.content || '带货帖子' || '无内容'
+        return report.content.post?.content || t('reportAffiliatePost') || t('noContent')
       case 'tip':
-        return `打赏金额: ¥${report.content.amount || 0}` || '打赏记录'
+        return `¥${report.content.amount || 0}` || t('reportTipRecord')
       case 'message':
-        return report.content.content || '聊天内容'
+        return report.content.content || t('reportChatContent')
       default:
-        return '未知类型'
+        return t('reportUnknown')
     }
   }
 
   return (
     <div>
-      {isAdminOrSupport && <h2 className="mb-4 text-xl font-semibold">举报管理</h2>}
+      {isAdminOrSupport && <h2 className="mb-4 text-xl font-semibold">{t('reportsTitle')}</h2>}
       {reports.length === 0 ? (
         <p className="text-muted-foreground">
-          {isAdminOrSupport ? '暂无待处理的举报' : '您还没有创建任何举报'}
+          {isAdminOrSupport ? t('noPendingReports') : t('noUserReports')}
         </p>
       ) : (
         <div className="space-y-4">
@@ -538,37 +502,39 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
             const deleteKey = `delete-${report.id}`
             const resolveKey = `resolve-${report.id}-resolved`
             const rejectKey = `resolve-${report.id}-rejected`
-            
+            const isHighlight = highlightReportId != null && report.id === highlightReportId
             return (
-              <Card key={report.id} className="p-4">
+              <Card
+                key={report.id}
+                ref={isHighlight ? (el) => { highlightRef.current = el as HTMLDivElement | null } : undefined}
+                className={`p-4 ${isHighlight ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+              >
                 <div className="space-y-3">
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-muted-foreground">
-                        举报类型: {report.reported_type === 'post' ? '帖子' : report.reported_type === 'product' ? '商品' : report.reported_type === 'comment' ? '评论' : report.reported_type === 'user' ? '用户' : report.reported_type === 'order' ? '订单' : report.reported_type === 'affiliate_post' ? '带货帖子' : report.reported_type === 'tip' ? '打赏' : report.reported_type === 'message' ? '聊天内容' : report.reported_type}
+                        {t('reportType')}: {getReportTypeLabel(report.reported_type ?? '')}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(report.created_at ?? 0).toLocaleString('zh-CN')}
+                        {new Date(report.created_at ?? 0).toLocaleString()}
                       </span>
                     </div>
-                    <p className="font-semibold">原因: {report.reason}</p>
+                    <p className="font-semibold">{t('reason')}: {report.reason}</p>
                     {report.description && (
                       <p className="mt-2 text-sm text-muted-foreground">{report.description}</p>
                     )}
                   </div>
 
-                  {/* 被举报内容预览 */}
                   <div className="p-3 bg-muted rounded-md">
-                    <p className="text-xs text-muted-foreground mb-1">被举报内容:</p>
+                    <p className="text-xs text-muted-foreground mb-1">{t('reportedContent')}:</p>
                     <p className="text-sm line-clamp-2">{getContentPreview(report)}</p>
                     {report.reported_user && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        用户: {report.reported_user.display_name || report.reported_user.username}
+                        {tCommon('user')}: {report.reported_user.display_name || report.reported_user.username}
                       </p>
                     )}
                   </div>
 
-                  {/* 操作按钮 */}
                   <div className="flex flex-wrap gap-2">
                     {link && (
                       <Button
@@ -577,10 +543,9 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
                         onClick={() => router.push(link)}
                       >
                         <Eye className="mr-2 h-4 w-4" />
-                        查看详情
+                        {t('viewDetailReport')}
                       </Button>
                     )}
-                    {/* 只有管理员/客服才能执行管理操作 */}
                     {isAdminOrSupport && (
                       <>
                         <Button
@@ -590,14 +555,14 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
                           disabled={loading[deleteKey]}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          {loading[deleteKey] ? '处理中...' : '删除内容'}
+                          {loading[deleteKey] ? tCommon('processing') : t('deleteContent')}
                         </Button>
                         <Button
                           size="sm"
                           onClick={() => report.id && handleResolve(report.id, 'resolved')}
                           disabled={loading[resolveKey]}
                         >
-                          {loading[resolveKey] ? '处理中...' : '已处理'}
+                          {loading[resolveKey] ? tCommon('processing') : t('reportResolved')}
                         </Button>
                         <Button
                           size="sm"
@@ -605,14 +570,13 @@ export function ReportManagement({ userRole = 'user' }: ReportManagementProps) {
                           onClick={() => report.id && handleResolve(report.id, 'rejected')}
                           disabled={loading[rejectKey]}
                         >
-                          {loading[rejectKey] ? '处理中...' : '驳回'}
+                          {loading[rejectKey] ? tCommon('processing') : t('reject')}
                         </Button>
                       </>
                     )}
-                    {/* 普通用户显示举报状态 */}
                     {!isAdminOrSupport && (
                       <div className="text-sm text-muted-foreground">
-                        状态: {report.status === 'pending' ? '待处理' : report.status === 'resolved' ? '已处理' : report.status === 'rejected' ? '已驳回' : report.status}
+                        {tCommon('status')}: {report.status === 'pending' ? t('statusPending') : report.status === 'resolved' ? t('statusResolved') : report.status === 'rejected' ? t('rejectedStatus') : report.status}
                       </div>
                     )}
                   </div>

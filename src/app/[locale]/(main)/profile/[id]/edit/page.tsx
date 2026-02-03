@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useProfile } from '@/lib/hooks/useProfile'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -43,10 +44,13 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Stable existingImages array reference
+  // 本人看到待审核头像或已审核头像
   const initialExistingImages = useMemo(() => {
-    return profile?.avatar_url ? [profile.avatar_url] : []
-  }, [profile?.avatar_url])
+    const url = profile?.profile_status === 'pending' && profile?.pending_avatar_url
+      ? profile.pending_avatar_url
+      : profile?.avatar_url
+    return url ? [url] : []
+  }, [profile?.avatar_url, profile?.pending_avatar_url, profile?.profile_status])
 
   // Avatar upload (single image)
   const {
@@ -66,14 +70,15 @@ export default function EditProfilePage() {
     existingImages: initialExistingImages,
   })
 
-  // Populate form when profile data loads
+  // Populate form when profile data loads：本人看到待审核内容或已审核内容
   useEffect(() => {
     if (profile) {
+      const isPending = profile.profile_status === 'pending'
       setFormData({
-        display_name: profile.display_name || '',
-        username: profile.username || '',
-        bio: profile.bio || '',
-        location: profile.location || '',
+        display_name: (isPending ? profile.pending_display_name : profile.display_name) || '',
+        username: (isPending ? profile.pending_username : profile.username) || '',
+        bio: (isPending ? profile.pending_bio : profile.bio) || '',
+        location: (isPending ? profile.pending_location : profile.location) || '',
       })
     }
   }, [profile])
@@ -120,12 +125,35 @@ export default function EditProfilePage() {
     try {
       // Validate form
       if (!formData.display_name?.trim()) {
-        setErrors({ display_name: '显示名称不能为空' })
+        setErrors({ display_name: t('displayNameRequired') })
         return
       }
 
       if (!formData.username?.trim()) {
-        setErrors({ username: '用户名不能为空' })
+        setErrors({ username: t('usernameRequired') })
+        return
+      }
+
+      const MAX_DISPLAY_NAME = 50
+      const MAX_USERNAME = 30
+      const MAX_BIO = 500
+      const MAX_LOCATION = 200
+      const dn = formData.display_name.trim()
+      const un = formData.username.trim()
+      if (dn.length > MAX_DISPLAY_NAME) {
+        setErrors({ display_name: t('displayNameTooLong') })
+        return
+      }
+      if (un.length > MAX_USERNAME) {
+        setErrors({ username: t('usernameTooLong') })
+        return
+      }
+      if (formData.bio.trim().length > MAX_BIO) {
+        setErrors({ bio: t('bioTooLong') })
+        return
+      }
+      if (formData.location.trim().length > MAX_LOCATION) {
+        setErrors({ location: t('locationTooLong') })
         return
       }
 
@@ -138,7 +166,7 @@ export default function EditProfilePage() {
         .single()
 
       if (existingProfile) {
-        setErrors({ username: '用户名已被使用' })
+        setErrors({ username: t('usernameTaken') })
         return
       }
 
@@ -153,19 +181,17 @@ export default function EditProfilePage() {
         avatarUrl = existingImages[0]
       }
 
-      // ✅ 修复 P1-1: Mass Assignment 防护 - 使用白名单机制，只允许更新指定字段
-      // 只允许更新：display_name, username, bio, location, avatar_url, updated_at
-      // 不允许更新：role, email, subscription_type, payment_account_id 等敏感字段
+      // 资料审核：用户提交写入 pending_* 并设为待审核，不直接改主字段；审核通过后由管理员写入主字段
       const allowedFields = {
-        display_name: formData.display_name.trim(),
-        username: formData.username.trim(),
-        bio: formData.bio.trim() || null,
-        location: formData.location.trim() || null,
-        avatar_url: avatarUrl,
+        pending_display_name: dn,
+        pending_username: un,
+        pending_bio: formData.bio.trim() || null,
+        pending_location: formData.location.trim() || null,
+        pending_avatar_url: avatarUrl,
+        profile_status: 'pending',
         updated_at: new Date().toISOString(),
       }
 
-      // Update profile
       const { error: updateError } = await supabase
         .from('profiles')
         .update(allowedFields)
@@ -180,8 +206,8 @@ export default function EditProfilePage() {
 
       toast({
         variant: 'success',
-        title: '成功',
-        description: '资料已更新',
+        title: tCommon('success'),
+        description: t('updatePendingReview'),
       })
 
       router.push(`/profile/${userId}`)
@@ -189,8 +215,8 @@ export default function EditProfilePage() {
       console.error('Update profile error:', error)
       toast({
         variant: 'destructive',
-        title: '错误',
-        description: error.message || '更新失败，请重试',
+        title: tCommon('error'),
+        description: error.message || t('updateError'),
       })
     } finally {
       setLoading(false)
@@ -219,7 +245,7 @@ export default function EditProfilePage() {
               {currentAvatarUrl ? (
                 <img
                   src={currentAvatarUrl}
-                  alt="Avatar preview"
+                  alt={t('avatarAlt')}
                   className="h-32 w-32 rounded-full object-cover border-2 border-background shadow-md"
                 />
               ) : (
@@ -247,7 +273,7 @@ export default function EditProfilePage() {
             {/* Upload Button */}
             <label className="flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm hover:bg-accent">
               <Upload className="h-4 w-4" />
-              <span>{currentAvatarUrl ? '更换头像' : '上传头像'}</span>
+              <span>{currentAvatarUrl ? t('changeAvatar') : t('uploadAvatar')}</span>
               <input
                 type="file"
                 accept="image/*"
@@ -257,7 +283,7 @@ export default function EditProfilePage() {
               />
             </label>
             {avatarUploading && (
-              <p className="text-sm text-muted-foreground">上传中...</p>
+              <p className="text-sm text-muted-foreground">{t('uploading')}</p>
             )}
           </div>
         </Card>
@@ -266,7 +292,7 @@ export default function EditProfilePage() {
         <Card className="p-6">
           <div className="space-y-2">
             <label htmlFor="display_name" className="text-sm font-medium">
-              显示名称 *
+              {t('displayName')}
             </label>
             <Input
               id="display_name"
@@ -275,7 +301,7 @@ export default function EditProfilePage() {
               onChange={(e) =>
                 setFormData({ ...formData, display_name: e.target.value })
               }
-              placeholder="输入显示名称"
+              placeholder={t('displayNamePlaceholder')}
               className={errors.display_name ? 'border-destructive' : ''}
             />
             {errors.display_name && (
@@ -288,7 +314,7 @@ export default function EditProfilePage() {
         <Card className="p-6">
           <div className="space-y-2">
             <label htmlFor="username" className="text-sm font-medium">
-              用户名 *
+              {t('username')}
             </label>
             <Input
               id="username"
@@ -297,14 +323,14 @@ export default function EditProfilePage() {
               onChange={(e) =>
                 setFormData({ ...formData, username: e.target.value.replace(/\s/g, '') })
               }
-              placeholder="输入用户名（不含空格）"
+              placeholder={t('usernamePlaceholder')}
               className={errors.username ? 'border-destructive' : ''}
             />
             {errors.username && (
               <p className="text-sm text-destructive">{errors.username}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              用户名将用于您的个人资料链接
+              {t('usernameHint')}
             </p>
           </div>
         </Card>
@@ -321,7 +347,7 @@ export default function EditProfilePage() {
               onChange={(e) =>
                 setFormData({ ...formData, bio: e.target.value })
               }
-              placeholder="介绍一下自己..."
+              placeholder={t('bioPlaceholder')}
               className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               maxLength={500}
             />
@@ -343,7 +369,7 @@ export default function EditProfilePage() {
               onChange={(e) =>
                 setFormData({ ...formData, location: e.target.value })
               }
-              placeholder="输入位置"
+              placeholder={t('locationPlaceholder')}
             />
           </div>
         </Card>

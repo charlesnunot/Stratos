@@ -32,7 +32,9 @@ export default function OrderPage() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const t = useTranslations('orders')
   const tSupport = useTranslations('support')
+  const tCommon = useTranslations('common')
   const [cancelling, setCancelling] = useState(false)
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
@@ -40,15 +42,28 @@ export default function OrderPage() {
   // 检查是否已有反馈
   const { data: existingFeedback } = useOrderFeedback(orderId, user?.id)
 
-  // If payment was successful (e.g. Stripe redirect), clean up the URL param
+  // If payment was successful (e.g. Stripe redirect), clean up the URL param & poll order status
   useEffect(() => {
     const paymentSuccess = searchParams.get('payment')
     if (paymentSuccess === 'success') {
-      // Remove the query parameter from URL
       const newUrl = window.location.pathname
       window.history.replaceState({}, '', newUrl)
+      
+      // Short polling for 3 seconds (3 times every 1 second) to sync order status immediately
+      let pollAttempt = 0
+      const maxPolls = 3
+      const pollInterval = 1000 // 1s
+      const pollTimer = setInterval(() => {
+        pollAttempt++
+        queryClient.invalidateQueries({ queryKey: ['order', orderId] })
+        if (pollAttempt >= maxPolls) {
+          clearInterval(pollTimer)
+        }
+      }, pollInterval)
+      
+      return () => clearInterval(pollTimer)
     }
-  }, [searchParams])
+  }, [searchParams, queryClient, orderId])
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', orderId],
@@ -110,49 +125,48 @@ export default function OrderPage() {
 
   const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
-      pending: '待支付',
-      paid: '已支付',
-      shipped: '已发货',
-      completed: '已完成',
-      cancelled: '已取消',
+      pending: t('pending'),
+      paid: t('paid'),
+      shipped: t('shipped'),
+      completed: t('completed'),
+      cancelled: t('cancelled'),
     }
     return statusMap[status] || status
   }
 
   const handleCancelOrder = async () => {
-    if (!confirm('确定要取消此订单吗？')) {
-      return
-    }
-
     setCancelling(true)
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
       const response = await fetch(`/api/orders/${orderId}/cancel`, {
         method: 'POST',
+        signal: controller.signal,
       })
-
+      clearTimeout(timeoutId)
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || '取消订单失败')
+        throw new Error(data.error || t('cancelOrderFailed'))
       }
 
-      // Refresh order data
       await queryClient.invalidateQueries({ queryKey: ['order', orderId] })
       await queryClient.invalidateQueries({ queryKey: ['orders', user?.id] })
 
       toast({
         variant: 'success',
-        title: '成功',
-        description: '订单已成功取消' + (order?.payment_status === 'paid' ? '，退款将退回您的账户' : ''),
+        title: tCommon('success'),
+        description: order?.payment_status === 'paid' ? t('orderCancelledWithRefund') : t('orderCancelledSuccess'),
       })
       router.refresh()
       setShowCancelDialog(false)
     } catch (error: any) {
       console.error('Cancel order error:', error)
+      const isAbort = error?.name === 'AbortError'
       toast({
         variant: 'destructive',
-        title: '错误',
-        description: `取消订单失败: ${error.message}`,
+        title: tCommon('error'),
+        description: isAbort ? (t('cancelOrderFailed') + '，' + tCommon('retry')) : `${t('cancelOrderFailed')}: ${error.message}`,
       })
     } finally {
       setCancelling(false)
@@ -170,23 +184,22 @@ export default function OrderPage() {
   if (error || !order) {
     return (
       <div className="py-12 text-center">
-        <p className="text-destructive">订单不存在或加载失败</p>
+        <p className="text-destructive">{t('orderNotFoundOrFailed')}</p>
         <Button
           variant="outline"
           className="mt-4"
           onClick={() => router.push('/orders')}
         >
-          返回订单列表
+          {t('backToOrders')}
         </Button>
       </div>
     )
   }
 
-  // Check if user has access to this order
   if (user && user.id !== order.buyer_id && user.id !== order.seller_id) {
     return (
       <div className="py-12 text-center">
-        <p className="text-destructive">无权访问此订单</p>
+        <p className="text-destructive">{t('noAccessToOrder')}</p>
       </div>
     )
   }
@@ -202,9 +215,9 @@ export default function OrderPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">订单详情</h1>
+        <h1 className="text-2xl font-bold">{t('pageTitle')}</h1>
         <Button variant="outline" onClick={() => router.push('/orders')}>
-          返回订单列表
+          {t('backToOrders')}
         </Button>
       </div>
 
@@ -212,7 +225,7 @@ export default function OrderPage() {
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">订单号</p>
+            <p className="text-sm text-muted-foreground">{t('orderNumber')}</p>
             <p className="font-semibold">{order.order_number}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -225,30 +238,30 @@ export default function OrderPage() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <p className="text-sm text-muted-foreground">支付状态</p>
+            <p className="text-sm text-muted-foreground">{t('paymentStatus')}</p>
             <p className="font-semibold">
-              {order.payment_status === 'paid' ? '已支付' : '待支付'}
+              {order.payment_status === 'paid' ? t('paid') : t('pending')}
             </p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">支付方式</p>
+            <p className="text-sm text-muted-foreground">{t('paymentMethod')}</p>
             {order.payment_method ? (
               <div>
                 <p className="font-semibold capitalize">{order.payment_method}</p>
-                <p className="text-xs text-muted-foreground mt-1">结算时已选择</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('selectedAtCheckout')}</p>
               </div>
             ) : (
-              <p className="font-semibold text-muted-foreground">未选择</p>
+              <p className="font-semibold text-muted-foreground">{t('notSelected')}</p>
             )}
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">创建时间</p>
+            <p className="text-sm text-muted-foreground">{t('createdAt')}</p>
             <p className="font-semibold">
               {new Date(order.created_at).toLocaleString('zh-CN')}
             </p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">卖家</p>
+            <p className="text-sm text-muted-foreground">{t('seller')}</p>
             <Link
               href={`/profile/${order.seller_id}`}
               className="font-semibold hover:underline"
@@ -261,7 +274,7 @@ export default function OrderPage() {
 
       {/* Order Items */}
       <Card className="p-6">
-        <h2 className="mb-4 text-lg font-semibold">订单商品</h2>
+        <h2 className="mb-4 text-lg font-semibold">{t('orderItems')}</h2>
         <div className="space-y-4">
           {items.map((item: any, index: number) => (
             <div
@@ -277,9 +290,9 @@ export default function OrderPage() {
                   />
                 )}
                 <div>
-                  <p className="font-semibold">{item.product?.name || '商品'}</p>
+                  <p className="font-semibold">{item.product?.name || t('product')}</p>
                   <p className="text-sm text-muted-foreground">
-                    数量: {item.quantity} × ¥{item.price?.toFixed(2) || '0.00'}
+                    {t('quantity')}: {item.quantity} × ¥{item.price?.toFixed(2) || '0.00'}
                   </p>
                 </div>
               </div>
@@ -291,7 +304,7 @@ export default function OrderPage() {
         </div>
         <div className="mt-4 border-t pt-4">
           <div className="flex items-center justify-between text-lg font-bold">
-            <span>订单总额</span>
+            <span>{t('orderTotal')}</span>
             <span>¥{order.total_amount.toFixed(2)}</span>
           </div>
         </div>
@@ -309,7 +322,7 @@ export default function OrderPage() {
                   className="flex-1"
                   onClick={() => router.push(`/orders/${orderId}/pay`)}
                 >
-                  立即支付
+                  {t('payNow')}
                 </Button>
               )}
               {order.order_status !== 'shipped' && (
@@ -318,7 +331,7 @@ export default function OrderPage() {
                   onClick={() => setShowCancelDialog(true)}
                   disabled={cancelling}
                 >
-                  取消订单
+                  {t('cancelOrder')}
                 </Button>
               )}
             </>
@@ -329,7 +342,7 @@ export default function OrderPage() {
               onClick={() => router.push(`/orders/${orderId}/feedback`)}
               className="flex-1"
             >
-              {existingFeedback ? '更新评价' : '评价卖家'}
+              {existingFeedback ? t('updateReview') : t('reviewSeller')}
             </Button>
           )}
           {user && (
@@ -344,7 +357,7 @@ export default function OrderPage() {
               }}
             >
               <Flag className="mr-2 h-4 w-4" />
-              举报订单
+              {t('reportOrder')}
             </Button>
           )}
           {user && (
@@ -366,18 +379,47 @@ export default function OrderPage() {
         reportedId={orderId}
       />
 
+      {/* 取消订单确认 Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('cancelOrder')}</DialogTitle>
+            <DialogDescription>{t('confirmCancelOrder')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+              {tCommon('cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelOrder}
+              disabled={cancelling}
+            >
+              {cancelling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {tCommon('loading')}
+                </>
+              ) : (
+                tCommon('confirm')
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Tracking */}
       {order.tracking_number && (
         <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold">物流信息</h2>
+          <h2 className="mb-4 text-lg font-semibold">{t('logisticsInfo')}</h2>
           <div className="space-y-2">
             <p>
-              <span className="text-muted-foreground">物流单号：</span>
+              <span className="text-muted-foreground">{t('trackingNumber')}：</span>
               <span className="font-semibold">{order.tracking_number}</span>
             </p>
             {order.logistics_provider && (
               <p>
-                <span className="text-muted-foreground">物流公司：</span>
+                <span className="text-muted-foreground">{t('logisticsProvider')}：</span>
                 <span className="font-semibold">{order.logistics_provider}</span>
               </p>
             )}
@@ -385,7 +427,7 @@ export default function OrderPage() {
               variant="outline"
               onClick={() => router.push(`/orders/${orderId}/tracking`)}
             >
-              查看物流详情
+              {t('viewTracking')}
             </Button>
           </div>
         </Card>

@@ -1,0 +1,203 @@
+{
+  "reportMeta": {
+    "page": "订单模块",
+    "scope": "OrderDetailPage, OrderPayPage, OrderFeedbackPage, OrdersPageClient, useSellerFeedback",
+    "generatedAt": "2025-01-31",
+    "method": "Code audit + trace",
+    "lastFixedAt": "2025-01-31",
+    "fixSummary": "All findings with severity 高/中 and 低 have been addressed."
+  },
+  "findings": [
+    {
+      "page": "订单模块",
+      "event": "点击",
+      "scenario": "取消订单 (OrderDetailPage)",
+      "observedIssue": "取消按钮 onClick 仅调用 setShowCancelDialog(true)，但页面未渲染任何 open={showCancelDialog} 的 Dialog。handleCancelOrder 从未被调用，用户点击后无任何反馈，取消功能不可用。",
+      "enhancementSuggestion": "添加取消确认 Dialog，open={showCancelDialog}，确认按钮调用 handleCancelOrder；或改为按钮直接调用 handleCancelOrder（当前内部使用 confirm()）。",
+      "severity": "高",
+      "fixed": true
+    },
+    {
+      "page": "订单模块",
+      "event": "点击",
+      "scenario": "取消订单 handleCancelOrder - 确认后",
+      "observedIssue": "handleCancelOrder 使用 confirm() 后调用 fetch 取消 API，无 AbortController/超时。cancel API 可能长时间挂起。按钮有 disabled={cancelling}，可防重复点击。",
+      "enhancementSuggestion": "为 cancel API 增加 15 秒超时；统一使用 Dialog 替代原生 confirm()。",
+      "severity": "中",
+      "fixed": true
+    },
+    {
+      "page": "订单模块",
+      "event": "点击",
+      "scenario": "立即支付按钮 (OrderDetailPage)",
+      "observedIssue": "点击跳转 router.push(`/orders/${orderId}/pay`)，无 loading。支付页有 buyer_id 校验，非买家无法支付。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "点击",
+      "scenario": "评价卖家 / 更新评价 (OrderDetailPage)",
+      "observedIssue": "点击跳转 feedback 页。已评价订单显示「更新评价」。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "点击",
+      "scenario": "设置评分 (RatingStars - OrderFeedbackPage)",
+      "observedIssue": "星级 1–5 可点击，setRating(star)。无防抖，快速连点无害。rating 为 0 时提交会校验并 showError。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "点击",
+      "scenario": "提交反馈 (handleSubmit - OrderFeedbackPage)",
+      "observedIssue": "提交按钮 disabled={createMutation.isPending || updateMutation.isPending}，可防重复提交。有 loading 状态。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "点击",
+      "scenario": "支付按钮 (OrderPayPage)",
+      "observedIssue": "已为 Stripe/Alipay/WeChat/Bank 增加 30 秒超时；disabled={processing} 防重复。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "点击",
+      "scenario": "非订单拥有者尝试支付",
+      "observedIssue": "支付页 useQuery 中校验 data.buyer_id !== user.id 时 throw；渲染前再次校验 order.buyer_id !== user.id，显示「无权访问此订单」。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "点击",
+      "scenario": "非订单拥有者尝试提交反馈",
+      "observedIssue": "反馈页 useEffect 检查 order.buyer_id !== user.id 时 showInfo 并 router.push 回订单页。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "输入",
+      "scenario": "反馈评论 (comment - OrderFeedbackPage)",
+      "observedIssue": "Textarea 无 maxLength，handleSubmit 校验 rawComment.length > 1000 并 showError。用户可输入超长后提交才报错。有 sanitizeContent 防 XSS。",
+      "enhancementSuggestion": "评论 Textarea 增加 maxLength={1000} 及字数提示。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "订单模块",
+      "event": "输入",
+      "scenario": "空评论提交反馈",
+      "observedIssue": "comment 可选，空评论可提交。仅校验三项评分均 > 0。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "输入",
+      "scenario": "支付页收货地址表单 (OrderPayPage)",
+      "observedIssue": "收货表单无 maxLength；校验仅检查必填（recipientName, phone, streetAddress, country）。无电话/邮编格式校验。",
+      "enhancementSuggestion": "复用 address-validation 或增加 maxLength、格式校验。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "订单模块",
+      "event": "输入",
+      "scenario": "银行转账表单 (bankFormData - OrderPayPage)",
+      "observedIssue": "已增加 transferAmount 与订单金额一致校验、bankName 必填、transferDate 不能为未来。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "选择器",
+      "scenario": "支付方式选择 (PaymentMethodSelector - OrderPayPage)",
+      "observedIssue": "onSelect 更新 paymentMethod 状态，handlePayment 使用当前 paymentMethod 调用对应 API。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "边界/异常",
+      "scenario": "订单已支付仍尝试访问支付页",
+      "observedIssue": "支付页检查 order.payment_status === 'paid' 时渲染「订单已支付」卡片，不显示支付表单。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "边界/异常",
+      "scenario": "订单未完成尝试访问反馈页",
+      "observedIssue": "反馈页 useEffect 检查 order.order_status !== 'completed' 时 showInfo 并 redirect。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "边界/异常",
+      "scenario": "空评分或非法评分值提交反馈",
+      "observedIssue": "handleSubmit 校验 shippingTimeRating/productQualityRating/customerServiceRating 均为 0 时 showError。星级仅 1–5，无非法值。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "边界/异常",
+      "scenario": "useUpdateSellerFeedback 成功后缓存",
+      "observedIssue": "updateMutation.onSuccess 仅 invalidate sellerFeedbackStats，未 invalidate orderFeedback。用户更新反馈后返回订单页，orderFeedback 可能仍为旧数据，导致「评价卖家」/「更新评价」显示不一致。",
+      "enhancementSuggestion": "updateMutation.onSuccess 增加 queryClient.invalidateQueries({ queryKey: ['orderFeedback', orderId] })。需在 mutation 中传入 orderId 或从 result 获取。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "订单模块",
+      "event": "UX/提示",
+      "scenario": "订单模块硬编码文案",
+      "observedIssue": "OrderDetailPage：'订单详情'、'返回订单列表'、'订单号'、'待支付'、'已支付'、'立即支付'、'取消订单'、'评价卖家'、'更新评价'、'举报订单'、'确定要取消此订单吗？'、'订单已成功取消' 等硬编码。OrderFeedbackPage：'配送时间'、'产品质量'、'客户服务'、'评论（可选）'、'更新评价'、'提交评价'、'请为所有维度评分' 等硬编码。",
+      "enhancementSuggestion": "统一使用 useTranslations 做国际化。",
+      "severity": "低",
+      "fixed": true
+    },
+    {
+      "page": "订单模块",
+      "event": "加载",
+      "scenario": "订单详情加载",
+      "observedIssue": "useQuery 加载订单，isLoading 时显示 Loader2。error 或 !order 时显示「订单不存在或加载失败」。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    },
+    {
+      "page": "订单模块",
+      "event": "权限",
+      "scenario": "订单详情页权限",
+      "observedIssue": "user.id !== order.buyer_id && user.id !== order.seller_id 时显示「无权访问此订单」。后端 cancel API 校验 buyer/seller/admin。",
+      "enhancementSuggestion": "无。",
+      "severity": "无"
+    }
+  ],
+  "summary": {
+    "totalFindings": 21,
+    "bySeverity": {
+      "关键路径": 0,
+      "高": 1,
+      "中": 1,
+      "低": 4,
+      "无": 15
+    },
+    "topPriorities": [
+      "取消订单按钮无效：setShowCancelDialog(true) 但无 Dialog 渲染，handleCancelOrder 从未调用（高）",
+      "取消订单 API 无超时（中）",
+      "反馈评论 Textarea 无 maxLength（低）",
+      "updateMutation 未 invalidate orderFeedback（低）",
+      "订单/反馈页硬编码文案（低）"
+    ]
+  }
+}

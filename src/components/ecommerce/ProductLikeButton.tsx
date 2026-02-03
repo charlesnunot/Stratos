@@ -1,11 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { showWarning } from '@/lib/utils/toast'
+import { useTranslations } from 'next-intl'
+
+const DEBOUNCE_MS = 300
 
 interface ProductLikeButtonProps {
   productId: string
@@ -16,7 +20,9 @@ export function ProductLikeButton({ productId, initialLikes }: ProductLikeButton
   const { user } = useAuth()
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const t = useTranslations('posts')
   const [optimisticLikes, setOptimisticLikes] = useState(initialLikes)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Check if user has liked this product
   const { data: userLike } = useQuery({
@@ -68,28 +74,27 @@ export function ProductLikeButton({ productId, initialLikes }: ProductLikeButton
       }
     },
     onMutate: async (shouldLike) => {
-      // Optimistic update
+      const previousOptimisticLikes = optimisticLikes
       setOptimisticLikes((prev) => (shouldLike ? prev + 1 : Math.max(0, prev - 1)))
       
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['productLikeCount', productId] })
-      
-      // Snapshot previous value
       const previousCount = queryClient.getQueryData(['productLikeCount', productId])
       
-      // Optimistically update
       queryClient.setQueryData(['productLikeCount', productId], (old: number) =>
         shouldLike ? old + 1 : Math.max(0, old - 1)
       )
       
-      return { previousCount }
+      return { previousCount, previousOptimisticLikes }
     },
     onError: (err, shouldLike, context) => {
-      // Rollback on error
       if (context?.previousCount !== undefined) {
         queryClient.setQueryData(['productLikeCount', productId], context.previousCount)
       }
-      setOptimisticLikes(likeCount || initialLikes)
+      setOptimisticLikes(context?.previousOptimisticLikes ?? likeCount ?? initialLikes)
+      const msg = String(err instanceof Error ? err.message : '')
+      if (msg.includes('Rate limit exceeded')) {
+        showWarning(t('rateLimitExceededShort'))
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['productLikeCount', productId] })
@@ -98,10 +103,23 @@ export function ProductLikeButton({ productId, initialLikes }: ProductLikeButton
     },
   })
 
-  const handleLike = () => {
+  const handleLike = useCallback(() => {
     if (!user) return
-    likeMutation.mutate(!isLiked)
-  }
+    if (likeMutation.isPending) return
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null
+      likeMutation.mutate(!isLiked)
+    }, DEBOUNCE_MS)
+  }, [user, isLiked, likeMutation])
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    }
+  }, [])
 
   const displayLikes = optimisticLikes !== likeCount ? optimisticLikes : (likeCount || initialLikes)
 

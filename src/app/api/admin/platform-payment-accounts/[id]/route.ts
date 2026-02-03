@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
+import { logAudit } from '@/lib/api/audit'
 
 export async function GET(
   request: NextRequest,
@@ -57,7 +58,7 @@ export async function PUT(
       return authResult.response
     }
 
-    const { supabase } = authResult.data
+    const { user, supabase } = authResult.data
 
     const body = await request.json()
     const { accountName, accountInfo, currency, supportedCurrencies } = body
@@ -104,11 +105,30 @@ export async function PUT(
       .single()
 
     if (updateError) {
+      logAudit({
+        action: 'platform_account_crud',
+        userId: user.id,
+        resourceId: params.id,
+        resourceType: 'payment_account',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { op: 'update', reason: updateError.message },
+      })
       return NextResponse.json(
         { error: `Failed to update account: ${updateError.message}` },
         { status: 500 }
       )
     }
+
+    logAudit({
+      action: 'platform_account_crud',
+      userId: user.id,
+      resourceId: params.id,
+      resourceType: 'payment_account',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { op: 'update' },
+    })
 
     return NextResponse.json({ account: updatedAccount })
   } catch (error: unknown) {
@@ -236,11 +256,30 @@ export async function PATCH(
       .single()
 
     if (updateError) {
+      logAudit({
+        action: 'platform_account_crud',
+        userId: user.id,
+        resourceId: params.id,
+        resourceType: 'payment_account',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { op: 'patch_status', reason: updateError.message },
+      })
       return NextResponse.json(
         { error: `Failed to update account status: ${updateError.message}` },
         { status: 500 }
       )
     }
+
+    logAudit({
+      action: 'platform_account_crud',
+      userId: user.id,
+      resourceId: params.id,
+      resourceType: 'payment_account',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: { op: 'patch_status', status },
+    })
 
     return NextResponse.json({
       account: updatedAccount,

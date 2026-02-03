@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { handleError } from '@/lib/utils/handleError'
+import { logAudit } from '@/lib/api/audit'
 
 export type FavoriteItemType = 'post' | 'product' | 'user' | 'comment' | 'order' | 'affiliate_post' | 'tip' | 'message'
 
@@ -27,15 +28,15 @@ export function useIsFavorite(itemType: FavoriteItemType, itemId: string) {
     queryKey: ['isFavorite', user?.id, itemType, itemId],
     queryFn: async () => {
       if (!user) {
-        console.log('useIsFavorite: No user, returning false')
+        if (process.env.NODE_ENV === 'development') {
+          console.log('useIsFavorite: No user, returning false')
+        }
         return false
       }
-      
-      console.log('useIsFavorite: Checking favorite status:', {
-        itemType,
-        itemId,
-        userId: user.id,
-      })
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('useIsFavorite: Checking favorite status:', { itemType, itemId })
+      }
       
       try {
         const { data, error } = await supabase
@@ -47,26 +48,16 @@ export function useIsFavorite(itemType: FavoriteItemType, itemId: string) {
           .limit(1)
         
         if (error) {
-          console.error('useIsFavorite: Query error:', {
-            error,
-            errorCode: error.code,
-            errorMessage: error.message,
-            itemType,
-            itemId,
-            userId: user.id,
-          })
+          if (process.env.NODE_ENV === 'development') {
+            console.error('useIsFavorite: Query error:', error?.message ?? error)
+          }
           throw error
         }
-        
+
         const isFavorite = data && data.length > 0
-        console.log('useIsFavorite: Result:', {
-          itemType,
-          itemId,
-          userId: user.id,
-          isFavorite,
-          foundRecords: data?.length || 0,
-        })
-        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('useIsFavorite: Result:', { itemType, itemId, isFavorite })
+        }
         return isFavorite
       } catch (err: any) {
         // 忽略 AbortError，这是正常的查询取消（React Query 会自动处理）
@@ -108,7 +99,9 @@ export function useToggleFavorite() {
       isFavorite: boolean 
     }) => {
       if (!user) {
-        console.error('Toggle favorite: User not authenticated')
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Toggle favorite: User not authenticated')
+        }
         throw new Error('Not authenticated')
       }
 
@@ -117,28 +110,27 @@ export function useToggleFavorite() {
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
         
         // 忽略 AbortError（请求被取消）
-        if (authError && 
-            authError.name !== 'AbortError' && 
+        if (authError &&
+            authError.name !== 'AbortError' &&
             !authError.message?.includes('aborted') &&
             authError.message !== 'signal is aborted without reason') {
-          console.error('Toggle favorite: Auth verification failed:', {
-            authError,
-            authUser,
-            userId: user?.id,
-          })
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Toggle favorite: Auth verification failed:', authError?.message)
+          }
           throw new Error('Authentication verification failed')
         }
-        
+
         if (!authUser) {
-          console.error('Toggle favorite: No auth user found')
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Toggle favorite: No auth user found')
+          }
           throw new Error('Authentication verification failed')
         }
 
         if (authUser.id !== user.id) {
-          console.error('Toggle favorite: User ID mismatch:', {
-            authUserId: authUser.id,
-            hookUserId: user.id,
-          })
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Toggle favorite: User ID mismatch')
+          }
           throw new Error('User ID mismatch')
         }
       } catch (err: any) {
@@ -147,21 +139,17 @@ export function useToggleFavorite() {
             err?.message?.includes('aborted') || 
             err?.message?.includes('cancelled') ||
             err?.message === 'signal is aborted without reason') {
-          console.log('Toggle favorite: Request cancelled, skipping auth verification')
-          // 如果请求被取消，我们仍然可以继续，因为 user 对象已经存在
-          // 但为了安全，我们仍然抛出错误让调用者知道
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Toggle favorite: Request cancelled, skipping auth verification')
+          }
           throw new Error('Request was cancelled')
         }
         throw err
       }
 
-      console.log('Toggle favorite operation:', {
-        itemType,
-        itemId,
-        isFavorite,
-        userId: user.id,
-        operation: isFavorite ? 'delete' : 'insert',
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Toggle favorite operation:', { itemType, itemId, operation: isFavorite ? 'delete' : 'insert' })
+      }
 
       if (isFavorite) {
         // 取消收藏
@@ -174,22 +162,15 @@ export function useToggleFavorite() {
           .select()
         
         if (error) {
-          console.error('Delete favorite error:', {
-            error,
-            errorCode: error.code,
-            errorMessage: error.message,
-            itemType,
-            itemId,
-            userId: user.id,
-          })
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Delete favorite error:', error?.message ?? error)
+          }
           throw error
         }
-        
-        console.log('Delete favorite success:', {
-          deletedCount: data?.length || 0,
-          itemType,
-          itemId,
-        })
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Delete favorite success:', { itemType, itemId })
+        }
       } else {
         // 添加收藏
         const { error, data } = await supabase
@@ -202,43 +183,39 @@ export function useToggleFavorite() {
           .select()
         
         if (error) {
-          console.error('Insert favorite error:', {
-            error,
-            errorCode: error.code,
-            errorMessage: error.message,
-            itemType,
-            itemId,
-            userId: user.id,
-          })
-          
           // 如果是唯一约束冲突（记录已存在），忽略错误
           if (error.code === '23505') {
-            console.warn('Favorite already exists (unique constraint), ignoring:', {
-              itemType,
-              itemId,
-              userId: user.id,
-            })
-            // 不抛出错误，因为记录已经存在，操作实际上是成功的
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('Favorite already exists (unique constraint), ignoring')
+            }
           } else {
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Insert favorite error:', error?.message ?? error)
+            }
             throw error
           }
-        } else {
-          console.log('Insert favorite success:', {
-            insertedCount: data?.length || 0,
-            itemType,
-            itemId,
-          })
+        } else if (process.env.NODE_ENV === 'development') {
+          console.log('Insert favorite success:', { itemType, itemId })
         }
       }
     },
     onSuccess: (_, variables) => {
-      console.log('Toggle favorite onSuccess:', {
-        itemType: variables.itemType,
-        itemId: variables.itemId,
-        wasFavorite: variables.isFavorite,
-        newState: !variables.isFavorite,
-      })
-      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Toggle favorite onSuccess:', { itemType: variables.itemType, itemId: variables.itemId })
+      }
+
+      // 记录审计日志
+      if (user) {
+        logAudit({
+          action: variables.isFavorite ? 'remove_favorite' : 'add_favorite',
+          userId: user.id,
+          resourceId: variables.itemId,
+          resourceType: variables.itemType,
+          result: 'success',
+          timestamp: new Date().toISOString(),
+        })
+      }
+
       // 使相关查询失效，触发重新获取
       queryClient.invalidateQueries({ 
         queryKey: ['isFavorite', user?.id, variables.itemType, variables.itemId] 
@@ -273,21 +250,18 @@ export function useToggleFavorite() {
     },
     onError: (error, variables) => {
       // 忽略 AbortError，这是正常的请求取消
-      if (error?.name === 'AbortError' || 
-          error?.message?.includes('aborted') || 
+      if (error?.name === 'AbortError' ||
+          error?.message?.includes('aborted') ||
           error?.message?.includes('cancelled') ||
           error?.message === 'signal is aborted without reason') {
-        console.log('Toggle favorite: Request cancelled, ignoring error')
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Toggle favorite: Request cancelled, ignoring error')
+        }
         return
       }
-      
-      console.error('Toggle favorite onError:', {
-        error,
-        itemType: variables.itemType,
-        itemId: variables.itemId,
-        isFavorite: variables.isFavorite,
-        userId: user?.id,
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Toggle favorite onError:', error?.message ?? error)
+      }
       handleError(error, '操作失败，请重试')
     },
   })
@@ -323,8 +297,9 @@ export function useFavorites(itemType?: FavoriteItemType) {
       } catch (err: any) {
         // 忽略 AbortError，这是正常的查询取消（React Query 会自动处理）
         if (err?.name === 'AbortError' || err?.message?.includes('aborted') || err?.message?.includes('cancelled') || err?.message === 'signal is aborted without reason') {
-          console.log('useFavorites: Query cancelled, ignoring error')
-          // 返回空数组而不是抛出错误
+          if (process.env.NODE_ENV === 'development') {
+            console.log('useFavorites: Query cancelled, ignoring error')
+          }
           return []
         }
         throw err

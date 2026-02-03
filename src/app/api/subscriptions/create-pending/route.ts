@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSubscriptionPrice, SELLER_TIERS_USD } from '@/lib/subscriptions/pricing'
 import type { SubscriptionType } from '@/lib/subscriptions/pricing'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -135,12 +136,32 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error('[create-pending] Error inserting subscription:', insertError)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[create-pending] Error inserting subscription:', insertError)
+      }
+      logAudit({
+        action: 'create_pending_subscription',
+        userId: user.id,
+        resourceId: undefined,
+        resourceType: 'subscription',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: insertError.message },
+      })
       return NextResponse.json(
         { error: insertError.message || 'Failed to create subscription' },
         { status: 500 }
       )
     }
+
+    logAudit({
+      action: 'create_pending_subscription',
+      userId: user.id,
+      resourceId: subscription.id,
+      resourceType: 'subscription',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+    })
 
     // Do NOT update profiles here - pending subscriptions don't activate features
     // Profile will be updated when payment is confirmed (via webhook or manual approval)
@@ -157,10 +178,13 @@ export async function POST(request: NextRequest) {
         currency: subscription.currency,
       },
     })
-  } catch (error: any) {
-    console.error('[create-pending] Unexpected error:', error)
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[create-pending] Unexpected error:', error)
+    }
+    const message = error instanceof Error ? error.message : 'Failed to create pending subscription'
     return NextResponse.json(
-      { error: error.message || 'Failed to create pending subscription' },
+      { error: message },
       { status: 500 }
     )
   }

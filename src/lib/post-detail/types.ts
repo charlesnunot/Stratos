@@ -13,6 +13,8 @@ export interface PageCapabilities {
   canRepost: boolean
   canReport: boolean
   canFollowAuthor: boolean
+  /** 能否与作者私聊（未登录/本人/被拉黑/封禁则 false） */
+  canChat: boolean
   canViewAuthorPrivateInfo: boolean
   canRecordView: boolean
 }
@@ -28,5 +30,7 @@ export type PostPageState =
       author: Profile | null
       isBlockedByAuthor?: boolean
       isAuthorBannedOrSuspended?: boolean
+      /** 当 canTip 为 false 时的原因，用于 Tip 按钮的 tooltip */
+      tipDisabledReason?: string
     }
 
