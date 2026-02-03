@@ -270,6 +270,14 @@
     "emailNotConfirmed": "Email not confirmed, please verify your email first",
     "tooManyRequests": "Too many requests, please try again later",
     "sessionTimeout": "Session creation timeout, please try again",
+    "authError": "An error occurred during authentication",
+    "recoveryFailed": "Password reset link has expired or is invalid, please request again",
+    "recoveryException": "An error occurred during password reset, please try again",
+    "verificationFailed": "Email verification link has expired or is invalid, please register again or contact support",
+    "verificationException": "An error occurred during email verification, please try again",
+    "missingCode": "Verification link is invalid, please use the full link",
+    "accessDenied": "Access denied",
+    "otpExpired": "Verification code has expired, please request again",
     "registerFailed": "Registration failed, please try again",
     "userCreationFailed": "User creation failed: No user data returned",
     "registerSuccess": "Registration successful! Please check your email and click the verification link to activate your account.",
@@ -291,6 +299,17 @@
     "passwordResetSuccessDescription": "Your password has been successfully reset. Please login with your new password.",
     "passwordMismatch": "Passwords do not match",
     "passwordTooShort": "Password must be at least 6 characters",
+    "passwordWeakHint": "Password is weak; use upper/lowercase, numbers and special characters",
+    "passwordStrengthRequired": "Password strength insufficient, please use a stronger password",
+    "registerSuccessEmailHint": "If email verification is required, check your inbox (including spam) and click the verification link. You can log in after verification.",
+    "usernamePlaceholder": "username",
+    "checkingUsername": "Checking...",
+    "usernameTaken": "Username is already taken",
+    "usernameAvailable": "Username is available",
+    "passwordStrengthStrong": "Strong",
+    "passwordStrengthMedium": "Medium",
+    "passwordStrengthWeak": "Weak",
+    "passwordHint": "At least 8 characters, with upper/lowercase, numbers and special characters",
     "passwordResetFailed": "Password reset failed, please try again",
     "resetEmailFailed": "Failed to send reset email, please try again",
     "backToLogin": "Back to Login"
@@ -2036,31 +2055,43 @@
     "steps": {
       "welcome": {
         "title": "Welcome to Stratos!",
-        "description": "We are an integrated platform combining social networking, e-commerce, and instant messaging. Let's explore the powerful features together."
+        "description": "Stratos brings together social feed, marketplace, and messaging in one place. You can discover content, shop from people you follow, and chat in real time. Let's walk through the basics."
       },
       "discover": {
         "title": "Discover Great Content",
-        "description": "Browse and discover interesting content on the homepage. Follow users you're interested in, like, comment and share to interact with others."
+        "description": "On the home feed you'll see posts from people you follow and recommended content. Like, comment, repost, and follow to build your timeline. Use Search and topic tags to find content and users."
       },
       "create": {
         "title": "Create Your Content",
-        "description": "Create and share your thoughts, images, and videos. Use topic tags to help more people discover your content."
+        "description": "Publish posts with text, images, or video. Add topic tags so others can find your content. You can also link products in posts if you sell or promote."
+      },
+      "profile": {
+        "title": "Complete Your Profile",
+        "description": "Add a profile photo and bio so others can recognize you. You can set a display name and manage your profile and privacy in Settings."
       },
       "shop": {
-        "title": "Browse Marketplace",
-        "description": "Discover featured products in the marketplace. Find products within genuine social relationships and make purchase decisions through content discussion."
+        "title": "Browse the Marketplace",
+        "description": "Explore products in the marketplace. Buy from sellers you trust, track orders in Orders, and use secure payment methods. Sellers can list products after subscribing."
       },
       "message": {
         "title": "Instant Messaging",
-        "description": "Chat with friends in real-time and build genuine social relationships. Complete trust building and transaction closure through instant communication."
+        "description": "Use Messages to chat with other users, discuss orders, or collaborate. Direct and group chats help you build trust and close deals."
+      },
+      "orders": {
+        "title": "Orders and Payments",
+        "description": "All your purchases appear in Orders. Confirm delivery, open disputes if needed, and leave reviews. Payment and shipping details are managed there."
+      },
+      "help": {
+        "title": "Help and Support",
+        "description": "Visit Help for FAQs and platform policies. Open a support ticket for account or order issues. We're here to help you get the most out of Stratos."
       },
       "seller": {
         "title": "Start Selling",
-        "description": "Create your first product and start selling online. Once you become a seller, you can manage products and orders in the seller center."
+        "description": "Subscribe as a seller to list products and accept orders. Use the Seller Center to manage listings, orders, deposits, and payouts."
       },
       "affiliate": {
         "title": "Start Promoting",
-        "description": "Choose products to promote and earn commissions. Once you become an affiliate, you can view earnings and statistics in the affiliate center."
+        "description": "Subscribe as an affiliate to promote products and earn commissions. Use the Affiliate Center to track referrals, earnings, and payouts."
       }
     },
     "next": "Next",

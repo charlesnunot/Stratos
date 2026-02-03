@@ -270,6 +270,14 @@
     "emailNotConfirmed": "邮箱未验证，请先验证您的邮箱",
     "tooManyRequests": "请求过于频繁，请稍后再试",
     "sessionTimeout": "会话创建超时，请重试",
+    "authError": "认证过程中发生错误",
+    "recoveryFailed": "密码重置链接已过期或无效，请重新申请",
+    "recoveryException": "密码重置过程中发生错误，请重试",
+    "verificationFailed": "邮箱验证链接已过期或无效，请重新注册或联系支持",
+    "verificationException": "邮箱验证过程中发生错误，请重试",
+    "missingCode": "验证链接无效，请使用完整的链接",
+    "accessDenied": "访问被拒绝",
+    "otpExpired": "验证码已过期，请重新申请",
     "registerFailed": "注册失败，请重试",
     "userCreationFailed": "用户创建失败：未返回用户数据",
     "registerSuccess": "注册成功！请检查您的邮箱并点击验证链接以激活账户。",
@@ -291,6 +299,17 @@
     "passwordResetSuccessDescription": "您的密码已成功重置，请使用新密码登录。",
     "passwordMismatch": "两次输入的密码不一致",
     "passwordTooShort": "密码至少需要6个字符",
+    "passwordWeakHint": "密码强度较弱，建议包含大小写字母、数字和特殊字符",
+    "passwordStrengthRequired": "密码强度不足，请使用更强的密码",
+    "registerSuccessEmailHint": "如果系统要求邮箱验证，请检查您的邮箱（包括垃圾邮件文件夹）并点击验证链接。验证后即可登录。",
+    "usernamePlaceholder": "用户名",
+    "checkingUsername": "检查中...",
+    "usernameTaken": "用户名已被使用",
+    "usernameAvailable": "用户名可用",
+    "passwordStrengthStrong": "强",
+    "passwordStrengthMedium": "中",
+    "passwordStrengthWeak": "弱",
+    "passwordHint": "建议：至少8个字符，包含大小写字母、数字和特殊字符",
     "passwordResetFailed": "密码重置失败，请重试",
     "resetEmailFailed": "发送重置邮件失败，请重试",
     "backToLogin": "返回登录"
@@ -2036,31 +2055,43 @@
     "steps": {
       "welcome": {
         "title": "欢迎来到 Stratos！",
-        "description": "我们是一个集社交、电商、即时聊天于一体的综合平台。让我们一起探索平台的强大功能。"
+        "description": "Stratos 将动态、商城和私信合为一体。你可以发现内容、向关注的人购物、实时聊天。下面简单介绍一下基础功能。"
       },
       "discover": {
         "title": "发现精彩内容",
-        "description": "在首页浏览和发现有趣的内容。关注感兴趣的用户，点赞、评论和分享，与其他用户互动。"
+        "description": "首页会展示你关注的人以及推荐内容。点赞、评论、转发、关注，打造你的时间线。使用搜索和话题标签发现内容和用户。"
       },
       "create": {
         "title": "发布你的内容",
-        "description": "创建和分享你的想法、图片和视频。使用话题标签让更多人发现你的内容。"
+        "description": "发布图文或视频帖子，加上话题标签方便他人发现。若你开通了卖家或带货，也可以在帖子中关联商品。"
+      },
+      "profile": {
+        "title": "完善个人资料",
+        "description": "设置头像和简介，让他人更容易认出你。可在设置中修改昵称、资料与隐私选项。"
       },
       "shop": {
         "title": "浏览商城",
-        "description": "在商城中发现精选商品。在真实的社交关系中发现商品，通过内容讨论做出购买决策。"
+        "description": "在商城中浏览商品，向可信卖家下单，在「订单」中跟踪物流与支付。卖家需先订阅才能在卖家中心上架商品。"
       },
       "message": {
         "title": "即时聊天",
-        "description": "与好友实时聊天，建立真实的社交关系。通过即时沟通完成信任建立与交易闭环。"
+        "description": "通过「消息」与用户私聊、沟通订单或协作。单聊和群聊帮助你建立信任、完成交易。"
+      },
+      "orders": {
+        "title": "订单与支付",
+        "description": "所有购买记录都在「订单」中。可确认收货、发起纠纷、留下评价，支付与收货信息也在其中管理。"
+      },
+      "help": {
+        "title": "帮助与支持",
+        "description": "在「帮助」中查看常见问题与平台政策。遇到账户或订单问题可提交工单，我们会协助你更好地使用 Stratos。"
       },
       "seller": {
         "title": "开始销售",
-        "description": "创建您的第一个商品，开始在线销售。成为卖家后，您可以在卖家中心管理商品和订单。"
+        "description": "订阅卖家后可上架商品、接单。在卖家中心管理商品、订单、保证金与结算。"
       },
       "affiliate": {
         "title": "开始推广",
-        "description": "选择商品进行推广，赚取佣金。成为推广者后，您可以在带货中心查看收益和统计数据。"
+        "description": "订阅带货后可推广商品、赚取佣金。在带货中心查看推广数据、收益与结算。"
       }
     },
     "next": "下一步",

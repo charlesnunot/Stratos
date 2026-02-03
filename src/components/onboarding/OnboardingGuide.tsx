@@ -16,8 +16,11 @@ import {
   Sparkles,
   Compass,
   Edit3,
+  UserCircle,
   ShoppingBag,
   MessageCircle,
+  Package,
+  HelpCircle,
   CheckCircle2,
   TrendingUp,
 } from 'lucide-react'
@@ -79,6 +82,11 @@ export function OnboardingGuide() {
         description: t('steps.create.description'),
       },
       {
+        icon: UserCircle,
+        title: t('steps.profile.title'),
+        description: t('steps.profile.description'),
+      },
+      {
         icon: ShoppingBag,
         title: t('steps.shop.title'),
         description: t('steps.shop.description'),
@@ -87,6 +95,16 @@ export function OnboardingGuide() {
         icon: MessageCircle,
         title: t('steps.message.title'),
         description: t('steps.message.description'),
+      },
+      {
+        icon: Package,
+        title: t('steps.orders.title'),
+        description: t('steps.orders.description'),
+      },
+      {
+        icon: HelpCircle,
+        title: t('steps.help.title'),
+        description: t('steps.help.description'),
       },
     ]
 

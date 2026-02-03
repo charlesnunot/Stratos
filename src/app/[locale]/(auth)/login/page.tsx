@@ -29,18 +29,17 @@ export default function LoginPage() {
     const errorDescription = searchParams.get('error_description')
     
     if (errorParam) {
-      // 映射错误码到用户友好的消息
-      const errorMessages: Record<string, string> = {
-        'recovery_failed': '密码重置链接已过期或无效，请重新申请',
-        'recovery_exception': '密码重置过程中发生错误，请重试',
-        'verification_failed': '邮箱验证链接已过期或无效，请重新注册或联系支持',
-        'verification_exception': '邮箱验证过程中发生错误，请重试',
-        'missing_code': '验证链接无效，请使用完整的链接',
-        'access_denied': '访问被拒绝',
-        'otp_expired': '验证码已过期，请重新申请',
+      const errorKeyMap: Record<string, string> = {
+        recovery_failed: 'recoveryFailed',
+        recovery_exception: 'recoveryException',
+        verification_failed: 'verificationFailed',
+        verification_exception: 'verificationException',
+        missing_code: 'missingCode',
+        access_denied: 'accessDenied',
+        otp_expired: 'otpExpired',
       }
-      
-      const friendlyMessage = errorMessages[errorParam] || errorDescription || t('authError') || '认证过程中发生错误'
+      const messageKey = errorKeyMap[errorParam]
+      const friendlyMessage = messageKey ? t(messageKey) : (errorDescription || t('authError'))
       setError(friendlyMessage)
     }
   }, [searchParams, t])
@@ -159,7 +158,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="your@email.com"
+                placeholder={t('emailPlaceholder')}
               />
             </div>
             <div className="space-y-2">
@@ -178,7 +177,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="••••••••"
+                placeholder={t('passwordPlaceholder')}
               />
             </div>
           </CardContent>

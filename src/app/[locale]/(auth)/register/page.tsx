@@ -99,13 +99,13 @@ export default function RegisterPage() {
 
     // 客户端验证（用户体验）
     if (password.length < 6) {
-      setError(t('passwordTooShort') || '密码至少需要6个字符')
+      setError(t('passwordTooShort'))
       setLoading(false)
       return
     }
 
     if (passwordStrength === 'weak' && password.length >= 6) {
-      setError('密码强度较弱，建议包含大小写字母、数字和特殊字符')
+      setError(t('passwordWeakHint'))
       setLoading(false)
       return
     }
@@ -124,18 +124,21 @@ export default function RegisterPage() {
 
       if (!passwordValidation.valid) {
         setError(
-          passwordValidation.errors?.join(' ') || 
-          '密码强度不足，请使用更强的密码'
+          passwordValidation.errors?.join(' ') ||
+          t('passwordStrengthRequired')
         )
         setLoading(false)
         return
       }
       // Register user
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (typeof window !== 'undefined' ? window.location.origin : '')
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${baseUrl.replace(/\/$/, '')}/auth/callback`,
           data: {
             username: username,
           },
@@ -193,11 +196,8 @@ export default function RegisterPage() {
             )}
             {success && (
               <div className="rounded-md bg-green-50 dark:bg-green-900/20 p-3 text-sm text-green-900 dark:text-green-50 space-y-2">
-                <p className="font-semibold">{t('registerSuccess') || '注册成功！'}</p>
-                <p className="text-xs">
-                  如果系统要求邮箱验证，请检查您的邮箱（包括垃圾邮件文件夹）并点击验证链接。
-                  验证后即可登录。
-                </p>
+                <p className="font-semibold">{t('registerSuccess')}</p>
+                <p className="text-xs">{t('registerSuccessEmailHint')}</p>
               </div>
             )}
             <div className="space-y-2">
@@ -216,16 +216,16 @@ export default function RegisterPage() {
                     usernameAvailable === false ? 'border-destructive' :
                     usernameAvailable === true ? 'border-green-500' : ''
                   }`}
-                  placeholder="username"
+                  placeholder={t('usernamePlaceholder')}
                 />
                 {checkingUsername && (
-                  <p className="text-xs text-muted-foreground">检查中...</p>
+                  <p className="text-xs text-muted-foreground">{t('checkingUsername')}</p>
                 )}
                 {!checkingUsername && username && username.length >= 3 && usernameAvailable === false && (
-                  <p className="text-xs text-destructive">用户名已被使用</p>
+                  <p className="text-xs text-destructive">{t('usernameTaken')}</p>
                 )}
                 {!checkingUsername && username && username.length >= 3 && usernameAvailable === true && (
-                  <p className="text-xs text-green-600">用户名可用</p>
+                  <p className="text-xs text-green-600">{t('usernameAvailable')}</p>
                 )}
               </div>
             </div>
@@ -240,7 +240,7 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="your@email.com"
+                placeholder={t('emailPlaceholder')}
               />
             </div>
             <div className="space-y-2">
@@ -254,8 +254,8 @@ export default function RegisterPage() {
                     passwordStrength === 'medium' ? 'text-yellow-600' :
                     'text-red-600'
                   }`}>
-                    {passwordStrength === 'strong' ? '强' :
-                     passwordStrength === 'medium' ? '中' : '弱'}
+                    {passwordStrength === 'strong' ? t('passwordStrengthStrong') :
+                     passwordStrength === 'medium' ? t('passwordStrengthMedium') : t('passwordStrengthWeak')}
                   </span>
                 )}
               </div>
@@ -267,10 +267,10 @@ export default function RegisterPage() {
                 required
                 minLength={6}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="••••••••"
+                placeholder={t('passwordPlaceholder')}
               />
               <p className="text-xs text-muted-foreground">
-                建议：至少8个字符，包含大小写字母、数字和特殊字符
+                {t('passwordHint')}
               </p>
             </div>
           </CardContent>
