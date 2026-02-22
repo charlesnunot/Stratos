@@ -36,6 +36,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
   const userRef = useRef<User | null>(null)
+  
+  // 获取当前语言设置
+  const getLocale = (): string => {
+    if (typeof document === 'undefined') return 'zh'
+    return document.documentElement.lang || 'zh'
+  }
+
+  // 获取翻译后的消息
+  const getMessage = (key: 'sessionExpired' | 'info'): string => {
+    const locale = getLocale()
+    const messages: Record<string, Record<string, string>> = {
+      zh: {
+        sessionExpired: '您的登录已过期，请重新登录',
+        info: '提示',
+      },
+      en: {
+        sessionExpired: 'Your session has expired, please sign in again',
+        info: 'Info',
+      },
+    }
+    return messages[locale]?.[key] || messages['zh'][key]
+  }
 
   useEffect(() => {
     userRef.current = user
@@ -94,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const currentUser = userRef.current
         if (event === 'SIGNED_OUT' && currentUser) {
-          showInfo('您的登录已过期，请重新登录')
+          showInfo(getMessage('sessionExpired'), getMessage('info'))
         }
 
         if (mounted) {

@@ -2,14 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { ProductPageClient } from './ProductPageClient'
 import { getTranslations } from 'next-intl/server'
 import { notFound } from 'next/navigation'
-
-export const dynamic = 'force-dynamic'
+import type { Product } from '@/lib/types/api'
 
 export default async function ProductPage({
   params,
 }: {
   params: { id: string; locale: string }
 }) {
+  const { locale } = params
   const supabase = await createClient()
   const productId = params.id
 
@@ -17,8 +17,15 @@ export default async function ProductPage({
   const { data: product, error } = await supabase
         .from('products')
         .select(`
-          *,
-          seller:profiles!products_seller_id_fkey(username, display_name)
+          id, name, description, details, category, price, currency, stock, 
+          images, status, seller_id, condition, shipping_fee, sales_countries,
+          color_options, sizes, faq, allow_affiliate, commission_rate,
+          content_lang, 
+          name_translated, description_translated, details_translated, 
+          category_translated, faq_translated,
+          like_count, want_count, share_count, repost_count, favorite_count,
+          created_at, updated_at,
+          seller:profiles!products_seller_id_fkey(id, username, display_name)
         `)
         .eq('id', productId)
         .eq('status', 'active')
@@ -50,14 +57,16 @@ export default async function ProductPage({
     share_count: product.share_count || 0,
     repost_count: product.repost_count || 0,
     favorite_count: product.favorite_count || 0,
-    sales_count: product.sales_count || 0,
-    currency: product.currency || 'USD',
-  }
+    // Handle seller array from Supabase foreign key query
+    seller: Array.isArray(product.seller) 
+      ? (product.seller.length > 0 ? product.seller[0] : undefined) 
+      : product.seller,
+  } as Product
 
-  const t = await getTranslations('products')
-  const tCommon = await getTranslations('common')
-  const tPosts = await getTranslations('posts')
-  const tMessages = await getTranslations('messages')
+  const t = await getTranslations({ locale, namespace: 'products' })
+  const tCommon = await getTranslations({ locale, namespace: 'common' })
+  const tPosts = await getTranslations({ locale, namespace: 'posts' })
+  const tMessages = await getTranslations({ locale, namespace: 'messages' })
 
   return (
     <ProductPageClient
@@ -72,11 +81,41 @@ export default async function ProductPage({
         addedToCart: t('addedToCart'),
         addToCart: t('addToCart'),
         buyNow: t('buyNow'),
-        redirectingCheckout: t('redirectingCheckout'),
         noImage: tCommon('noImage'),
         removeFromFavorites: tPosts('removeFromFavorites'),
         addToFavorites: tPosts('addToFavorites'),
         chatWithSeller: tMessages('chatWithSeller'),
+        selectSize: tCommon('selectSize'),
+        viewProduct: t('viewProduct'),
+        colorOptions: t('colorOptions'),
+        noImageColor: t('noImageColor'),
+        salesCountries: t('salesCountries'),
+        salesCountriesTo: t('salesCountriesTo'),
+        salesCountriesGlobal: t('salesCountriesGlobal'),
+        productInactive: t('productInactive'),
+        productOutOfStock: t('productOutOfStock'),
+        pleaseSelectColor: t('pleaseSelectColor'),
+        pleaseSelectSize: t('pleaseSelectSize'),
+        productNotFound: t('productNotFound'),
+        validationFailed: t('validationFailed'),
+        priceUpdated: t('priceUpdated'),
+        addedToCartSuccess: t('addedToCartSuccess'),
+        validationError: t('validationError'),
+        cannotBuyInactive: t('cannotBuyInactive'),
+        cannotBuyOutOfStock: t('cannotBuyOutOfStock'),
+        cannotBuyOwnProduct: t('cannotBuyOwnProduct'),
+        loginToReport: t('loginToReport'),
+        loginToFavorite: t('loginToFavorite'),
+        loginToRepost: t('loginToRepost'),
+        operationFailed: t('operationFailed'),
+        repostSuccess: t('repostSuccess'),
+        repostSuccessWithExists: t('repostSuccessWithExists'),
+        repostAlreadyExists: t('repostAlreadyExists'),
+        repostFailed: t('repostFailed'),
+        toastInfo: tCommon('toastInfo'),
+        toastSuccess: tCommon('toastSuccess'),
+        toastError: tCommon('toastError'),
+        toastWarning: tCommon('toastWarning'),
       }}
     />
   )

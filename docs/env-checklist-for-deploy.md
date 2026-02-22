@@ -36,9 +36,15 @@
 | 变量名 | 说明 |
 |--------|------|
 | **Stripe** | `STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET` |
-| **PayPal** | `PAYPAL_CLIENT_ID`、`PAYPAL_CLIENT_SECRET` |
+| **PayPal** | `PAYPAL_CLIENT_ID`、`PAYPAL_CLIENT_SECRET`；可选 `PAYPAL_SANDBOX`（`true`/`false`）覆盖 Sandbox 决策 |
 | **Alipay** | `ALIPAY_APP_ID`、`ALIPAY_PRIVATE_KEY`、`ALIPAY_PUBLIC_KEY` |
 | **WeChat Pay** | `WECHAT_PAY_APP_ID`、`WECHAT_PAY_MCH_ID`、`WECHAT_PAY_API_KEY`、证书路径等 |
+
+### PayPal 说明
+
+- **配置优先级**：平台收款账户（数据库）> 环境变量。若使用平台账户，`account_info` 含 `client_id`、`client_secret`、`sandbox`。
+- **Sandbox 决策**：平台账户 `sandbox` > `PAYPAL_SANDBOX` > `NODE_ENV`。详见 [paypal-sandbox-testing-guide.md](paypal-sandbox-testing-guide.md)。
+- **前端 Client ID**：优先从 `/api/payments/paypal/client-config` 获取；未配置平台账户时可设 `NEXT_PUBLIC_PAYPAL_CLIENT_ID` 作为回退。
 
 ---
 

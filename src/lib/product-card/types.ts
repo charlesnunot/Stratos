@@ -21,6 +21,16 @@ export interface ListProductContentDTO {
   /** AI 生成的分类原文，非硬编码 */
   category: string | null
   categoryTranslated: string | null
+  /** 商品成色 */
+  condition: 'new' | 'like_new' | 'ninety_five' | 'ninety' | 'eighty' | 'seventy_or_below' | null
+  /** 商品运费 */
+  shippingFee?: number
+  /** 销售国家/地区 */
+  salesCountries?: string[]
+  /** 颜色选项 */
+  colorOptions?: Array<{ name: string; image_url: string | null; image_from_index: number | null }> | null
+  /** 尺寸选项 */
+  sizes?: string[] | null
 }
 
 export interface ListProductStatsDTO {
@@ -74,4 +84,19 @@ export interface ProductCardCapabilities {
   canBuy: boolean
   canAddToCart: boolean
   canMessageSeller: boolean
+}
+
+export interface ProductActions {
+  adding: boolean
+  buying: boolean
+  repostPending: boolean
+
+  addToCart: (e: React.MouseEvent) => Promise<void>
+  buyNow: (e: React.MouseEvent) => Promise<void>
+  messageSeller: () => Promise<void>
+  requestReportDialog: () => boolean
+  copyLink: () => Promise<void>
+  repostToUsers: (targetUserIds: string[], content?: string) => Promise<'ok' | 'error'>
+  openProduct: () => void
+  getProductUrl: () => string
 }

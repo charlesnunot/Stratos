@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/payments/stripe'
 import { checkTipEnabled, checkTipLimits } from '@/lib/payments/check-tip-limits'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { getPaymentDestination } from '@/lib/payments/get-payment-destination'
 
 /**
  * 创建直接打赏用户的支付会话（不需要帖子）
@@ -149,6 +150,13 @@ export async function POST(request: NextRequest) {
     // 创建一个虚拟的"用户打赏"帖子ID用于记录（可选）
     // 或者我们可以创建一个专门的 user_tips 表
     // 这里我们使用 metadata 来标识这是直接打赏用户
+
+    // Get payment destination (platform vs user direct)
+    const destination = await getPaymentDestination({
+      recipientId: targetUserId,
+      context: 'tip',
+    })
+
     const session = await createCheckoutSession(
       numericAmount,
       successUrl,
@@ -158,7 +166,8 @@ export async function POST(request: NextRequest) {
         targetUserId,
         type: 'user_tip', // 标识这是直接打赏用户，不是打赏帖子
       },
-      String(currency || 'CNY').toLowerCase()
+      String(currency || 'CNY').toLowerCase(),
+      destination?.destinationAccountId
     )
 
     if (!session || !session.url) {

@@ -4,6 +4,8 @@ import { createCheckoutSession } from '@/lib/payments/stripe'
 import { checkSellerDepositRequirement } from '@/lib/deposits/check-deposit-requirement'
 import { disableSellerPayment } from '@/lib/deposits/payment-control'
 import { validateSellerPaymentReady } from '@/lib/payments/validate-seller-payment-ready'
+import { isCurrencySupportedByPaymentMethod } from '@/lib/payments/currency-payment-support'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,10 +77,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if order is already paid
+    // Check if order is already paid (include seller_type_snapshot for payment routing)
     const { data: existingOrder } = await supabase
       .from('orders')
-      .select('payment_status, seller_id, total_amount, currency, shipping_address, order_number')
+      .select('payment_status, seller_id, total_amount, currency, shipping_address, order_number, seller_type_snapshot')
       .eq('id', orderId)
       .single()
 
@@ -102,6 +104,14 @@ export async function POST(request: NextRequest) {
     if (!shippingAddress.recipientName || !shippingAddress.phone || !shippingAddress.address || !shippingAddress.country) {
       return NextResponse.json(
         { error: 'Shipping address is incomplete. Please fill in all required fields (name, phone, address, country).' },
+        { status: 400 }
+      )
+    }
+
+    const orderCurrency = (existingOrder.currency?.toString() || 'USD').toUpperCase() as Currency
+    if (!isCurrencySupportedByPaymentMethod(orderCurrency, 'stripe')) {
+      return NextResponse.json(
+        { error: 'This payment method does not support the order currency. Please choose another payment method.' },
         { status: 400 }
       )
     }
@@ -137,7 +147,8 @@ export async function POST(request: NextRequest) {
     const validationResult = await validateSellerPaymentReady({
       sellerId: existingOrder.seller_id,
       supabaseAdmin,
-      paymentMethod: 'stripe', // Validate that seller supports Stripe payment
+      paymentMethod: 'stripe',
+      currency: (existingOrder?.currency || 'USD').toString(),
     })
 
     if (!validationResult.canAcceptPayment) {
@@ -162,43 +173,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get seller's payment account ID for destination charges
-    const { data: sellerProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('payment_account_id, payment_provider')
-      .eq('id', existingOrder.seller_id)
-      .single()
+    const isDirectOrder = existingOrder?.seller_type_snapshot === 'direct'
 
-    if (!sellerProfile?.payment_account_id) {
-      return NextResponse.json(
-        {
-          error: 'Seller payment account not found',
-          reason: 'Seller has not bound a payment account',
-          canRetry: false,
-        },
-        { status: 403 }
-      )
+    let destinationAccountId: string | undefined
+    if (!isDirectOrder) {
+      const { data: sellerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('payment_account_id, payment_provider')
+        .eq('id', existingOrder.seller_id)
+        .single()
+
+      if (!sellerProfile?.payment_account_id) {
+        return NextResponse.json(
+          {
+            error: 'Seller payment account not found',
+            reason: 'Seller has not bound a payment account',
+            canRetry: false,
+          },
+          { status: 403 }
+        )
+      }
+      if (sellerProfile.payment_provider !== 'stripe') {
+        return NextResponse.json(
+          {
+            error: 'Payment method mismatch',
+            reason: `Order payment method is ${sellerProfile.payment_provider}, but Stripe checkout session was requested`,
+            canRetry: false,
+          },
+          { status: 400 }
+        )
+      }
+      destinationAccountId = sellerProfile.payment_account_id
     }
+    // Direct: no destinationAccountId → funds go to platform Stripe (getStripeClient uses platform account)
 
-    // Store seller account info for later use in checkout session creation
-    const sellerAccountId = sellerProfile.payment_account_id
-    const sellerPaymentProvider = sellerProfile.payment_provider
-
-    // Only create checkout session if seller uses Stripe
-    if (sellerPaymentProvider !== 'stripe') {
-      return NextResponse.json(
-        {
-          error: 'Payment method mismatch',
-          reason: `Order payment method is ${sellerPaymentProvider}, but Stripe checkout session was requested`,
-          canRetry: false,
-        },
-        { status: 400 }
-      )
-    }
-
-    // Create checkout session with destination (buyer pays directly to seller)
-    // Platform does not handle funds, no platform revenue
-    console.log('Creating Stripe checkout session for order:', orderId, 'with destination:', sellerAccountId)
+    console.log('Creating Stripe checkout session for order:', orderId, isDirectOrder ? '(direct → platform)' : 'with destination:', destinationAccountId ?? 'N/A')
     const session = await createCheckoutSession(
       order.total_amount,
       successUrl,
@@ -209,7 +218,7 @@ export async function POST(request: NextRequest) {
         type: 'order',
       },
       existingOrder?.currency || 'usd',
-      sellerAccountId // Destination account for direct payment
+      destinationAccountId
     )
 
     if (!session || !session.url) {
@@ -222,9 +231,10 @@ export async function POST(request: NextRequest) {
 
     console.log('Checkout session created successfully:', session.id)
 
-    // NOW check deposit requirement AFTER session creation
+    // Direct sellers: skip deposit check (platform collects; no deposit required)
+    // NOW check deposit requirement AFTER session creation (external sellers only)
     // Use database function to ensure atomicity (check + side-effects in one transaction)
-    if (existingOrder?.seller_id && existingOrder?.total_amount) {
+    if (!isDirectOrder && existingOrder?.seller_id && existingOrder?.total_amount) {
       // Get order currency and subscription info for diagnostic logging
       const { data: orderDetails } = await supabaseAdmin
         .from('orders')

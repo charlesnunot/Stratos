@@ -233,12 +233,11 @@ export async function GET(request: NextRequest) {
 
 /**
  * Get suggested subscription tier based on total amount
+ * 3档纯净模式: 15, 50, 100
  */
 function getSuggestedTier(totalAmount: number): number {
-  if (totalAmount <= 10) return 10
-  if (totalAmount <= 20) return 20
-  if (totalAmount <= 50) return 50
-  if (totalAmount <= 100) return 100
-  if (totalAmount <= 300) return 300
-  return 300 // Highest tier
+  // 3档纯净模式档位
+  if (totalAmount <= 15) return 15  // Starter
+  if (totalAmount <= 50) return 50  // Growth
+  return 100 // Scale (highest tier)
 }

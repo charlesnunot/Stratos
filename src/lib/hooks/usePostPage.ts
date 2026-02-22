@@ -11,6 +11,7 @@ import type {
   PostPageState,
   PageCapabilities,
   UnavailableReason,
+  AuthorizationToken,
 } from '@/lib/post-detail/types'
 
 function classifyUnavailableReason(error: unknown): UnavailableReason {
@@ -49,11 +50,11 @@ export function usePostPage(postId: string): PostPageState {
   // 作者信息
   const authorId = post?.user_id ?? ''
   const { data: authorResult } = useProfile(authorId)
-  const author = authorResult?.profile ?? null
+  const author = authorResult ?? null
 
   // 当前用户 Profile（用于账号状态判断）
   const { data: currentUserProfileResult } = useProfile(user?.id ?? '')
-  const currentUserProfile = currentUserProfileResult?.profile ?? null
+  const currentUserProfile = currentUserProfileResult ?? null
 
   const isAuthorBannedOrSuspended =
     author?.status === 'banned' || author?.status === 'suspended'
@@ -80,6 +81,21 @@ export function usePostPage(postId: string): PostPageState {
       return !!data
     },
     enabled: !!user && !!authorId && user?.id !== authorId,
+  })
+
+  // MCRE: 获取作者 Monetization Token
+  const { data: authTokenData } = useQuery({
+    queryKey: ['monetizationToken', authorId],
+    queryFn: async () => {
+      if (!authorId) return { hasValidToken: false, monetizationToken: null, resolutionId: null, expiresAt: null }
+      
+      const response = await fetch(`/api/users/${authorId}/monetization-token`)
+      if (!response.ok) {
+        return { hasValidToken: false, monetizationToken: null, resolutionId: null, expiresAt: null }
+      }
+      return response.json()
+    },
+    enabled: !!authorId,
   })
 
   // 浏览记录：必须在所有条件 return 之前调用，遵守 Hooks 规则
@@ -141,11 +157,18 @@ export function usePostPage(postId: string): PostPageState {
   const isApproved = post.status === 'approved'
   const isLoggedIn = !!user
 
+  // 检查帖子是否允许打赏
+  const postTipEnabled = (post as { tip_enabled?: boolean }).tip_enabled !== false
+
+  // MCRE: canTip 基于帖子打赏开关判断
+  // 注意：Token 验证在后端 create-tip-session 进行
+  // 如果帖子开启打赏，显示按钮（即使作者没有绑定收款账户，点击时后端会验证失败）
   const canTip =
     isLoggedIn &&
     user!.id !== post.user_id &&
     !isBlockedByAuthor &&
-    !isCurrentUserBannedOrSuspended
+    !isCurrentUserBannedOrSuspended &&
+    postTipEnabled
 
   const tipDisabledReason = !canTip
     ? !isLoggedIn
@@ -156,7 +179,11 @@ export function usePostPage(postId: string): PostPageState {
           ? '您已被作者拉黑'
           : isCurrentUserBannedOrSuspended
             ? '您的账号状态异常'
-            : undefined
+            : !postTipEnabled
+              ? '该帖子已关闭打赏'
+              : !authTokenData?.hasValidToken
+                ? '作者当前无法接收打赏（授权已过期或被撤销）'
+                : '打赏暂不可用'
     : undefined
 
   const capabilities: PageCapabilities = {
@@ -205,6 +232,12 @@ export function usePostPage(postId: string): PostPageState {
     isBlockedByAuthor,
     isAuthorBannedOrSuspended,
     tipDisabledReason,
+    authorizationToken: {
+      hasValidToken: authTokenData?.hasValidToken ?? false,
+      token: authTokenData?.monetizationToken ?? null,
+      resolutionId: authTokenData?.resolutionId ?? null,
+      expiresAt: authTokenData?.expiresAt ?? null,
+    },
   }
 }
 

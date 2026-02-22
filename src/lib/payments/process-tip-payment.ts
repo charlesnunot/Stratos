@@ -12,6 +12,8 @@ import { checkTipLimits, checkTipEnabled } from './check-tip-limits'
 import { logPaymentSuccess, logPaymentFailure, logPayment, LogLevel } from './logger'
 import { createPaymentError, logPaymentError } from './error-handler'
 import { logAudit } from '@/lib/api/audit'
+import { recordTipPaymentLedger } from './ledger-helpers'
+import { getPaymentDestination } from './get-payment-destination'
 
 interface ProcessTipPaymentParams {
   postId: string
@@ -67,6 +69,20 @@ export async function processTipPayment({
       return {
         success: false,
         error: 'This user has not enabled tipping',
+      }
+    }
+
+    // ✅ 检查帖子是否允许打赏
+    const { data: postData } = await supabaseAdmin
+      .from('posts')
+      .select('tip_enabled')
+      .eq('id', postId)
+      .maybeSingle()
+
+    if (postData && postData.tip_enabled === false) {
+      return {
+        success: false,
+        error: 'This post does not accept tips',
       }
     }
 
@@ -225,6 +241,39 @@ export async function processTipPayment({
         currency,
       },
     })
+
+    try {
+      const destination = await getPaymentDestination({
+        recipientId,
+        context: 'tip',
+      })
+
+      const isInternal = destination.isInternal
+      const platformFee = isInternal ? 0 : amount * 0.05
+
+      const { data: tipRecord } = await supabaseAdmin
+        .from('tips')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('tipper_id', tipperId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (tipRecord?.id) {
+        await recordTipPaymentLedger(supabaseAdmin, {
+          tipId: tipRecord.id,
+          tipperId,
+          recipientId,
+          amount,
+          currency,
+          isInternal,
+          platformFee,
+        })
+      }
+    } catch (ledgerError: any) {
+      console.error('[process-tip-payment] Failed to record ledger:', ledgerError.message)
+    }
 
     return { success: true }
   } catch (error: any) {

@@ -20,19 +20,34 @@ CREATE INDEX IF NOT EXISTS idx_blocked_users_blocked_id ON blocked_users(blocked
 ALTER TABLE blocked_users ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own block list (who they blocked)
-CREATE POLICY "Users can view own blocked list" ON blocked_users
-  FOR SELECT
-  USING (auth.uid() = blocker_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'blocked_users' AND policyname = 'Users can view own blocked list') THEN
+    CREATE POLICY "Users can view own blocked list" ON blocked_users
+      FOR SELECT
+      USING (auth.uid() = blocker_id);
+  END IF;
+END $$;
 
 -- Users can block other users
-CREATE POLICY "Users can block others" ON blocked_users
-  FOR INSERT
-  WITH CHECK (auth.uid() = blocker_id AND auth.uid() != blocked_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'blocked_users' AND policyname = 'Users can block others') THEN
+    CREATE POLICY "Users can block others" ON blocked_users
+      FOR INSERT
+      WITH CHECK (auth.uid() = blocker_id AND auth.uid() != blocked_id);
+  END IF;
+END $$;
 
 -- Users can unblock users they blocked
-CREATE POLICY "Users can unblock others" ON blocked_users
-  FOR DELETE
-  USING (auth.uid() = blocker_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'blocked_users' AND policyname = 'Users can unblock others') THEN
+    CREATE POLICY "Users can unblock others" ON blocked_users
+      FOR DELETE
+      USING (auth.uid() = blocker_id);
+  END IF;
+END $$;
 
 -- Add comments
 COMMENT ON TABLE blocked_users IS 'User blocking relationships. blocker_id is the user who blocked, blocked_id is the user who was blocked.';

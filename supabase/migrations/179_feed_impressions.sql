@@ -14,12 +14,22 @@ CREATE INDEX IF NOT EXISTS idx_feed_impressions_shown_at ON public.feed_impressi
 
 ALTER TABLE public.feed_impressions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can insert own feed_impressions"
-  ON public.feed_impressions FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'feed_impressions' AND schemaname = 'public' AND policyname = 'Users can insert own feed_impressions') THEN
+    CREATE POLICY "Users can insert own feed_impressions"
+      ON public.feed_impressions FOR INSERT
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "Users can view own feed_impressions"
-  ON public.feed_impressions FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'feed_impressions' AND schemaname = 'public' AND policyname = 'Users can view own feed_impressions') THEN
+    CREATE POLICY "Users can view own feed_impressions"
+      ON public.feed_impressions FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 COMMENT ON TABLE public.feed_impressions IS 'Feed exposure log for CTR and recommendation evaluation (Phase 2).';

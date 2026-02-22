@@ -15,11 +15,14 @@ interface UseImageUploadReturn {
   images: File[]
   imagePreviews: string[]
   existingImages: string[]
-  allPreviews: string[] // existing + new previews combined
+  externalUrls: string[]
+  allPreviews: string[] // existing + external + new previews combined
   uploading: boolean
   handleImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => void
   removeImage: (index: number) => void
   removeExistingImage: (index: number) => void
+  addExternalUrl: (url: string) => void
+  removeExternalUrl: (index: number) => void
   uploadImages: () => Promise<string[]>
   clearImages: () => void
   setExistingImages: (images: string[]) => void
@@ -43,6 +46,7 @@ export function useImageUpload({
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [existingUrls, setExistingUrls] = useState<string[]>(existingImages ?? [])
+  const [externalUrls, setExternalUrls] = useState<string[]>([])
 
   // Update existing images when prop changes
   useEffect(() => {
@@ -69,13 +73,13 @@ export function useImageUpload({
     }
   }, [images])
 
-  // Combine existing images and new previews for display
-  const allPreviews = [...existingUrls, ...imagePreviews]
+  // Combine existing images, external urls, and new previews for display
+  const allPreviews = [...existingUrls, ...externalUrls, ...imagePreviews]
 
   const handleImageSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || [])
-      const totalCount = existingUrls.length + images.length + files.length
+      const totalCount = existingUrls.length + externalUrls.length + images.length + files.length
 
       if (totalCount > maxImages) {
         toast({
@@ -119,7 +123,7 @@ export function useImageUpload({
         setImages((prev) => [...prev, ...validFiles])
       }
     },
-    [existingUrls.length, images.length, maxImages, toast]
+    [existingUrls.length, externalUrls.length, images.length, maxImages, toast]
   )
 
   const removeImage = useCallback((index: number) => {
@@ -138,6 +142,25 @@ export function useImageUpload({
     setExistingUrls((prev) => prev.filter((_, i) => i !== index))
   }, [])
 
+  const addExternalUrl = useCallback((url: string) => {
+    const trimmed = url.trim()
+    if (!trimmed) return
+    if (!/^https?:\/\//i.test(trimmed)) {
+      toast({ variant: 'warning', title: '请输入有效的 http(s) URL' })
+      return
+    }
+    const total = existingUrls.length + externalUrls.length + images.length
+    if (total >= maxImages) {
+      toast({ variant: 'warning', title: `最多 ${maxImages} 张图片` })
+      return
+    }
+    setExternalUrls(prev => [...prev, trimmed])
+  }, [existingUrls.length, externalUrls.length, images.length, maxImages, toast])
+
+  const removeExternalUrl = useCallback((index: number) => {
+    setExternalUrls(prev => prev.filter((_, i) => i !== index))
+  }, [])
+
   const clearImages = useCallback(() => {
     // Cleanup all object URLs
     imagePreviews.forEach((url) => URL.revokeObjectURL(url))
@@ -147,7 +170,7 @@ export function useImageUpload({
 
   const uploadImages = useCallback(async (): Promise<string[]> => {
     if (images.length === 0) {
-      return existingUrls
+      return []
     }
 
     if (!user) {
@@ -168,7 +191,7 @@ export function useImageUpload({
     }
 
     setUploading(true)
-    const uploadedUrls: string[] = [...existingUrls]
+    const uploadedUrls: string[] = []
     const uploadedPaths: string[] = []
 
     try {
@@ -224,20 +247,23 @@ export function useImageUpload({
     }
 
     return uploadedUrls
-  }, [images, existingUrls, user, bucket, folder, supabase, onUploadComplete, clearImages])
+  }, [images, user, bucket, folder, supabase, onUploadComplete, clearImages])
 
   return {
     images,
     imagePreviews,
     existingImages: existingUrls,
+    externalUrls,
     allPreviews,
     uploading,
     handleImageSelect,
     removeImage,
     removeExistingImage,
+    addExternalUrl,
+    removeExternalUrl,
     uploadImages,
     clearImages,
     setExistingImages: setExistingUrls,
-    totalImageCount: existingUrls.length + images.length,
+    totalImageCount: existingUrls.length + externalUrls.length + images.length,
   }
 }

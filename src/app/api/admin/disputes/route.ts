@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, requireAdminOrSupport } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { processRefund } from '@/lib/payments/process-refund'
-import { logAudit } from '@/lib/api/audit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,13 +59,10 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ disputes: disputes || [] })
-  } catch (error: unknown) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Get disputes error:', error)
-    }
-    const message = error instanceof Error ? error.message : 'Failed to get disputes'
+  } catch (error: any) {
+    console.error('Get disputes error:', error)
     return NextResponse.json(
-      { error: message },
+      { error: error.message || 'Failed to get disputes' },
       { status: 500 }
     )
   }
@@ -172,49 +168,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Notify buyer and seller (use content_key for i18n)
+    // Notify buyer and seller
     await supabaseAdmin.from('notifications').insert([
       {
         user_id: order.buyer_id,
         type: 'system',
-        title: 'Dispute Resolved',
-        content: `Your order dispute has been processed by admin: ${resolution}`,
+        title: '纠纷已解决',
+        content: `您的订单纠纷已由管理员处理：${resolution}`,
         related_id: order.id,
         related_type: 'order',
         link: `/orders/${order.id}/dispute`,
-        content_key: 'dispute_resolved',
-        content_params: { resolution },
       },
       {
         user_id: order.seller_id,
         type: 'system',
-        title: 'Dispute Resolved',
-        content: `Order dispute has been processed by admin: ${resolution}`,
+        title: '纠纷已解决',
+        content: `订单纠纷已由管理员处理：${resolution}`,
         related_id: order.id,
         related_type: 'order',
         link: `/seller/orders/${order.id}/dispute`,
-        content_key: 'dispute_resolved',
-        content_params: { resolution },
       },
     ])
 
-    logAudit({
-      action: 'dispute_process',
-      userId: user.id,
-      resourceId: disputeId,
-      resourceType: 'order_dispute',
-      result: 'success',
-      timestamp: new Date().toISOString(),
-    })
-
     return NextResponse.json({ success: true })
-  } catch (error: unknown) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Resolve dispute error:', error)
-    }
-    const message = error instanceof Error ? error.message : 'Failed to resolve dispute'
+  } catch (error: any) {
+    console.error('Resolve dispute error:', error)
     return NextResponse.json(
-      { error: message },
+      { error: error.message || 'Failed to resolve dispute' },
       { status: 500 }
     )
   }

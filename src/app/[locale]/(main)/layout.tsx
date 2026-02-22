@@ -8,11 +8,11 @@ export default function MainLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen overflow-x-hidden max-w-full">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <div className="flex-1 md:ml-64 min-w-0 max-w-full overflow-x-hidden">
+      <div className="flex-1 md:ml-64 flex flex-col overflow-hidden">
         <TopBar />
-        <main className="p-4 md:p-6 max-w-full overflow-x-hidden">{children}</main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   )

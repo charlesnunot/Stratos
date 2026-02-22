@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createPayPalOrder } from '@/lib/payments/paypal'
 import { validateSellerPaymentReady } from '@/lib/payments/validate-seller-payment-ready'
+import { isCurrencySupportedByPaymentMethod } from '@/lib/payments/currency-payment-support'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +22,14 @@ export async function POST(request: NextRequest) {
 
     const { amount, currency = 'USD', type, orderId, subscriptionType, subscriptionTier, postId, postAuthorId, returnUrl, cancelUrl } =
       await request.json()
+
+    const normalizedCurrency = (currency?.toString() || 'USD').toUpperCase() as Currency
+    if (!isCurrencySupportedByPaymentMethod(normalizedCurrency, 'paypal')) {
+      return NextResponse.json(
+        { error: 'PayPal does not support the selected currency (e.g. CNY). Please choose another payment method.' },
+        { status: 400 }
+      )
+    }
 
     // Validate amount
     const numericAmount = parseFloat(amount)
@@ -41,10 +51,10 @@ export async function POST(request: NextRequest) {
     if (type === 'order' && orderId) {
       metadata.orderId = orderId
 
-      // Get order details for validation
+      // Get order details for validation (seller_type_snapshot for direct-seller deposit skip)
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .select('payment_status, seller_id, total_amount, currency, shipping_address, buyer_id')
+        .select('payment_status, seller_id, total_amount, currency, shipping_address, buyer_id, seller_type_snapshot')
         .eq('id', orderId)
         .single()
 
@@ -67,18 +77,6 @@ export async function POST(request: NextRequest) {
       if (order.payment_status === 'paid') {
         return NextResponse.json(
           { error: 'Order already paid' },
-          { status: 400 }
-        )
-      }
-
-      // 订单支付：强制使用服务端订单金额，防止前端篡改
-      const orderTotalAmount = typeof order.total_amount === 'number' ? order.total_amount : parseFloat(String(order.total_amount))
-      if (isNaN(orderTotalAmount) || orderTotalAmount <= 0) {
-        return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 })
-      }
-      if (Math.abs(numericAmount - orderTotalAmount) > 0.01) {
-        return NextResponse.json(
-          { error: 'Amount does not match order total' },
           { status: 400 }
         )
       }
@@ -146,11 +144,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Create PayPal order FIRST (before deposit check)，使用服务端订单金额
-      const paypalOrder = await createPayPalOrder(orderTotalAmount, currency, metadata)
+      // Create PayPal order FIRST (before deposit check)
+      const paypalOrder = await createPayPalOrder(numericAmount, currency, metadata)
 
-      // NOW check deposit requirement AFTER payment session creation
-      if (order.seller_id && order.total_amount) {
+      // Direct sellers: skip deposit check (platform collects)
+      // NOW check deposit requirement AFTER payment session creation (external sellers only)
+      const isDirectOrder = (order as { seller_type_snapshot?: string }).seller_type_snapshot === 'direct'
+      if (!isDirectOrder && order.seller_id && order.total_amount) {
         // Call database function that handles deposit check + side-effects atomically
         const { data: depositResult, error: depositError } = await supabaseAdmin.rpc(
           'check_deposit_and_execute_side_effects',

@@ -18,7 +18,7 @@ export function PostCardUnit({ dto }: PostCardUnitProps) {
   const viewerId = user?.id ?? null
   const { data: profileData } = useProfile(user?.id ?? '')
   const isAdminOrSupport =
-    profileData?.profile?.role === 'admin' || profileData?.profile?.role === 'support'
+    (profileData as any)?.role === 'admin' || (profileData as any)?.role === 'support'
 
   const { data: isFollowing } = useIsFollowing(dto.author.id)
 

@@ -17,6 +17,10 @@ export interface Order {
   payment_status: 'pending' | 'paid' | 'failed' | 'refunded'
   order_status: 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled'
   currency: string
+  /** Snapshot at order creation: external (third-party) or direct (platform). Used for payment/refund. */
+  seller_type_snapshot?: 'external' | 'direct'
+  /** Where funds go: platform (direct) or seller (external). For reconciliation. */
+  funds_recipient?: 'platform' | 'seller'
   shipping_address?: {
     recipientName: string
     phone: string
@@ -39,6 +43,13 @@ export interface Order {
     display_name: string
     username: string
   }
+  items?: Array<{
+    product_id: string
+    quantity: number
+    price: number
+    color?: string | null
+    size?: string | null
+  }>
 }
 
 // Product types
@@ -46,12 +57,26 @@ export interface Product {
   id: string
   name: string
   description?: string
+  details?: string
+  category?: string
   price: number
   currency: string
   stock: number | null
   images: string[]
+  color_options?: Array<{ name: string; image_url: string | null; image_from_index: number | null }> | null
+  sizes?: string[] | null
   seller_id: string
   status: 'active' | 'inactive' | 'sold_out'
+  condition?: 'new' | 'like_new' | 'ninety_five' | 'ninety' | 'eighty' | 'seventy_or_below'
+  shipping_fee?: number
+  sales_countries?: string[] | null
+  content_lang?: string | null
+  name_translated?: string | null
+  description_translated?: string | null
+  details_translated?: string | null
+  category_translated?: string | null
+  faq?: Array<{ question: string; answer: string }> | null
+  faq_translated?: Array<{ question: string; answer: string }> | null
   like_count: number
   want_count: number
   share_count: number
@@ -158,4 +183,13 @@ export interface SellerDebt {
 export interface PlatformPaymentAccount extends PaymentAccount {
   is_platform_account: true
   seller_id: null
+}
+
+// Profile (server/admin only for user_origin; never expose user_origin to public)
+export interface ProfileOrigin {
+  user_origin?: 'external' | 'internal'
+  /** Admin-set; enables tip for internal users without tip subscription. Ignored for external. */
+  internal_tip_enabled?: boolean
+  /** Admin-set; enables affiliate for internal users without affiliate subscription. Ignored for external. */
+  internal_affiliate_enabled?: boolean
 }

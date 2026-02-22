@@ -152,9 +152,30 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // P3 可选：Stripe event.id 去重需单独表（如 stripe_webhook_events）存储已处理 event.id，
-  // 当前已通过 payment_transactions 按 provider_ref（session_id/capture_id 等）做幂等，重复回调不会重复入账。
-  // 若需严格按 event.id 去重，可新增迁移表后在此处查询并提前 return 200。
+  // Phase 0.1: Webhook event idempotency using webhook_events table
+  const { data: webhookEventId, error: webhookEventError } = await supabaseAdmin.rpc(
+    'process_webhook_event',
+    {
+      p_provider: 'stripe',
+      p_event_id: event.id,
+      p_event_type: event.type,
+      p_payload: event.data.object as any,
+    }
+  )
+
+  if (webhookEventError) {
+    console.error('[stripe/webhook] Failed to process webhook event:', webhookEventError)
+    return NextResponse.json(
+      { error: 'Failed to process webhook event' },
+      { status: 500 }
+    )
+  }
+
+  // If webhookEventId is NULL, this event has already been processed
+  if (webhookEventId === null) {
+    console.log('[stripe/webhook] Duplicate event, skipping:', event.id)
+    return NextResponse.json({ received: true })
+  }
 
   // 支付回调统一审计日志（不记录卡号、密码、secret）
   try {
@@ -379,6 +400,7 @@ export async function POST(request: NextRequest) {
             currency,
             paymentMethod: 'stripe',
             supabaseAdmin,
+            isFirstMonth: metadata.isFirstMonth === 'true', // 3档纯净模式: 传递首月折扣标记
           })
 
           if (!result.success) {

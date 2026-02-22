@@ -55,6 +55,22 @@ export default function DepositRefundPage() {
     }
   }, [authLoading, user, router, pathname])
 
+  const { data: profile } = useQuery({
+    queryKey: ['profile-seller-type', user?.id],
+    queryFn: async () => {
+      if (!user) return null
+      const { data } = await supabase.from('profiles').select('seller_type').eq('id', user.id).single()
+      return data as { seller_type?: string } | null
+    },
+    enabled: !!user,
+  })
+  useEffect(() => {
+    if (!user || !profile) return
+    if ((profile as { seller_type?: string })?.seller_type === 'direct') {
+      router.replace('/seller/dashboard')
+    }
+  }, [user, profile, router])
+
   const { data: lots, isLoading, refetch } = useQuery({
     queryKey: ['depositRefundLots', user?.id],
     queryFn: async () => {
@@ -71,6 +87,8 @@ export default function DepositRefundPage() {
     },
     enabled: !!user,
   })
+
+  const isDirectSeller = (profile as { seller_type?: string } | null)?.seller_type === 'direct'
 
   const canRequestRefund = (lot: DepositLot) => {
     if (lot.status !== 'refundable') return false
@@ -116,6 +134,14 @@ export default function DepositRefundPage() {
   }
 
   if (!user) return null
+
+  if (profile && isDirectSeller) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">

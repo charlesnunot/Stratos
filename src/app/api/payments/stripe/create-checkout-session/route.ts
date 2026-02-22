@@ -6,6 +6,7 @@ import { logPaymentCreation } from '@/lib/payments/logger'
 import { getSubscriptionPrice, SELLER_TIERS_USD } from '@/lib/subscriptions/pricing'
 import type { SubscriptionType } from '@/lib/subscriptions/pricing'
 import type { Currency } from '@/lib/currency/detect-currency'
+import { isCurrencySupportedByPaymentMethod } from '@/lib/payments/currency-payment-support'
 
 export async function POST(request: NextRequest) {
   let requestUserId: string | undefined
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
     requestUserId = user.id
 
-    const { amount, subscriptionType, subscriptionTier, userId, successUrl, cancelUrl, currency = 'usd' } =
+    const { amount, subscriptionType, subscriptionTier, userId, successUrl, cancelUrl, currency = 'usd', isFirstMonth = false } =
       await request.json()
     requestAmount = parseFloat(amount)
     requestCurrency = currency
@@ -111,10 +112,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 3档纯净模式: 应用首月折扣
+    if (isFirstMonth && subscriptionType === 'seller') {
+      priceResult = {
+        ...priceResult,
+        amount: priceResult.amount * 0.5 // 50% 折扣
+      }
+    }
+
     // Optional: reject if frontend sent amount that differs from server (anti-tampering)
     if (amount !== undefined && amount !== null && amount !== '') {
       const frontendAmount = parseFloat(String(amount))
-      if (!isNaN(frontendAmount) && Math.abs(frontendAmount - priceResult.amount) > 0.01) {
+      const validatedCurrency = (currency?.toString() || 'USD').toUpperCase()
+      const isZeroDecimalCurrency = ['JPY', 'KRW'].includes(validatedCurrency)
+      const precision = isZeroDecimalCurrency ? 0 : 0.01
+      
+      if (!isNaN(frontendAmount) && Math.abs(frontendAmount - priceResult.amount) > precision) {
         return NextResponse.json(
           { error: 'Amount mismatch with server calculation' },
           { status: 400 }
@@ -124,6 +137,13 @@ export async function POST(request: NextRequest) {
 
     const numericAmount = priceResult.amount
     const payCurrency = priceResult.currency
+
+    if (!isCurrencySupportedByPaymentMethod(payCurrency, 'stripe')) {
+      return NextResponse.json(
+        { error: 'This payment method does not support the selected currency. Please choose another payment method.' },
+        { status: 400 }
+      )
+    }
 
     // Subscription must be for the authenticated user only (ignore body userId to prevent forging)
     const effectiveUserId = user.id
@@ -147,6 +167,7 @@ export async function POST(request: NextRequest) {
         subscriptionType: subscriptionType,
         subscriptionTier: subscriptionTier?.toString(),
         type: 'subscription',
+        isFirstMonth: isFirstMonth ? 'true' : 'false', // 3档纯净模式: 传递首月折扣标记
       },
       payCurrency.toLowerCase()
     )

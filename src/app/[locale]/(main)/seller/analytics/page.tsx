@@ -3,13 +3,14 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { useAuthGuard } from '@/lib/hooks/useAuthGuard'
+import { useSellerTierGuard } from '@/lib/hooks/useSellerTierGuard'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, DollarSign, ShoppingCart, TrendingUp, BarChart3 } from 'lucide-react'
+import { Loader2, DollarSign, ShoppingCart, TrendingUp, BarChart3, Crown } from 'lucide-react'
 import { StatsChart } from '@/components/stats/StatsChart'
 import { Link } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
+import { AdvancedAnalytics } from '@/components/seller/AdvancedAnalytics'
 
 type TimeRange = 7 | 30 | 90
 
@@ -25,7 +26,7 @@ interface OrderRow {
 }
 
 export default function SellerAnalyticsPage() {
-  const { user, loading: authLoading } = useAuthGuard()
+  const { user, loading: authLoading, allowed, denyReason, tier, isDirectSeller } = useSellerTierGuard(80)
   const supabase = createClient()
   const t = useTranslations('seller')
   const tCommon = useTranslations('common')
@@ -169,7 +170,19 @@ export default function SellerAnalyticsPage() {
     )
   }
 
-  if (!user) return null
+  if (!allowed) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <p className="text-muted-foreground">
+          {denyReason === 'not_seller' && t('needSellerSubscription')}
+          {denyReason === 'tier_too_low' && t('needUpgradeTier')}
+        </p>
+        <Link href="/seller/dashboard">
+          <Button variant="outline">{tCommon('back')}</Button>
+        </Link>
+      </div>
+    )
+  }
 
   const a = analytics
 
@@ -330,6 +343,17 @@ export default function SellerAnalyticsPage() {
           )}
         </Card>
       </div>
+
+      {/* Scale 档位高级分析 */}
+      {(isDirectSeller || (tier && tier >= 100)) && user && (
+        <Card className="p-6 border-primary/20">
+          <div className="flex items-center gap-2 mb-4">
+            <Crown className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Scale 档位高级分析</h2>
+          </div>
+          <AdvancedAnalytics userId={user.id} subscriptionTier={tier ?? 0} />
+        </Card>
+      )}
 
       <div className="flex justify-end">
         <Link href="/seller/dashboard">

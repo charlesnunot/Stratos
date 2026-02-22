@@ -21,7 +21,9 @@ import {
 import { Loader2, Package, CheckCircle, XCircle, Clock, Flag, MessageSquare } from 'lucide-react'
 import { showInfo } from '@/lib/utils/toast'
 import { useOrderFeedback } from '@/lib/hooks/useSellerFeedback'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { getLocalizedColorName } from '@/lib/constants/colors'
+import { getLocalizedSizeName } from '@/lib/constants/sizes'
 
 export default function OrderPage() {
   const params = useParams()
@@ -35,6 +37,7 @@ export default function OrderPage() {
   const t = useTranslations('orders')
   const tSupport = useTranslations('support')
   const tCommon = useTranslations('common')
+  const locale = useLocale()
   const [cancelling, setCancelling] = useState(false)
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
@@ -291,6 +294,13 @@ export default function OrderPage() {
                 )}
                 <div>
                   <p className="font-semibold">{item.product?.name || t('product')}</p>
+                  {(item.color || item.size) && (
+                    <p className="text-xs text-muted-foreground">
+                      {item.color && `${tCommon('color')}: ${item.color}`}
+                      {item.color && item.size && ' | '}
+                      {item.size && `${tCommon('size')}: ${item.size}`}
+                    </p>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     {t('quantity')}: {item.quantity} × ¥{item.price?.toFixed(2) || '0.00'}
                   </p>

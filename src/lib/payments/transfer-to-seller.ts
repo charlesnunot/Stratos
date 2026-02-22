@@ -15,6 +15,8 @@ export interface TransferToSellerParams {
   paymentTransactionId?: string
   paymentMethod: 'stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank'
   orderId?: string
+  /** When 'platform', payout is from platform balance (e.g. direct-seller commission). Audit only. */
+  fundsSource?: 'platform' | 'seller'
   supabaseAdmin: SupabaseClient
 }
 
@@ -38,6 +40,7 @@ export async function transferToSeller({
   paymentTransactionId,
   paymentMethod,
   orderId,
+  fundsSource,
   supabaseAdmin,
 }: TransferToSellerParams): Promise<TransferResult> {
   try {
@@ -131,6 +134,7 @@ export async function transferToSeller({
           original_amount: amount,
           deducted_debt: debtResult.deductedDebtAmount,
           remaining_debt: debtResult.remainingDebt,
+          ...(fundsSource && { funds_source: fundsSource }),
         },
       })
       .select()

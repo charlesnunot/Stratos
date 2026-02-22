@@ -18,7 +18,7 @@ export type ContentLang = 'zh' | 'en' | null
  */
 export function getDisplayContent(
   locale: string,
-  contentLang: ContentLang,
+  contentLang: ContentLang | string | null,
   content: string | null | undefined,
   contentTranslated: string | null | undefined
 ): string {

@@ -30,6 +30,8 @@
 
 ### 2. PayPal 支付
 
+**Sandbox 测试说明**：使用 Business Sandbox 作为后端凭据，在弹窗中**直接登录** Personal Sandbox 账号（如 sb-xxx@personal.example.com）付款，避免 Guest Checkout 的复杂表单。详见 [paypal-sandbox-testing-guide.md](paypal-sandbox-testing-guide.md)。
+
 #### 订单支付
 - [ ] 创建订单并选择 PayPal 支付
 - [ ] PayPal 按钮正确显示
@@ -47,6 +49,14 @@
 #### 打赏支付
 - [ ] 打赏流程正常
 - [ ] 幂等性测试
+
+#### Sandbox 验收 Gate（上线前必过）
+- [ ] 使用 Sandbox business + personal 完成一次端到端支付
+- [ ] 弹窗内登录 Personal 账号，点击「同意并付款」
+- [ ] 验证 capture 成功、订单/订阅状态更新
+- [ ] 验证幂等性（同一 captureId 不重复处理）
+- [ ] 验证取消流程（弹窗取消无副作用）
+- [ ] 不接受「只看到弹窗就算通过」
 
 ### 3. 支付宝支付
 

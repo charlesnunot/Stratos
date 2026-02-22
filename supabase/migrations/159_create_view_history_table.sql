@@ -19,19 +19,34 @@ CREATE INDEX IF NOT EXISTS idx_view_history_viewed_at ON view_history(viewed_at 
 ALTER TABLE view_history ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own view history
-CREATE POLICY "Users can view own view history" ON view_history
-  FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'view_history' AND policyname = 'Users can view own view history') THEN
+    CREATE POLICY "Users can view own view history" ON view_history
+      FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Users can insert their own view history
-CREATE POLICY "Users can insert own view history" ON view_history
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'view_history' AND policyname = 'Users can insert own view history') THEN
+    CREATE POLICY "Users can insert own view history" ON view_history
+      FOR INSERT
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Users can delete their own view history
-CREATE POLICY "Users can delete own view history" ON view_history
-  FOR DELETE
-  USING (auth.uid() = user_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'view_history' AND policyname = 'Users can delete own view history') THEN
+    CREATE POLICY "Users can delete own view history" ON view_history
+      FOR DELETE
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Add comments
 COMMENT ON TABLE view_history IS 'User browsing history for posts and products';

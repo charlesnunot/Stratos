@@ -32,6 +32,8 @@ export interface ProductCardProduct {
   favorite_count?: number
   sales_count?: number
   currency?: string
+  color_options?: Array<{ name: string; image_url: string | null; image_from_index: number | null }> | null
+  sizes?: string[] | null
   seller?: {
     username: string
     display_name: string

@@ -97,6 +97,12 @@ export default function RegisterPage() {
     setError(null)
     setSuccess(false)
 
+    if (email.toLowerCase().endsWith('@internal.local')) {
+      setError(t('emailDomainNotAllowed'))
+      setLoading(false)
+      return
+    }
+
     // 客户端验证（用户体验）
     if (password.length < 6) {
       setError(t('passwordTooShort'))

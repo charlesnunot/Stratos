@@ -2,18 +2,18 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { useAuthGuard } from '@/lib/hooks/useAuthGuard'
+import { useAffiliateGuard } from '@/lib/hooks/useAffiliateGuard'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Loader2, DollarSign, ShoppingBag, TrendingUp, Clock } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { StatsChart } from '@/components/stats/StatsChart'
 import { formatCurrency } from '@/lib/currency/format-currency'
 
 export default function AffiliateStatsPage() {
-  const { user, loading: authLoading } = useAuthGuard()
+  const { user, loading: authLoading, allowed, denyReason } = useAffiliateGuard()
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -126,9 +126,22 @@ export default function AffiliateStatsPage() {
     )
   }
 
-  // Show nothing if not authenticated (redirect is handled in useEffect)
-  if (!user) {
-    return null
+  // Show nothing if not allowed
+  if (!allowed) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <p className="text-muted-foreground">
+          {denyReason === 'not_logged_in' && t('pleaseLogin')}
+          {denyReason === 'no_subscription' && t('needAffiliateSubscription')}
+          {denyReason === 'no_payment_account' && t('needPaymentAccount')}
+        </p>
+        {!user && (
+          <Link href="/login">
+            <Button>{tCommon('login')}</Button>
+          </Link>
+        )}
+      </div>
+    )
   }
 
   if (isLoading) {

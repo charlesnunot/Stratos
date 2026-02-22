@@ -1,13 +1,19 @@
-/**
- * 服务端校验商品是否可购买（Buy Now / 加购前）。
- * 单一权威入口：与商品页渲染使用同一 session/RLS，避免客户端再查 products 的时序与 RLS 差异。
- */
-
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json()
+    const { productId } = body
+
+    if (!productId || typeof productId !== 'string') {
+      return NextResponse.json(
+        { ok: false, reason: 'invalid_request', message: 'Product ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Create supabase client with user authentication
     const supabase = await createClient()
     const {
       data: { user },
@@ -15,48 +21,118 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ ok: false, reason: 'unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { ok: false, reason: 'unauthorized', message: 'Please login first' },
+        { status: 401 }
+      )
     }
 
-    const body = await request.json().catch(() => ({}))
-    const productId = typeof body?.productId === 'string' ? body.productId.trim() : null
-    if (!productId) {
-      return NextResponse.json({ ok: false, reason: 'invalid_request' }, { status: 400 })
-    }
-
-    const { data: product, error } = await supabase
+    // Fetch product details
+    const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, status, stock, price, currency, name, images')
+      .select('id, name, status, stock, price, images, currency')
       .eq('id', productId)
       .single()
 
-    if (error || !product) {
-      return NextResponse.json({ ok: false, reason: 'not_found' }, { status: 200 })
+    if (productError) {
+      console.error('[validate-product] Error fetching product:', {
+        productId,
+        error: productError.message,
+      })
+      return NextResponse.json(
+        { ok: false, reason: 'not_found', message: 'Product not found' },
+        { status: 404 }
+      )
     }
 
+    if (!product) {
+      return NextResponse.json(
+        { ok: false, reason: 'not_found', message: 'Product not found' },
+        { status: 404 }
+      )
+    }
+
+    // Validate product status
     if (product.status !== 'active') {
-      return NextResponse.json({ ok: false, reason: 'inactive' }, { status: 200 })
+      return NextResponse.json(
+        { 
+          ok: false, 
+          reason: 'inactive', 
+          message: 'Product is not available',
+          product: {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            currency: product.currency,
+            image: product.images?.[0] || '',
+          }
+        },
+        { status: 400 }
+      )
     }
 
-    const stock = product.stock ?? 0
-    if (stock <= 0) {
-      return NextResponse.json({ ok: false, reason: 'out_of_stock' }, { status: 200 })
+    // Validate stock
+    if (product.stock != null && product.stock <= 0) {
+      return NextResponse.json(
+        { 
+          ok: false, 
+          reason: 'out_of_stock', 
+          message: 'Product is out of stock',
+          product: {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            currency: product.currency,
+            image: product.images?.[0] || '',
+          }
+        },
+        { status: 400 }
+      )
     }
 
+    // Product is valid
     return NextResponse.json({
       ok: true,
       product: {
         id: product.id,
+        name: product.name,
         price: product.price,
-        currency: product.currency ?? 'USD',
-        name: product.name ?? '',
-        image: Array.isArray(product.images) ? product.images[0] ?? '' : '',
-      },
+        currency: product.currency,
+        image: product.images?.[0] || '',
+      }
     })
-  } catch (err) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[validate-product]', err)
-    }
-    return NextResponse.json({ ok: false, reason: 'server_error' }, { status: 500 })
+
+  } catch (error: unknown) {
+    console.error('[validate-product] Unexpected error:', error)
+    return NextResponse.json(
+      { 
+        ok: false, 
+        reason: 'server_error', 
+        message: 'An unexpected error occurred' 
+      },
+      { status: 500 }
+    )
   }
+}
+
+// Handle other HTTP methods
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Method not allowed' },
+    { status: 405 }
+  )
+}
+
+export async function PUT() {
+  return NextResponse.json(
+    { error: 'Method not allowed' },
+    { status: 405 }
+  )
+}
+
+export async function DELETE() {
+  return NextResponse.json(
+    { error: 'Method not allowed' },
+    { status: 405 }
+  )
 }

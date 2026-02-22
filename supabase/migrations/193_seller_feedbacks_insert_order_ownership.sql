@@ -2,17 +2,22 @@
 
 DROP POLICY IF EXISTS "Buyers can create their own feedback" ON seller_feedbacks;
 
-CREATE POLICY "Buyers can create feedback for own orders only"
-  ON seller_feedbacks
-  FOR INSERT
-  WITH CHECK (
-    auth.uid() = buyer_id
-    AND EXISTS (
-      SELECT 1 FROM orders o
-      WHERE o.id = order_id
-        AND o.buyer_id = auth.uid()
-    )
-  );
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'seller_feedbacks' AND policyname = 'Buyers can create feedback for own orders only') THEN
+    CREATE POLICY "Buyers can create feedback for own orders only"
+      ON seller_feedbacks
+      FOR INSERT
+      WITH CHECK (
+        auth.uid() = buyer_id
+        AND EXISTS (
+          SELECT 1 FROM orders o
+          WHERE o.id = order_id
+            AND o.buyer_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
 
 COMMENT ON POLICY "Buyers can create feedback for own orders only" ON seller_feedbacks IS
   'Buyer can only insert feedback for orders where they are the buyer (order_id in orders and orders.buyer_id = auth.uid()).';

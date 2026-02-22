@@ -6,6 +6,10 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-12-15.clover',
+})
+
 export interface ProcessDepositRefundParams {
   lotId: string
   supabaseAdmin: SupabaseClient
@@ -50,14 +54,6 @@ export async function processDepositRefund({
         .single()
 
       if (paymentTx?.stripe_payment_intent_id) {
-        const secretKey = process.env.STRIPE_SECRET_KEY
-        if (!secretKey) {
-          return { success: false, error: 'STRIPE_SECRET_KEY is not configured' }
-        }
-        const stripe = new Stripe(secretKey, {
-          apiVersion: '2025-12-15.clover',
-        })
-
         // Calculate refund amount (deduct Stripe fee)
         // Stripe fee is typically 2.9% + $0.30
         const stripeFee = lot.required_amount * 0.029 + 0.30
@@ -121,21 +117,15 @@ export async function processDepositRefund({
       return { success: false, error: 'Failed to update lot status' }
     }
 
-    // Send notification (use content_key for i18n)
+    // Send notification
     const { error: notifError } = await supabaseAdmin.from('notifications').insert({
       user_id: lot.seller_id,
       type: 'deposit',
-      title: 'Deposit Refund Completed',
-      content: `Your deposit refund has been completed. Refunded: ${refundedAmount.toFixed(2)} ${lot.currency} (fee: ${refundFeeAmount.toFixed(2)} ${lot.currency}).`,
+      title: '保证金退款已完成',
+      content: `您的保证金退款已完成，退款金额为 ${refundedAmount.toFixed(2)} ${lot.currency}（已扣除手续费 ${refundFeeAmount.toFixed(2)} ${lot.currency}）。`,
       related_id: lot.id,
       related_type: 'deposit_lot',
       link: `/seller/deposit`,
-      content_key: 'deposit_refund_completed',
-      content_params: {
-        refundedAmount: refundedAmount.toFixed(2),
-        feeAmount: refundFeeAmount.toFixed(2),
-        currency: lot.currency,
-      },
     })
     if (notifError) {
       console.error('Failed to send notification:', notifError)

@@ -115,6 +115,7 @@ export interface CreateWeChatPayOrderParams {
   description: string
   notifyUrl: string
   clientIp?: string
+  metadata?: Record<string, string>
 }
 
 export interface WeChatPayOrderResponse {

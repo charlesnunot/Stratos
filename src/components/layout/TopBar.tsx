@@ -33,11 +33,17 @@ export function TopBar() {
   const tPosts = useTranslations('posts')
   const tSeller = useTranslations('seller')
 
-  const { data: sellerSubscription } = useQuery({
-    queryKey: ['sellerSubscription', user?.id],
+  const { data: sellerStatus } = useQuery({
+    queryKey: ['sellerStatus', user?.id],
     queryFn: async () => {
       if (!user) return null
-      const { data } = await supabase
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('seller_type')
+        .eq('id', user.id)
+        .single()
+      if ((profile as { seller_type?: string } | null)?.seller_type === 'direct') return { direct: true }
+      const { data: sub } = await supabase
         .from('subscriptions')
         .select('id')
         .eq('user_id', user.id)
@@ -46,11 +52,11 @@ export function TopBar() {
         .gt('expires_at', new Date().toISOString())
         .limit(1)
         .maybeSingle()
-      return data
+      return sub ? { direct: false } : null
     },
     enabled: !!user,
   })
-  const isSeller = !!sellerSubscription
+  const isSeller = !!sellerStatus
 
   // 阶段3：搜索页时从 URL 同步 q 到顶部栏输入框
   useEffect(() => {

@@ -49,11 +49,11 @@ BEGIN
     'preview', post_preview
   );
 
-  -- 遍历所有粉丝并发送通知
+  -- 遍历所有粉丝并发送通知（follows 表列为 followee_id/follower_id，无 following_id）
   FOR follower IN 
     SELECT follower_id 
     FROM follows 
-    WHERE following_id = NEW.user_id
+    WHERE followee_id = NEW.user_id
     LIMIT max_notifications
   LOOP
     BEGIN

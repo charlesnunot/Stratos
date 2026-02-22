@@ -10,13 +10,23 @@ let toastInstance: ((props: {
   description?: string
 }) => any) | null = null
 
+// 默认标题（中文）
+const defaultTitles = {
+  default: '通知',
+  destructive: '错误',
+  success: '成功',
+  info: '提示',
+  warning: '警告',
+}
+
 export function setToastInstance(toast: typeof toastInstance) {
   toastInstance = toast
 }
 
 export function showToast(
   message: string,
-  variant: 'default' | 'destructive' | 'success' | 'info' | 'warning' = 'default'
+  variant: 'default' | 'destructive' | 'success' | 'info' | 'warning' = 'default',
+  title?: string
 ) {
   if (!toastInstance) {
     // Fallback to console if toast not initialized (during SSR or before mount)
@@ -26,33 +36,25 @@ export function showToast(
     return
   }
 
-  const titles = {
-    default: '通知',
-    destructive: '错误',
-    success: '成功',
-    info: '提示',
-    warning: '警告',
-  }
-
   return toastInstance({
     variant,
-    title: titles[variant],
+    title: title || defaultTitles[variant],
     description: message,
   })
 }
 
-export function showSuccess(message: string) {
-  return showToast(message, 'success')
+export function showSuccess(message: string, title?: string) {
+  return showToast(message, 'success', title)
 }
 
-export function showError(message: string) {
-  return showToast(message, 'destructive')
+export function showError(message: string, title?: string) {
+  return showToast(message, 'destructive', title)
 }
 
-export function showInfo(message: string) {
-  return showToast(message, 'info')
+export function showInfo(message: string, title?: string) {
+  return showToast(message, 'info', title)
 }
 
-export function showWarning(message: string) {
-  return showToast(message, 'warning')
+export function showWarning(message: string, title?: string) {
+  return showToast(message, 'warning', title)
 }

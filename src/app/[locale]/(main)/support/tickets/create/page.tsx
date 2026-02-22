@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from '@/i18n/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/lib/hooks/useToast'
 import { sanitizeContent } from '@/lib/utils/sanitize-content'
@@ -16,6 +17,7 @@ const DESCRIPTION_MAX_LENGTH = 5000
 
 export default function CreateTicketPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -27,6 +29,23 @@ export default function CreateTicketPage() {
     ticket_type: 'general',
     priority: 'medium',
   })
+
+  // 从 URL 参数预填充表单
+  useEffect(() => {
+    const subject = searchParams.get('subject')
+    const type = searchParams.get('type')
+    
+    if (subject) {
+      setFormData(prev => ({
+        ...prev,
+        title: decodeURIComponent(subject),
+        // 根据类型设置工单类型
+        ticket_type: type === 'seller' ? 'general' : 
+                     type === 'affiliate' ? 'general' : 
+                     type === 'tip' ? 'general' : 'general'
+      }))
+    }
+  }, [searchParams])
 
   if (!user) {
     router.push('/login')

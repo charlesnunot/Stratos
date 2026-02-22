@@ -141,7 +141,14 @@ export function usePostActions({ dto, capabilities }: UsePostActionsParams): Pos
     deleteInProgressRef.current = true
     setIsDeleting(true)
     try {
-      const { error } = await supabase.from('posts').delete().eq('id', dto.id).eq('user_id', user.id)
+      // Use soft delete (update status to 'deleted') instead of hard delete
+      // This maintains affiliate ledger integrity for commissions
+      const { error } = await supabase
+        .from('posts')
+        .update({ status: 'deleted' })
+        .eq('id', dto.id)
+        .eq('user_id', user.id)
+
       if (error) throw error
 
       logAudit({

@@ -425,6 +425,7 @@ await createCheckoutSession(amount, successUrl, cancelUrl, metadata, currency)
 - **数据库迁移**: 
   - `supabase/migrations/117_support_platform_payment_accounts.sql` - 初始平台账户支持
   - `supabase/migrations/139_add_platform_account_status.sql` - ⭐ 状态字段和软停用机制
+  - `supabase/migrations/231_payment_accounts_rls_policies.sql` - payment_accounts 表 RLS 策略（平台账户管理、卖家本人账户）
 - **平台账户管理**: `src/app/api/admin/platform-payment-accounts/`
 - **平台账户获取**: `src/lib/payments/stripe.ts` → `getPlatformStripeConfig()`
 - **订阅支付**: `src/app/api/payments/stripe/create-checkout-session/route.ts`

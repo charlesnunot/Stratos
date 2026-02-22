@@ -2,13 +2,27 @@
  * API for creating pending subscriptions
  * This API addresses Risk 2: prevent frontend from directly inserting subscriptions
  * All subscription creation must go through this API for validation
+ * 
+ * 3档纯净模式更新:
+ * - 支持新的 tier 值: 15, 50, 100
+ * - 记录 display_price 和 product_limit
+ * - 支持首月折扣
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getSubscriptionPrice, SELLER_TIERS_USD } from '@/lib/subscriptions/pricing'
+import { 
+  getSubscriptionPrice, 
+  SELLER_TIERS_USD, 
+  SELLER_TIER_DETAILS,
+  getDisplayPrice,
+  getProductLimit 
+} from '@/lib/subscriptions/pricing'
 import type { SubscriptionType } from '@/lib/subscriptions/pricing'
 import { logAudit } from '@/lib/api/audit'
+import { isCurrencySupportedByPaymentMethod } from '@/lib/payments/currency-payment-support'
+import type { PaymentMethodId } from '@/lib/payments/currency-payment-support'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +37,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { subscriptionType, subscriptionTier, paymentMethod, currency = 'USD' } = body
+    const { 
+      subscriptionType, 
+      subscriptionTier, 
+      paymentMethod, 
+      currency = 'USD',
+      isFirstMonth = false,  // 新增: 是否首月订阅
+      // 多币种支持: 用户货币和金额
+      userCurrency,
+      userAmount,
+      // 平台货币和金额 (前端已转换)
+      platformCurrency,
+      platformAmount
+    } = body
 
     // Validate required fields
     if (!subscriptionType || !paymentMethod) {
@@ -46,6 +72,14 @@ export async function POST(request: NextRequest) {
     if (!['alipay', 'wechat', 'bank'].includes(paymentMethod)) {
       return NextResponse.json(
         { error: 'Invalid paymentMethod. For Stripe/PayPal, use their respective checkout flows. Only alipay, wechat, and bank are allowed here.' },
+        { status: 400 }
+      )
+    }
+
+    const normalizedCurrency = (currency?.toString() || 'USD').toUpperCase() as Currency
+    if (!isCurrencySupportedByPaymentMethod(normalizedCurrency, paymentMethod as PaymentMethodId)) {
+      return NextResponse.json(
+        { error: 'This payment method does not support the selected currency. Please choose another payment method.' },
         { status: 400 }
       )
     }
@@ -81,12 +115,42 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 3档纯净模式: 获取显示价格和商品限制
+    let displayPrice = priceResult.amountUsd
+    let productLimit = 0
+    let isDiscounted = false
+    let discountExpiryDate: string | null = null
+
+    if (subscriptionType === 'seller' && subscriptionTier) {
+      const tierDetail = SELLER_TIER_DETAILS[subscriptionTier]
+      if (tierDetail) {
+        displayPrice = tierDetail.displayPrice
+        productLimit = tierDetail.productLimit
+      }
+
+      // 检查是否首月折扣
+      if (isFirstMonth) {
+        const priceInfo = getDisplayPrice(subscriptionTier, normalizedCurrency, true)
+        if (priceInfo.discounted !== null) {
+          displayPrice = priceInfo.discounted
+          isDiscounted = true
+          // 折扣30天后过期
+          const expiryDate = new Date()
+          expiryDate.setDate(expiryDate.getDate() + 30)
+          discountExpiryDate = expiryDate.toISOString()
+        }
+      }
+    }
+
     // If frontend provided amount, validate it matches calculated amount
     if (body.amount !== undefined) {
       const frontendAmount = parseFloat(body.amount)
-      const calculatedAmount = priceResult.amount
-      // Allow small floating point differences (0.01)
-      if (Math.abs(frontendAmount - calculatedAmount) > 0.01) {
+      const calculatedAmount = isDiscounted ? displayPrice : priceResult.amount
+      const validatedCurrency = (currency?.toString() || 'USD').toUpperCase()
+      const isZeroDecimalCurrency = ['JPY', 'KRW'].includes(validatedCurrency)
+      const precision = isZeroDecimalCurrency ? 0 : 0.01
+      
+      if (Math.abs(frontendAmount - calculatedAmount) > precision) {
         return NextResponse.json(
           { 
             error: 'Amount mismatch. Frontend amount does not match calculated amount.',
@@ -114,8 +178,36 @@ export async function POST(request: NextRequest) {
     // Calculate expires_at (30 days from now)
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
+    // 多币种支持: 确定最终使用的货币和金额
+    // 如果前端提供了平台货币和金额，使用它们；否则使用计算的价格
+    const finalCurrency = platformCurrency || priceResult.currency
+    const finalAmount = platformAmount || priceResult.amountUsd
+    const finalUserCurrency = userCurrency || currency
+    const finalUserAmount = userAmount || priceResult.amount
+
+    // 获取当前汇率 (用于记录)
+    let exchangeRate: number | null = null
+    if (finalUserCurrency !== finalCurrency) {
+      // 查询汇率表获取当前汇率
+      const { data: rateData } = await supabaseAdmin
+        .from('exchange_rates')
+        .select('rate')
+        .eq('base_currency', finalUserCurrency)
+        .eq('target_currency', finalCurrency)
+        .lte('valid_from', new Date().toISOString())
+        .or(`valid_until.is.null,valid_until.gt.${new Date().toISOString()}`)
+        .order('valid_from', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (rateData) {
+        exchangeRate = rateData.rate
+      }
+    }
+
     // Insert subscription with status 'pending'
-    // Note: deposit_credit = subscription_tier for seller subscriptions
+    // 3档纯净模式: 记录所有新字段
+    // 多币种支持: 记录用户货币和平台货币
     const depositCredit = subscriptionType === 'seller' && subscriptionTier ? subscriptionTier : null
 
     const { data: subscription, error: insertError } = await supabaseAdmin
@@ -126,8 +218,18 @@ export async function POST(request: NextRequest) {
         subscription_tier: subscriptionType === 'seller' ? subscriptionTier : null,
         deposit_credit: depositCredit,
         payment_method: paymentMethod,
-        amount: priceResult.amountUsd, // Store USD amount
-        currency: priceResult.currency,
+        // 多币种支持字段
+        amount: finalAmount,                    // 平台收款金额
+        currency: finalCurrency,                 // 平台收款货币
+        user_amount: finalUserAmount,           // 用户看到的金额
+        user_currency: finalUserCurrency,       // 用户选择的货币
+        exchange_rate: exchangeRate,            // 支付时的汇率
+        exchange_rate_at: exchangeRate ? new Date().toISOString() : null,
+        // 原有字段
+        display_price: displayPrice,            // 显示价格
+        product_limit: productLimit,            // 商品数量限制
+        is_discounted: isDiscounted,            // 是否首月折扣
+        discount_expiry_date: discountExpiryDate, // 折扣到期日
         status: 'pending',
         starts_at: new Date().toISOString(),
         expires_at: expiresAt.toISOString(),
@@ -161,6 +263,12 @@ export async function POST(request: NextRequest) {
       resourceType: 'subscription',
       result: 'success',
       timestamp: new Date().toISOString(),
+      meta: {
+        subscriptionTier,
+        displayPrice,
+        productLimit,
+        isDiscounted,
+      },
     })
 
     // Do NOT update profiles here - pending subscriptions don't activate features
@@ -175,7 +283,10 @@ export async function POST(request: NextRequest) {
         subscription_type: subscription.subscription_type,
         status: subscription.status,
         amount: subscription.amount,
+        display_price: subscription.display_price,
         currency: subscription.currency,
+        product_limit: subscription.product_limit,
+        is_discounted: subscription.is_discounted,
       },
     })
   } catch (error: unknown) {

@@ -37,6 +37,7 @@ export interface Post {
   repost_count?: number
   favorite_count?: number
   tip_amount: number
+  tip_enabled?: boolean
   created_at: string
   status?: string
   /** 故事：章节号、字数 */
@@ -53,7 +54,7 @@ export interface Post {
   linkedProducts?: Array<{
     product_id: string
     sort_order: number
-    product?: { id: string; name: string; price: number; images: string[]; seller_id: string; status?: string }
+    product?: { id: string; name: string; name_translated?: string | null; content_lang?: 'zh' | 'en' | null; price: number; currency?: string; images: string[]; seller_id: string; status?: string }
   }>
   affiliatePost?: {
     product?: { images?: string[] } & Record<string, unknown>
@@ -94,7 +95,10 @@ export const POST_SELECT = `
     product:products (
       id,
       name,
+      name_translated,
+      content_lang,
       price,
+      currency,
       images,
       seller_id,
       status
@@ -112,7 +116,10 @@ export function mapRowToPost(post: any): Post {
         ? {
             id: pp.product.id,
             name: pp.product.name,
+            name_translated: pp.product.name_translated,
+            content_lang: pp.product.content_lang,
             price: pp.product.price,
+            currency: pp.product.currency,
             images: Array.isArray(pp.product.images) ? pp.product.images : [],
             seller_id: pp.product.seller_id,
             status: pp.product.status,

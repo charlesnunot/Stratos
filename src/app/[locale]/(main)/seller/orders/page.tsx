@@ -22,9 +22,7 @@ export default function SellerOrdersPage() {
       const { data, error } = await supabase
         .from('orders')
         .select(`
-          *,
-          product:products(id, name, images),
-          buyer:profiles!orders_buyer_id_fkey(display_name)
+          *,          product:products(id, name, images),          buyer:profiles!orders_buyer_id_fkey(display_name),          items:order_items(color)
         `)
         .eq('seller_id', user.id)
         .order('created_at', { ascending: false })
@@ -135,6 +133,11 @@ export default function SellerOrdersPage() {
                     </div>
                     <p className="mb-1 text-sm text-muted-foreground">
                       {order.product?.name || t('product')}
+                      {order.items && order.items.length > 0 && order.items[0]?.color && (
+                        <span className="ml-2 text-xs">
+                          | 颜色: {order.items[0].color}
+                        </span>
+                      )}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {t('quantity')}: {order.quantity}

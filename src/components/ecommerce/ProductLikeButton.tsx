@@ -34,7 +34,7 @@ export function ProductLikeButton({ productId, initialLikes }: ProductLikeButton
         .select('user_id')
         .eq('product_id', productId)
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
       return data
     },
     enabled: !!user,

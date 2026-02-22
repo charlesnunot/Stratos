@@ -235,6 +235,9 @@ export function getAuthStatistics(): {
 
 /**
  * Wrapper for API route handlers with logging
+ * 
+ * 重要：当 options.requireAuth = true 时，如果用户未登录会返回 401
+ * 这是强制鉴权，不只是日志记录
  */
 export function withApiLogging<T>(
   handler: (request: NextRequest, context?: any) => Promise<T>,
@@ -259,6 +262,38 @@ export function withApiLogging<T>(
         userId = user?.id
       } catch {
         // Ignore auth errors, continue without user ID
+      }
+      
+      // 🚨 强制鉴权检查
+      if (options?.requireAuth && !userId) {
+        statusCode = 401
+        error = {
+          type: 'AUTH_REQUIRED',
+          message: 'Authentication required',
+        }
+        
+        const logEntry = createApiLogEntry(request, {
+          statusCode,
+          duration: Date.now() - startTime,
+          error,
+          requestId,
+        })
+        logApiRequest(logEntry)
+        
+        return new Response(
+          JSON.stringify({
+            error: 'Unauthorized',
+            message: 'Please login to access this resource',
+            type: 'AUTH_REQUIRED',
+            requestId,
+          }),
+          {
+            status: 401,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        ) as T
       }
       
       // Apply rate limiting if configured

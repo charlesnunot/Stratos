@@ -109,7 +109,7 @@ export default function SellerPoliciesPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t('storePolicies') || 'Store Policies'}</h1>
+        <h1 className="text-2xl font-bold">{t('sellerPolicies') || 'Seller Policies'}</h1>
         <Button onClick={handleSave} disabled={saveMutation.isPending}>
           {saveMutation.isPending ? (
             <>

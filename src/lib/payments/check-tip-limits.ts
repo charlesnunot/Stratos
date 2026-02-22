@@ -62,13 +62,24 @@ export async function checkTipLimits(
 }
 
 /**
- * Check if user has tip feature enabled
+ * Check if user has tip feature enabled (subscription or internal_tip_enabled for internal users).
  */
 export async function checkTipEnabled(
   userId: string,
   supabaseAdmin: SupabaseClient
 ): Promise<boolean> {
   try {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('user_origin, internal_tip_enabled')
+      .eq('id', userId)
+      .single()
+
+    const p = profile as { user_origin?: string; internal_tip_enabled?: boolean } | null
+    if (p?.user_origin === 'internal' && p?.internal_tip_enabled) {
+      return true
+    }
+
     const { data, error } = await supabaseAdmin.rpc('check_tip_enabled', {
       p_user_id: userId,
     })

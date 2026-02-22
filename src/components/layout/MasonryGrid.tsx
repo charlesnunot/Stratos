@@ -14,9 +14,9 @@ interface MasonryGridProps {
 export function MasonryGrid({ 
   children, 
   breakpointCols = {
-    default: 5,
-    1920: 5,
-    1600: 4,
+    default: 4,
+    1920: 4,
+    1600: 3,
     1280: 3,
     960: 2,
     640: 2, // Mobile: 2 columns (consistent spacing)
@@ -25,18 +25,14 @@ export function MasonryGrid({
   // Mobile: one gutter size for list edge and card gap (4px); sm+: 16px
   const wrappedChildren = React.Children.map(children, (child) => {
     if (child == null) return null
-    return <div className="mb-1 sm:mb-4">{child}</div>
+    return <div className="mb-2 sm:mb-4">{child}</div>
   })
 
   return (
     <Masonry
       breakpointCols={breakpointCols}
-      // Mobile: list edge pl-1 pr-1 = card gap pl-1 (same 4px); sm+: column gap -ml-4 + pl-4
-      className="flex w-auto pl-1 pr-1 sm:pr-0 sm:pl-0 sm:-ml-4"
-      columnClassName="pl-1 sm:pl-4 bg-clip-padding"
-      style={{
-        width: '100%',
-      }}
+      className="flex w-full"
+      columnClassName="pl-2 sm:pl-4 pr-2 sm:pr-4"
     >
       {wrappedChildren}
     </Masonry>

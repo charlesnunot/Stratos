@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useRouter } from '@/i18n/navigation'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { getDisplayContent } from '@/lib/ai/display-translated'
 import {
   MoreVertical,
   Flag,
@@ -16,11 +17,14 @@ import {
   Trash2,
   BarChart3,
   MessageCircle,
+  Play,
+  ShoppingBag,
 } from 'lucide-react'
 
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { formatCurrency } from '@/lib/currency/format-currency'
+import { formatPriceWithConversion } from '@/lib/currency/format-currency'
+import { detectCurrency, type Currency } from '@/lib/currency/detect-currency'
 import { LikeButton } from '@/components/social/LikeButton'
 import { FavoriteButton } from '@/components/social/FavoriteButton'
 import { TopicTag } from '@/components/social/TopicTag'
@@ -74,8 +78,22 @@ export function PostCardView({ dto, capabilities, actions }: PostCardViewProps) 
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
 
   const router = useRouter()
+  const locale = useLocale()
+  const userCurrency = useMemo(() => detectCurrency({ browserLocale: locale }), [locale])
   const t = useTranslations('posts')
   const tCommon = useTranslations('common')
+
+  // 按当前语言显示正文（原文或译文）
+  const displayContent = useMemo(
+    () =>
+      getDisplayContent(
+        locale,
+        dto.content.contentLang ?? null,
+        dto.content.text,
+        dto.content.contentTranslated
+      ),
+    [locale, dto.content.contentLang, dto.content.text, dto.content.contentTranslated]
+  )
 
   // 计算菜单位置（纯 UI）
   useEffect(() => {
@@ -215,25 +233,36 @@ export function PostCardView({ dto, capabilities, actions }: PostCardViewProps) 
         open={showShareDialog}
         onClose={() => setShowShareDialog(false)}
         url={`${typeof window !== 'undefined' ? window.location.origin : ''}/post/${dto.id}`}
-        title={dto.content.text || '查看这个帖子'}
-        description={dto.content.text || undefined}
+        title={displayContent || '查看这个帖子'}
+        description={displayContent || undefined}
         image={dto.content.imageUrls?.[0]}
         itemType="post"
         itemId={dto.id}
       />
 
-      <Card className="group overflow-hidden transition-shadow hover:shadow-lg w-full min-w-0 cursor-pointer" onClick={handleOpenPost}>
+      <Card className="group overflow-hidden transition-shadow hover:shadow-lg w-full min-w-0 cursor-pointer relative" onClick={handleOpenPost}>
         {/* 按内容类型渲染顶部媒体/正文 */}
-        {dto.content.postType === 'short_video' && dto.content.videoInfo?.video_url ? (
-          <div className="relative w-full max-h-[360px] flex justify-center bg-black/5" style={{ aspectRatio: '9/16' }}>
-            <video
-              src={dto.content.videoInfo.video_url}
-              poster={dto.content.videoInfo.cover_url || undefined}
-              controls
-              className="w-full h-full object-contain"
-              preload="metadata"
-              onClick={(e) => e.stopPropagation()}
-            />
+        {dto.content.postType === 'short_video' ? (
+          <div className="relative w-full max-h-[360px] flex justify-center bg-muted overflow-hidden" style={{ aspectRatio: '9/16' }}>
+            {dto.content.videoInfo?.cover_url || dto.content.imageUrls?.[0] ? (
+              <img
+                src={dto.content.videoInfo?.cover_url || dto.content.imageUrls?.[0]}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-muted" aria-hidden />
+            )}
+            {/* 右上角播放图标（仅作展示，点击卡片进入详情页播放） */}
+            <div className="absolute right-2 top-2 rounded-full bg-black/35 backdrop-blur-sm p-1.5 pointer-events-none" aria-hidden>
+              <Play className="h-4 w-4 text-white fill-white" />
+            </div>
+            {/* 带货帖子标识 */}
+            {(dto.content.postType as string) === 'affiliate' && (
+              <div className="absolute top-2 right-2 bg-white/90 text-primary rounded-full p-1.5 shadow-lg border border-primary/20">
+                <ShoppingBag className="h-4 w-4" />
+              </div>
+            )}
           </div>
         ) : dto.content.postType === 'music' && dto.content.musicInfo?.music_url ? (
           <div className="relative w-full">
@@ -256,13 +285,19 @@ export function PostCardView({ dto, capabilities, actions }: PostCardViewProps) 
                   preload="metadata"
                   onClick={(e) => e.stopPropagation()}
                 />
+                {/* 带货帖子标识 */}
+                {(dto.content.postType as string) === 'affiliate' && (
+                  <div className="absolute top-2 right-2 bg-white/90 text-primary rounded-full p-1.5 shadow-lg border border-primary/20">
+                    <ShoppingBag className="h-4 w-4" />
+                  </div>
+                )}
               </div>
             )}
           </div>
         ) : (dto.content.postType === 'story' || dto.content.postType === 'series') ? (
           <div className="p-3 md:p-4 min-w-0 border-b border-border/50">
-            {dto.content.text && (
-              <p className="line-clamp-3 text-sm break-words mb-1">{dto.content.text}</p>
+            {displayContent && (
+              <p className="line-clamp-3 text-sm break-words mb-1">{displayContent}</p>
             )}
             {dto.content.storyInfo && (dto.content.storyInfo.content_length != null || dto.content.storyInfo.chapter_number != null) && (
               <p className="text-xs text-muted-foreground">
@@ -280,18 +315,31 @@ export function PostCardView({ dto, capabilities, actions }: PostCardViewProps) 
               <div className="relative aspect-auto w-full">
                 <img
                   src={dto.content.imageUrls[0]}
-                  alt={dto.content.text || 'Post image'}
+                  alt={displayContent || 'Post image'}
                   className="w-full h-auto object-cover"
                   onError={() => setImageError(true)}
                   loading="lazy"
                 />
+                {/* 带货帖子标识 */}
+                {(dto.content.postType as string) === 'affiliate' && (
+                  <div className="absolute top-2 right-2 bg-white/90 text-primary rounded-full p-1.5 shadow-lg border border-primary/20">
+                    <ShoppingBag className="h-4 w-4" />
+                  </div>
+                )}
               </div>
             )}
           </>
         )}
+        
+        {/* 带货帖子标识 - 仅带货帖子类型显示 */}
+        {(dto.content.postType as string) === 'affiliate' && (
+          <div className="absolute top-2 right-2 bg-white/90 text-primary rounded-full p-1.5 shadow-lg border border-primary/20">
+            <ShoppingBag className="h-4 w-4" />
+          </div>
+        )}
 
         <div className="p-3 md:p-4 min-w-0">
-          {dto.content.postType !== 'story' && dto.content.postType !== 'series' && dto.content.text && <p className="mb-3 line-clamp-3 text-sm break-words">{dto.content.text}</p>}
+          {dto.content.postType !== 'story' && dto.content.postType !== 'series' && displayContent && <p className="mb-3 line-clamp-3 text-sm break-words">{displayContent}</p>}
 
           {dto.content.topics && dto.content.topics.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
@@ -305,17 +353,42 @@ export function PostCardView({ dto, capabilities, actions }: PostCardViewProps) 
                 .filter((lp) => lp.product)
                 .slice(0, 3)
                 .map((lp) => (
-                  <Link key={lp.product_id} href={`/product/${lp.product!.id}`} className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-left transition-colors hover:bg-muted/50 min-w-0 max-w-full">
+                  <button 
+                    key={lp.product_id} 
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      // 🔒 先记录点击，再跳转
+                      try {
+                        await fetch('/api/affiliate/clicks', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ affiliate_post_id: dto.id }),
+                          credentials: 'include'
+                        })
+                      } catch (err) {
+                        // 静默失败
+                      }
+                      router.push(`/product/${lp.product!.id}?ap=${dto.id}`)
+                    }}
+                    className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-left transition-colors hover:bg-muted/50 min-w-0 max-w-full w-full"
+                  >
                     {lp.product!.images?.[0] ? (
                       <img src={lp.product!.images[0]} alt={lp.product!.name} className="h-12 w-12 shrink-0 rounded object-cover" />
                     ) : (
                       <div className="h-12 w-12 shrink-0 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">—</div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium">{lp.product!.name}</p>
-                      <p className="text-xs text-muted-foreground">{formatCurrency(lp.product!.price, 'CNY')}</p>
+                      <p className="truncate text-xs font-medium">
+                        {getDisplayContent(
+                          locale,
+                          lp.product!.content_lang ?? null,
+                          lp.product!.name,
+                          lp.product!.name_translated
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{formatPriceWithConversion(lp.product!.price, (lp.product!.currency || 'CNY') as Currency, userCurrency).main}</p>
                     </div>
-                  </Link>
+                  </button>
                 ))}
             </div>
           )}

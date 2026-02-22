@@ -1,6 +1,7 @@
 /**
- * 资料审核通过后：根据 display_name、bio、location 检测语言并翻译到另一语言，
- * 写回 display_name_translated、bio_translated、location_translated、content_lang。
+ * 资料审核通过后：根据 display_name、bio 检测语言并翻译到另一语言，
+ * 写回 display_name_translated、bio_translated、content_lang。
+ * 地址（location）不翻译，直接使用原文写入 location_translated，避免地名翻译错误。
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -44,16 +45,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
   }
 
-  const text = [row.display_name?.trim(), row.bio?.trim(), row.location?.trim()].filter(Boolean).join('\n')
-  if (!text) {
-    return NextResponse.json({ ok: true, translated: false })
-  }
-
-  const detectedLang = detectContentLanguage(text)
+  const text = [row.display_name?.trim(), row.bio?.trim()].filter(Boolean).join('\n')
+  const detectedLang = text ? detectContentLanguage(text) : (row.content_lang as 'zh' | 'en') || 'zh'
   const targetLang = getTargetLanguageForLocale(detectedLang)
   let displayNameTranslated: string | null = null
   let bioTranslated: string | null = null
-  let locationTranslated: string | null = null
+  // 地址不翻译，直接使用原文（地名翻译易出错）
+  const locationAsIs = row.location?.trim() || null
 
   if (row.display_name?.trim()) {
     displayNameTranslated = await translateOnServer(row.display_name.trim(), targetLang, 'translate_profile')
@@ -61,34 +59,37 @@ export async function POST(request: NextRequest) {
   if (row.bio?.trim()) {
     bioTranslated = await translateOnServer(row.bio.trim(), targetLang, 'translate_profile')
   }
-  if (row.location?.trim()) {
-    locationTranslated = await translateOnServer(row.location.trim(), targetLang, 'translate_profile')
-  }
 
-  if (displayNameTranslated !== null || bioTranslated !== null || locationTranslated !== null) {
+  const hasUpdates =
+    displayNameTranslated !== null ||
+    bioTranslated !== null ||
+    locationAsIs !== null
+  if (hasUpdates || text) {
     await admin
       .from('profiles')
       .update({
         ...(displayNameTranslated !== null && { display_name_translated: displayNameTranslated }),
         ...(bioTranslated !== null && { bio_translated: bioTranslated }),
-        ...(locationTranslated !== null && { location_translated: locationTranslated }),
+        ...(locationAsIs !== null && { location_translated: locationAsIs }),
         content_lang: detectedLang,
         updated_at: new Date().toISOString(),
       })
       .eq('id', profileId)
-    logAudit({
-      action: 'ai_translate_profile',
-      userId: user.id,
-      resourceId: profileId,
-      resourceType: 'profile',
-      result: 'success',
-      timestamp: new Date().toISOString(),
-    })
+    if (displayNameTranslated !== null || bioTranslated !== null || locationAsIs !== null) {
+      logAudit({
+        action: 'ai_translate_profile',
+        userId: user.id,
+        resourceId: profileId,
+        resourceType: 'profile',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+      })
+    }
   }
 
   return NextResponse.json({
     ok: true,
-    translated: !!(displayNameTranslated || bioTranslated || locationTranslated),
+    translated: !!(displayNameTranslated || bioTranslated || locationAsIs),
   })
   } catch (error: unknown) {
     if (process.env.NODE_ENV === 'development') {

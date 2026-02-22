@@ -26,21 +26,20 @@ export default function SubscriptionManagePage() {
     }
   }, [authLoading, user, router, pathname])
 
-  const { data: subscription, isLoading } = useQuery({
-    queryKey: ['subscription', user?.id],
+  const { data: activeSubscriptions, isLoading } = useQuery({
+    queryKey: ['active-subscriptions', user?.id],
     queryFn: async () => {
-      if (!user) return null
+      if (!user) return []
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
         .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
 
       if (error && error.code !== 'PGRST116') throw error
-      return data
+      return data || []
     },
     enabled: !!user,
   })
@@ -62,7 +61,16 @@ export default function SubscriptionManagePage() {
       if (!user) return null
       const { data } = await supabase
         .from('profiles')
-        .select('subscription_type, subscription_expires_at')
+        .select(`
+          subscription_type, 
+          subscription_expires_at,
+          seller_subscription_active,
+          seller_subscription_expires_at,
+          affiliate_subscription_active,
+          affiliate_subscription_expires_at,
+          tip_subscription_active,
+          tip_subscription_expires_at
+        `)
         .eq('id', user.id)
         .single()
 
@@ -87,9 +95,20 @@ export default function SubscriptionManagePage() {
     )
   }
 
-  const isExpired =
-    profile?.subscription_expires_at &&
-    new Date(profile.subscription_expires_at) < new Date()
+  // 检查是否有任何活跃订阅
+  const hasActiveSubscriptions = activeSubscriptions && activeSubscriptions.length > 0
+  
+  // 检查是否有任何订阅类型在profile中活跃
+  const hasActiveProfileSubscriptions = 
+    profile?.seller_subscription_active || 
+    profile?.affiliate_subscription_active || 
+    profile?.tip_subscription_active
+  
+  // 检查是否有任何订阅过期
+  const isAnySubscriptionExpired = 
+    (profile?.seller_subscription_expires_at && new Date(profile.seller_subscription_expires_at) < new Date()) ||
+    (profile?.affiliate_subscription_expires_at && new Date(profile.affiliate_subscription_expires_at) < new Date()) ||
+    (profile?.tip_subscription_expires_at && new Date(profile.tip_subscription_expires_at) < new Date())
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -105,7 +124,7 @@ export default function SubscriptionManagePage() {
         </Button>
       </div>
 
-      {!subscription && !profile?.subscription_type ? (
+      {!hasActiveSubscriptions && !hasActiveProfileSubscriptions ? (
         <Card className="p-8 text-center">
           <p className="mb-4 text-muted-foreground">{t('noSubscription')}</p>
           <div className="flex gap-3 justify-center flex-wrap">
@@ -121,80 +140,151 @@ export default function SubscriptionManagePage() {
           </div>
         </Card>
       ) : (
-        <Card className="p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">{t('currentSubscription')}</h2>
-            {isExpired ? (
-              <span className="flex items-center gap-2 text-red-600">
-                <XCircle className="h-5 w-5" />
-                {t('expired')}
-              </span>
-            ) : subscription?.status === 'active' ? (
-              <span className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="h-5 w-5" />
-                {t('active')}
-              </span>
-            ) : (
-              <span className="flex items-center gap-2 text-yellow-600">
-                <Clock className="h-5 w-5" />
-                {t('pending')}
-              </span>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm text-muted-foreground">{t('subscriptionType')}</p>
-              <p className="font-semibold">
-                {(() => {
-                  const type = subscription?.subscription_type || profile?.subscription_type
-                  if (type === 'seller') return t('sellerSubscription')
-                  if (type === 'affiliate') return t('affiliateSubscription')
-                  if (type === 'tip') return t('tipSubscriptionType')
-                  return type || '-'
-                })()}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">{t('paymentMethod')}</p>
-              <p className="font-semibold capitalize">
-                {subscription?.payment_method || '-'}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">{t('subscriptionAmount')}</p>
-              <p className="font-semibold">
-                ¥{subscription?.amount?.toFixed(2) || '-'}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">{t('expiresAt')}</p>
-              <p className="font-semibold">
-                {profile?.subscription_expires_at
-                  ? new Date(profile.subscription_expires_at).toLocaleString(
-                      'zh-CN'
-                    )
-                  : '-'}
-              </p>
-            </div>
-            {subscription && (
-              <div>
-                <p className="text-sm text-muted-foreground">{t('startsAt')}</p>
-                <p className="font-semibold">
-                  {new Date(subscription.starts_at).toLocaleString('zh-CN')}
-                </p>
+        <div className="space-y-4">
+          {/* 卖家订阅 */}
+          {(profile?.seller_subscription_active || activeSubscriptions?.some(s => s.subscription_type === 'seller')) && (
+            <Card className="p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">{t('sellerSubscription')}</h2>
+                {profile?.seller_subscription_expires_at && new Date(profile.seller_subscription_expires_at) < new Date() ? (
+                  <span className="flex items-center gap-2 text-red-600">
+                    <XCircle className="h-5 w-5" />
+                    {t('expired')}
+                  </span>
+                ) : profile?.seller_subscription_active ? (
+                  <span className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="h-5 w-5" />
+                    {t('active')}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-yellow-600">
+                    <Clock className="h-5 w-5" />
+                    {t('pending')}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
 
-          {isExpired && (
-            <div className="mt-6">
-              <Link href={`/subscription/${subscription?.subscription_type || 'seller'}`}>
-                <Button className="w-full">{t('renewSubscription')}</Button>
-              </Link>
-            </div>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('subscriptionType')}</p>
+                  <p className="font-semibold">{t('sellerSubscription')}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('expiresAt')}</p>
+                  <p className="font-semibold">
+                    {profile?.seller_subscription_expires_at
+                      ? new Date(profile.seller_subscription_expires_at).toLocaleString('zh-CN')
+                      : '-'}
+                  </p>
+                </div>
+              </div>
+
+              {profile?.seller_subscription_expires_at && new Date(profile.seller_subscription_expires_at) < new Date() && (
+                <div className="mt-6">
+                  <Link href="/subscription/seller">
+                    <Button className="w-full">{t('renewSubscription')}</Button>
+                  </Link>
+                </div>
+              )}
+            </Card>
           )}
-        </Card>
+
+          {/* 带货订阅 */}
+          {(profile?.affiliate_subscription_active || activeSubscriptions?.some(s => s.subscription_type === 'affiliate')) && (
+            <Card className="p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">{t('affiliateSubscription')}</h2>
+                {profile?.affiliate_subscription_expires_at && new Date(profile.affiliate_subscription_expires_at) < new Date() ? (
+                  <span className="flex items-center gap-2 text-red-600">
+                    <XCircle className="h-5 w-5" />
+                    {t('expired')}
+                  </span>
+                ) : profile?.affiliate_subscription_active ? (
+                  <span className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="h-5 w-5" />
+                    {t('active')}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-yellow-600">
+                    <Clock className="h-5 w-5" />
+                    {t('pending')}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('subscriptionType')}</p>
+                  <p className="font-semibold">{t('affiliateSubscription')}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('expiresAt')}</p>
+                  <p className="font-semibold">
+                    {profile?.affiliate_subscription_expires_at
+                      ? new Date(profile.affiliate_subscription_expires_at).toLocaleString('zh-CN')
+                      : '-'}
+                  </p>
+                </div>
+              </div>
+
+              {profile?.affiliate_subscription_expires_at && new Date(profile.affiliate_subscription_expires_at) < new Date() && (
+                <div className="mt-6">
+                  <Link href="/subscription/affiliate">
+                    <Button className="w-full">{t('renewSubscription')}</Button>
+                  </Link>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* 打赏订阅 */}
+          {(profile?.tip_subscription_active || activeSubscriptions?.some(s => s.subscription_type === 'tip')) && (
+            <Card className="p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">{t('tipSubscriptionType')}</h2>
+                {profile?.tip_subscription_expires_at && new Date(profile.tip_subscription_expires_at) < new Date() ? (
+                  <span className="flex items-center gap-2 text-red-600">
+                    <XCircle className="h-5 w-5" />
+                    {t('expired')}
+                  </span>
+                ) : profile?.tip_subscription_active ? (
+                  <span className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="h-5 w-5" />
+                    {t('active')}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-yellow-600">
+                    <Clock className="h-5 w-5" />
+                    {t('pending')}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('subscriptionType')}</p>
+                  <p className="font-semibold">{t('tipSubscriptionType')}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('expiresAt')}</p>
+                  <p className="font-semibold">
+                    {profile?.tip_subscription_expires_at
+                      ? new Date(profile.tip_subscription_expires_at).toLocaleString('zh-CN')
+                      : '-'}
+                  </p>
+                </div>
+              </div>
+
+              {profile?.tip_subscription_expires_at && new Date(profile.tip_subscription_expires_at) < new Date() && (
+                <div className="mt-6">
+                  <Link href="/subscription/tip">
+                    <Button className="w-full">{t('renewSubscription')}</Button>
+                  </Link>
+                </div>
+              )}
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Subscription History */}

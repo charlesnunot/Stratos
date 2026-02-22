@@ -2,9 +2,12 @@ import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
 import { logPayment, LogLevel } from './logger'
 
-// Lazy initialization to avoid errors when module loads without STRIPE_SECRET_KEY
-let stripeInstance: Stripe | null = null
-let stripeInstanceConfig: { secretKey: string } | null = null
+// Use Map for thread-safe multi-instance caching
+const stripeInstances: Map<string, Stripe> = new Map()
+
+function getInstanceCacheKey(currency?: string, secretKey?: string): string {
+  return `${currency || 'default'}-${secretKey || 'env'}`
+}
 
 /**
  * Get platform Stripe configuration from database
@@ -66,19 +69,21 @@ async function getStripeClient(currency?: string): Promise<Stripe> {
     throw new Error('Stripe is not configured. Please set up a platform Stripe account or set STRIPE_SECRET_KEY environment variable.')
   }
 
-  // Create new instance if config changed or doesn't exist
-  if (!stripeInstance || stripeInstanceConfig?.secretKey !== secretKey) {
+  // Use Map-based caching for thread-safe multi-instance support
+  const cacheKey = getInstanceCacheKey(currency, secretKey)
+  
+  if (!stripeInstances.has(cacheKey)) {
     try {
-      stripeInstance = new Stripe(secretKey, {
+      const instance = new Stripe(secretKey, {
         apiVersion: '2025-12-15.clover',
       })
-      stripeInstanceConfig = { secretKey }
+      stripeInstances.set(cacheKey, instance)
     } catch (error: any) {
       throw new Error(`Failed to initialize Stripe: ${error.message}`)
     }
   }
 
-  return stripeInstance
+  return stripeInstances.get(cacheKey)!
 }
 
 export async function createPaymentIntent(amount: number, currency: string = 'usd') {

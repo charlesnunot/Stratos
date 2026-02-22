@@ -277,10 +277,14 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', existingTransaction.id)
     } else {
-      // Verify amount
+      // Verify amount with currency-based precision
       const paidAmount = parseFloat(total_amount)
-      if (Math.abs(paidAmount - order.total_amount) > 0.01) {
-        console.error('Amount mismatch:', { paidAmount, orderAmount: order.total_amount })
+      const orderCurrency = order.currency?.toUpperCase() || 'USD'
+      const isZeroDecimalCurrency = ['JPY', 'KRW'].includes(orderCurrency)
+      const precision = isZeroDecimalCurrency ? 0 : 0.01
+      
+      if (Math.abs(paidAmount - order.total_amount) > precision) {
+        console.error('Amount mismatch:', { paidAmount, orderAmount: order.total_amount, currency: orderCurrency })
         return NextResponse.json(
           { error: 'Amount mismatch' },
           { status: 400 }
@@ -343,7 +347,6 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Alipay callback error:', {
       message: error.message,
-      stack: error.stack,
     })
 
     return NextResponse.json(

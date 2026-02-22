@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { extractTopicsOnServer } from '@/lib/ai/extract-topics-server'
 import { translateOnServer, getTargetLanguageForLocale } from '@/lib/ai/translate-server'
-import { detectContentLanguage } from '@/lib/ai/detect-language'
+import { detectContentLanguage, detectTopicLanguage } from '@/lib/ai/detect-language'
 import { toCanonicalSlug } from '@/lib/utils/slug'
 import { logAudit } from '@/lib/api/audit'
 
@@ -112,9 +112,10 @@ export async function POST(request: NextRequest) {
       topicId = existingTopic.id
     } else {
       const slug = nameTrim.toLowerCase().replace(/\s+/g, '-').trim() || nameTrim
+      const newTopicLang = detectTopicLanguage(nameTrim)
       const { data: newTopic, error: insertTopicError } = await admin
         .from('topics')
-        .insert({ name: nameTrim, slug, name_lang: contentLang })
+        .insert({ name: nameTrim, slug, name_lang: newTopicLang })
         .select('id')
         .single()
       if (insertTopicError || !newTopic?.id) continue
@@ -129,16 +130,18 @@ export async function POST(request: NextRequest) {
       existingNames.add(nameTrim.toLowerCase())
     }
 
-    // 话题翻译：若该话题尚无译文则翻译；审核时统一修正 name_lang 为正文检测语言
+    // 话题翻译：若该话题尚无译文则翻译。使用话题专用语言检测（短文本友好），不用正文语言。
     const { data: topicRow } = await admin
       .from('topics')
       .select('id, name, name_translated, name_lang')
       .eq('id', topicId)
       .single()
+    const topicLang = topicRow?.name ? detectTopicLanguage(topicRow.name) : contentLang
+    const topicTargetLang = getTargetLanguageForLocale(topicLang)
     if (topicRow && !topicRow.name_translated && topicRow.name?.trim()) {
       const translated = await translateOnServer(
         topicRow.name.trim(),
-        targetLang,
+        topicTargetLang,
         'translate_post'
       )
       if (translated) {
@@ -146,16 +149,16 @@ export async function POST(request: NextRequest) {
           .from('topics')
           .update({
             name_translated: translated,
-            name_lang: contentLang,
+            name_lang: topicLang,
           })
           .eq('id', topicId)
         await ensureCanonicalSlug(admin, topicId, translated)
       }
     } else if (topicRow) {
-      // 已有译文的话题也修正 name_lang，并尽量统一为 ASCII slug
+      // 已有译文的话题也按话题自身语言修正 name_lang，并尽量统一为 ASCII slug
       await admin
         .from('topics')
-        .update({ name_lang: contentLang })
+        .update({ name_lang: topicLang })
         .eq('id', topicId)
       if (topicRow.name_translated?.trim()) {
         await ensureCanonicalSlug(admin, topicId, topicRow.name_translated.trim())

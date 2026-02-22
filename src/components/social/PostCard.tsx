@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react'
-import Image from 'next/image'
 import { Link, useRouter } from '@/i18n/navigation'
 import { useTranslations, useLocale } from 'next-intl'
 import { getDisplayContent } from '@/lib/ai/display-translated'
@@ -21,6 +20,7 @@ import { PostStatsDialog } from './PostStatsDialog'
 import { createClient } from '@/lib/supabase/client'
 import { showSuccess, showError, showInfo, showWarning } from '@/lib/utils/toast'
 import { useQueryClient } from '@tanstack/react-query'
+import { createImageErrorHandler } from '@/lib/utils/image-retry'
 
 function formatPostDate(
   createdAt: string,
@@ -70,6 +70,7 @@ interface PostCardProps {
 
 export function PostCard({ post }: PostCardProps) {
   const [imageError, setImageError] = useState(false)
+  const [imageRetryCount, setImageRetryCount] = useState(0)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [showReportDialog, setShowReportDialog] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -91,6 +92,12 @@ export function PostCard({ post }: PostCardProps) {
     }
     return null
   }, [])
+
+  const handleImageError = createImageErrorHandler({
+    maxRetries: 3,
+    retryDelay: 1000,
+    fallbackSrc: '/placeholder-product.png',
+  })
   
   // 检查是否关注了该作者
   const { data: isFollowing } = useIsFollowing(post.user_id)
@@ -341,17 +348,22 @@ export function PostCard({ post }: PostCardProps) {
         onClick={handleCardClick}
       >
         {/* Post Images */}
-        {post.image_urls && post.image_urls.length > 0 && !imageError && (
+        {post.image_urls && post.image_urls.length > 0 && !imageError ? (
           <div className="relative aspect-auto w-full">
             <img
+              key={`${post.image_urls[0]}-${imageRetryCount}`}
               src={post.image_urls[0]}
               alt={displayContent || 'Post image'}
               className="w-full h-auto object-cover"
-              onError={() => setImageError(true)}
+              onError={handleImageError}
               loading="lazy"
             />
           </div>
-        )}
+        ) : post.image_urls && post.image_urls.length > 0 && imageError ? (
+          <div className="relative aspect-auto w-full flex items-center justify-center bg-muted">
+            <span className="text-muted-foreground">{tCommon('noImage')}</span>
+          </div>
+        ) : null}
 
         {/* Post Content */}
         <div className="p-3 md:p-4 min-w-0">
@@ -394,9 +406,11 @@ export function PostCard({ post }: PostCardProps) {
                 <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                   {post.user.avatar_url ? (
                     <img
+                      key={`${post.user.avatar_url}-${imageRetryCount}`}
                       src={post.user.avatar_url}
                       alt={post.user.display_name}
                       className="h-full w-full object-cover"
+                      onError={handleImageError}
                     />
                   ) : (
                     <span className="text-xs">{post.user.display_name?.[0]}</span>

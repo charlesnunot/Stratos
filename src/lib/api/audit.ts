@@ -9,7 +9,7 @@ export interface AuditEntry {
   userId?: string
   resourceId?: string
   resourceType?: string
-  result: 'success' | 'fail' | 'forbidden'
+  result: 'success' | 'fail' | 'forbidden' | 'partial'
   timestamp: string
   meta?: Record<string, unknown>
 }

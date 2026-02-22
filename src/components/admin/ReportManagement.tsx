@@ -229,6 +229,8 @@ export function ReportManagement({ userRole = 'user', highlightReportId }: Repor
     return () => clearTimeout(t)
   }, [highlightReportId, reports])
 
+  const locale = (t as any).locale || 'en'
+
   const getReportedContentLink = (report: ReportWithContent): string | null => {
     switch (report.reported_type) {
       case 'post':
@@ -516,7 +518,7 @@ export function ReportManagement({ userRole = 'user', highlightReportId }: Repor
                         {t('reportType')}: {getReportTypeLabel(report.reported_type ?? '')}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(report.created_at ?? 0).toLocaleString()}
+                        {new Date(report.created_at ?? 0).toLocaleString(locale)}
                       </span>
                     </div>
                     <p className="font-semibold">{t('reason')}: {report.reason}</p>

@@ -18,12 +18,22 @@ CREATE INDEX IF NOT EXISTS idx_view_events_viewed_at ON view_events(viewed_at DE
 ALTER TABLE view_events ENABLE ROW LEVEL SECURITY;
 
 -- 任何人（含匿名）可插入一条浏览记录
-CREATE POLICY "Allow insert view_events" ON view_events
-  FOR INSERT WITH CHECK (true);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'view_events' AND policyname = 'Allow insert view_events') THEN
+    CREATE POLICY "Allow insert view_events" ON view_events
+      FOR INSERT WITH CHECK (true);
+  END IF;
+END $$;
 
 -- 仅内容所有者可查询自己内容的浏览数据
-CREATE POLICY "Owners can select own view_events" ON view_events
-  FOR SELECT USING (auth.uid() = owner_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'view_events' AND policyname = 'Owners can select own view_events') THEN
+    CREATE POLICY "Owners can select own view_events" ON view_events
+      FOR SELECT USING (auth.uid() = owner_id);
+  END IF;
+END $$;
 
 COMMENT ON TABLE view_events IS 'Page view events for posts, products, and profiles (PV/UV analytics)';
 COMMENT ON COLUMN view_events.entity_type IS 'post | product | profile';

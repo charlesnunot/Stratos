@@ -2,17 +2,13 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from '@/i18n/navigation'
-import { useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useConversation } from '@/lib/hooks/useConversation'
 import { useRepost } from '@/lib/hooks/useRepost'
 import { useCartStore } from '@/store/cartStore'
-import { useQueryClient } from '@tanstack/react-query'
 import { showError, showInfo, showSuccess, showWarning } from '@/lib/utils/toast'
-import { openChat } from '@/lib/chat/ChatNavigationService'
-import { getOrCreateConversationCore } from '@/lib/chat/getOrCreateConversationCore'
 import { buildProductUrlWithAffiliate, getAffiliatePostId } from '@/lib/utils/affiliate-attribution'
-import { getDisplayContent } from '@/lib/ai/display-translated'
 import type { ListProductDTO } from './types'
 import type { ProductCardCapabilities } from './types'
 
@@ -43,21 +39,10 @@ export interface ProductActions {
 export function useProductCardActions({ dto, capabilities }: UseProductCardActionsParams): ProductActions {
   const { user } = useAuth()
   const router = useRouter()
-  const queryClient = useQueryClient()
-  const locale = useLocale()
   const supabase = useMemo(() => createClient(), [])
+  const { getOrCreateConversation } = useConversation()
   const addItem = useCartStore((s) => s.addItem)
   const removeItem = useCartStore((s) => s.removeItem)
-
-  // Get display name in current locale
-  const displayName = useMemo(() => {
-    return getDisplayContent(
-      locale,
-      dto.content.contentLang,
-      dto.content.name,
-      dto.content.nameTranslated
-    )
-  }, [locale, dto.content.contentLang, dto.content.name, dto.content.nameTranslated])
 
   const repostMutation = useRepost()
   const [adding, setAdding] = useState(false)
@@ -72,52 +57,45 @@ export function useProductCardActions({ dto, capabilities }: UseProductCardActio
     }
     if (dto.seller.id === user.id) return
     try {
-      await openChat(
-        { targetUserId: dto.seller.id },
-        {
-          getConversationId: (tid) =>
-            getOrCreateConversationCore(supabase, user.id, tid),
-          navigate: (path) => router.push(path),
-          invalidateConversations: () => {
-            queryClient.invalidateQueries({
-              queryKey: ['conversations', user.id],
-            })
-            queryClient.invalidateQueries({
-              queryKey: ['conversationDetails', user.id],
-            })
-          },
-        }
-      )
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message ?? ''
-      const isAbort =
-        (err as { name?: string })?.name === 'AbortError' ||
-        msg.includes('aborted') ||
-        msg.includes('请求被取消')
-      showError(
-        isAbort ? '请求被取消，请重试' : msg.includes('私聊') ? msg : `无法发起私聊: ${msg}`
-      )
+      const conversationId = await getOrCreateConversation(dto.seller.id)
+      router.push(`/messages/${conversationId}`)
+    } catch (err: any) {
+      const msg = err?.message ?? ''
+      const isAbort = err?.name === 'AbortError' || msg.includes('aborted') || msg.includes('请求被取消')
+      showError(isAbort ? '请求被取消，请重试' : msg.includes('私聊') ? msg : `无法发起私聊: ${msg}`)
     }
-  }, [dto.seller.id, user, supabase, router, queryClient])
+  }, [dto.seller.id, user, getOrCreateConversation, router])
+
+  // Check if product has color or size options
+  const hasOptions = Boolean(
+    dto.content.colorOptions?.length || dto.content.sizes?.length
+  )
 
   const addToCart = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+
+      // Prevent double click
+      if (adding) return
+
+      // If product has options, redirect to detail page to select
+      if (hasOptions) {
+        router.push(getProductUrl())
+        return
+      }
+
       if (dto.viewerInteraction?.isInCart) return
 
       const productIdForCart = dto.id
       addItem({
-          product_id: productIdForCart,
-          quantity: 1,
-          price: dto.price,
-          name: displayName,
-          image: dto.content.images[0] || '',
-          currency: dto.currency,
-          // Store multi-language information
-          contentLang: dto.content.contentLang,
-          nameTranslated: dto.content.nameTranslated,
-        })
+        product_id: productIdForCart,
+        quantity: 1,
+        price: dto.price,
+        currency: dto.currency,
+        name: dto.content.name,
+        image: dto.content.images[0] || '',
+      })
       setAdding(true)
       try {
         const res = await fetch('/api/checkout/validate-product', {
@@ -152,12 +130,9 @@ export function useProductCardActions({ dto, capabilities }: UseProductCardActio
           product_id: p.id,
           quantity: 1,
           price: p.price,
-          name: displayName,
+          currency: p.currency,
+          name: p.name ?? dto.content.name,
           image: p.image ?? dto.content.images[0] ?? '',
-          currency: dto.currency,
-          // Store multi-language information
-          contentLang: dto.content.contentLang,
-          nameTranslated: dto.content.nameTranslated,
         })
       } catch (err) {
         removeItem(productIdForCart)
@@ -169,19 +144,25 @@ export function useProductCardActions({ dto, capabilities }: UseProductCardActio
         setAdding(false)
       }
     },
-    [dto, displayName, addItem, removeItem]
+    [dto, addItem, removeItem, hasOptions, router, getProductUrl]
   )
-
-  const VALIDATE_TIMEOUT_MS = 8000
 
   const buyNow = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+
+      // Prevent double click
+      if (buying) return
+
+      // If product has options, redirect to detail page to select
+      if (hasOptions) {
+        router.push(getProductUrl())
+        return
+      }
+
       setBuying(true)
       try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS)
         const res = await fetch('/api/checkout/validate-product', {
           method: 'POST',
           headers: {
@@ -189,9 +170,7 @@ export function useProductCardActions({ dto, capabilities }: UseProductCardActio
             Accept: 'application/json',
           },
           body: JSON.stringify({ productId: dto.id }),
-          signal: controller.signal,
         })
-        clearTimeout(timeoutId)
         const data = await res.json().catch(() => ({}))
 
         if (!res.ok || !data?.ok) {
@@ -209,30 +188,28 @@ export function useProductCardActions({ dto, capabilities }: UseProductCardActio
           setBuying(false)
           return
         }
-        // Add item to cart with multi-language information before redirecting to checkout
+        
+        // Add item to cart before redirecting to checkout
         addItem({
           product_id: p.id,
           quantity: 1,
           price: p.price,
-          name: displayName,
-          image: dto.content.images[0] || '',
-          currency: dto.currency,
-          // Store multi-language information
-          contentLang: dto.content.contentLang,
-          nameTranslated: dto.content.nameTranslated,
+          currency: p.currency,
+          name: p.name ?? dto.content.name,
+          image: p.image ?? dto.content.images[0] ?? '',
         })
-        router.push('/checkout')
-      } catch (err: any) {
+        
+        router.push(`/checkout?product_id=${p.id}&quantity=1`)
+      } catch (err) {
         if (process.env.NODE_ENV === 'development') {
           console.error('Buy now error:', err)
         }
-        const isAbort = err?.name === 'AbortError'
-        showError(isAbort ? '请求超时，请重试' : '验证失败，请重试')
+        showError('验证失败，请重试')
       } finally {
         setBuying(false)
       }
     },
-    [dto.id, router]
+    [dto.id, dto.content.name, dto.content.images, router, hasOptions, getProductUrl, addItem]
   )
 
   const requestReportDialog = useCallback(() => {

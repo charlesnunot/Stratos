@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logAudit } from '@/lib/api/audit'
+import { recordCommissionLedger } from '@/lib/payments/ledger-helpers'
 
 export async function GET(request: NextRequest) {
   try {
@@ -123,7 +124,21 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    // Update obligation status
+    // Check if obligation is already processed (idempotency)
+    const { data: existingObligation } = await supabaseAdmin
+      .from('commission_payment_obligations')
+      .select('status')
+      .eq('id', obligationId)
+      .single()
+
+    if (existingObligation?.status !== 'pending') {
+      return NextResponse.json(
+        { error: 'Obligation already processed' },
+        { status: 400 }
+      )
+    }
+
+    // Update obligation status with condition check (atomic update)
     const { error: updateError } = await supabaseAdmin
       .from('commission_payment_obligations')
       .update({
@@ -132,6 +147,14 @@ export async function POST(request: NextRequest) {
         payment_transaction_id: paymentTransactionId || null,
       })
       .eq('id', obligationId)
+      .eq('status', 'pending')
+
+    if (updateError?.code === 'PGRST116' || updateError?.code === 'PGRST204') {
+      return NextResponse.json(
+        { error: 'Obligation already processed' },
+        { status: 400 }
+      )
+    }
 
     if (updateError) {
       return NextResponse.json(
@@ -145,6 +168,7 @@ export async function POST(request: NextRequest) {
       .from('affiliate_commissions')
       .select(`
         id,
+        order_id,
         affiliate_id,
         amount,
         currency,
@@ -159,6 +183,15 @@ export async function POST(request: NextRequest) {
       .eq('status', 'pending')
 
     if (commissions && commissions.length > 0) {
+      // Determine if this is a direct seller (platform pays affiliate)
+      const { data: sellerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('seller_type')
+        .eq('id', user.id)
+        .single()
+      
+      const isDirectSeller = sellerProfile?.seller_type === 'direct'
+
       // Group commissions by affiliate and transfer money
       const commissionsByAffiliate = new Map<string, { amount: number; currency: string; affiliateId: string }>()
       
@@ -180,6 +213,9 @@ export async function POST(request: NextRequest) {
       }
 
       // Transfer money to each affiliate (paymentMethod from body parsed above)
+      // Direct seller: platform pays affiliate (fundsSource: 'platform'); external: seller pays (default)
+      const failedAffiliates: string[] = []
+      
       for (const [affiliateId, commissionData] of commissionsByAffiliate) {
         try {
           const { transferToSeller } = await import('@/lib/payments/transfer-to-seller')
@@ -189,17 +225,27 @@ export async function POST(request: NextRequest) {
             currency: commissionData.currency,
             paymentTransactionId: paymentTransactionId || undefined,
             paymentMethod: paymentMethod as any,
+            fundsSource: isDirectSeller ? 'platform' : undefined,
             supabaseAdmin,
           })
 
           if (!transferResult.success) {
             console.error(`Failed to transfer commission to affiliate ${affiliateId}:`, transferResult.error)
-            // Continue with other affiliates even if one fails
+            failedAffiliates.push(affiliateId)
           }
         } catch (error) {
           console.error(`Error transferring commission to affiliate ${affiliateId}:`, error)
-          // Continue with other affiliates
+          failedAffiliates.push(affiliateId)
         }
+      }
+
+      // If any transfers failed, return error response
+      if (failedAffiliates.length > 0) {
+        return NextResponse.json({
+          success: false,
+          error: `Failed to transfer to affiliates: ${failedAffiliates.join(', ')}`,
+          failedAffiliates,
+        }, { status: 500 })
       }
 
       // Update commission records to 'paid'
@@ -211,6 +257,22 @@ export async function POST(request: NextRequest) {
           paid_at: new Date().toISOString(),
         })
         .in('id', commissionIds)
+
+      // Record commission ledger entries
+      try {
+        for (const commission of commissions) {
+          await recordCommissionLedger(supabaseAdmin, {
+            commissionId: commission.id,
+            orderId: commission.order_id,
+            affiliateId: commission.affiliate_id,
+            sellerId: obligation.seller_id,
+            amount: commission.amount,
+            currency: commission.currency,
+          })
+        }
+      } catch (ledgerError: any) {
+        console.error('[commissions/pay] Failed to record ledger:', ledgerError.message)
+      }
     }
 
     logAudit({

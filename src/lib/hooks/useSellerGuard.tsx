@@ -1,87 +1,58 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from '@/i18n/navigation'
 import { useAuth } from './useAuth'
-import { createClient } from '@/lib/supabase/client'
+import { useSubscription } from '@/lib/subscription/SubscriptionContext'
+import { Loader2 } from 'lucide-react'
 
-interface UseSellerGuardOptions {
-  redirectTo?: string
-  requireSeller?: boolean
+interface UseSellerGuardResult {
+  user: ReturnType<typeof useAuth>['user']
+  loading: boolean
+  isAuthenticated: boolean
+  isSeller: boolean
+  allowed: boolean
 }
 
-export function useSellerGuard(options: UseSellerGuardOptions = {}) {
+/**
+ * 卖家路由守卫钩子（Render Gate 模式）
+ * V2.3 改进：使用 Context 而非独立请求，避免竞态条件
+ */
+export function useSellerGuard(): UseSellerGuardResult {
   const { user, loading: authLoading } = useAuth()
-  const router = useRouter()
-  const pathname = usePathname()
-  const { redirectTo = '/', requireSeller = true } = options
-  const [isSeller, setIsSeller] = useState<boolean | null>(null)
-  const [checking, setChecking] = useState(true)
+  const { isSeller, isLoading: subscriptionLoading } = useSubscription()
 
-  useEffect(() => {
-    const checkSellerStatus = async () => {
-      if (authLoading) return
-
-      if (!user) {
-        // 未登录，重定向到登录页
-        const loginUrl = `/login?redirect=${encodeURIComponent(pathname)}`
-        router.push(loginUrl)
-        return
-      }
-
-      if (!requireSeller) {
-        setIsSeller(true)
-        setChecking(false)
-        return
-      }
-
-      // 检查用户是否有有效卖家订阅（统一以 subscriptions 为准，与首页逻辑一致）
-      try {
-        const supabase = createClient()
-        const { data: sellerSubscription, error } = await supabase
-          .from('subscriptions')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('subscription_type', 'seller')
-          .eq('status', 'active')
-          .gt('expires_at', new Date().toISOString())
-          .limit(1)
-          .maybeSingle()
-
-        if (error) {
-          console.error('Failed to fetch seller subscription:', error)
-          setIsSeller(false)
-          setChecking(false)
-          if (requireSeller) {
-            router.push(redirectTo)
-          }
-          return
-        }
-
-        const sellerStatus = !!sellerSubscription
-        setIsSeller(sellerStatus)
-        setChecking(false)
-
-        if (requireSeller && !sellerStatus) {
-          router.push(redirectTo)
-        }
-      } catch (error) {
-        console.error('Error checking seller status:', error)
-        setIsSeller(false)
-        setChecking(false)
-        if (requireSeller) {
-          router.push(redirectTo)
-        }
-      }
-    }
-
-    checkSellerStatus()
-  }, [user, authLoading, requireSeller, redirectTo, pathname, router])
+  const loading = authLoading || subscriptionLoading
+  const isAuthenticated = !!user
+  const allowed = isAuthenticated && isSeller
 
   return {
     user,
-    loading: authLoading || checking,
-    isAuthenticated: !!user,
-    isSeller: isSeller === true,
+    loading,
+    isAuthenticated,
+    isSeller,
+    allowed
   }
+}
+
+/**
+ * 卖家布局守卫组件（Hard Render Gate）
+ * 权限确认前不渲染任何业务组件
+ */
+export function SellerGate({ children }: { children: React.ReactNode }) {
+  const { loading, allowed } = useSellerGuard()
+
+  // Hard Render Gate: 加载中显示 loading 状态
+  if (loading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // Hard Render Gate: 未授权不渲染业务组件
+  if (!allowed) {
+    return null
+  }
+
+  return <>{children}</>
 }

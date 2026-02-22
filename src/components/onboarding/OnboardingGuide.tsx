@@ -42,7 +42,7 @@ export function OnboardingGuide() {
 
   // 获取用户档案以检查创建时间
   const { data: profileResult } = useProfile(user?.id || '')
-  const profile = profileResult?.profile
+  const profile = profileResult ?? null
 
   // 判断是否显示引导
   useEffect(() => {
@@ -88,8 +88,8 @@ export function OnboardingGuide() {
       },
       {
         icon: ShoppingBag,
-        title: t('steps.shop.title'),
-        description: t('steps.shop.description'),
+        title: t('steps.explore.title'),
+        description: t('steps.explore.description'),
       },
       {
         icon: MessageCircle,
@@ -108,8 +108,9 @@ export function OnboardingGuide() {
       },
     ]
 
-    // 根据角色添加特定步骤
-    if (profile?.subscription_type === 'seller') {
+    // 根据角色添加特定步骤（直营卖家或有效卖家订阅）
+    const isSeller = profile?.seller_subscription_active === true || (profile as { seller_type?: string })?.seller_type === 'direct'
+    if (isSeller) {
       return [
         ...baseSteps,
         {
@@ -120,7 +121,7 @@ export function OnboardingGuide() {
       ]
     }
 
-    if (profile?.subscription_type === 'affiliate') {
+    if (profile?.affiliate_subscription_active === true) {
       return [
         ...baseSteps,
         {
@@ -132,7 +133,7 @@ export function OnboardingGuide() {
     }
 
     return baseSteps
-  }, [profile?.subscription_type, t])
+  }, [profile?.seller_subscription_active, profile?.affiliate_subscription_active, profile?.seller_type, t])
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {

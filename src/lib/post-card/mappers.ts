@@ -25,6 +25,8 @@ export function mapFeedPostToListPostDTO(raw: RawPost): ListPostDTO {
     },
     content: {
       text: raw.content ?? null,
+      contentLang: (raw as { content_lang?: 'zh' | 'en' | null }).content_lang ?? null,
+      contentTranslated: (raw as { content_translated?: string | null }).content_translated ?? null,
       imageUrls: Array.isArray(raw.image_urls) ? raw.image_urls : [],
       topics: (raw.topics || []).map((t) => ({
         id: t.id,
@@ -37,7 +39,16 @@ export function mapFeedPostToListPostDTO(raw: RawPost): ListPostDTO {
         product_id: lp.product_id,
         sort_order: lp.sort_order ?? 0,
         product: lp.product
-          ? { id: lp.product.id, name: lp.product.name, price: lp.product.price, images: lp.product.images ?? [], seller_id: lp.product.seller_id }
+          ? { 
+              id: lp.product.id, 
+              name: lp.product.name, 
+              name_translated: lp.product.name_translated,
+              content_lang: lp.product.content_lang,
+              price: lp.product.price, 
+              currency: lp.product.currency,
+              images: lp.product.images ?? [], 
+              seller_id: lp.product.seller_id 
+            }
           : undefined,
       })),
       postType: raw.post_type as ListPostContentType | undefined,

@@ -243,3 +243,33 @@ export async function refundPayPalPayment(
 
   return await response.json()
 }
+
+/**
+ * Get PayPal client configuration for frontend SDK
+ * Returns clientId and sandbox mode
+ * Used by PayPalButton component
+ */
+export async function getPayPalClientConfig(currency: string = 'USD'): Promise<{ clientId: string; sandbox: boolean }> {
+  // Try to get config from database first
+  const platformConfig = await getPlatformPayPalConfig(currency)
+  
+  if (platformConfig) {
+    return {
+      clientId: platformConfig.clientId,
+      sandbox: platformConfig.sandbox,
+    }
+  }
+
+  // Fallback to environment variables
+  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || process.env.PAYPAL_CLIENT_ID || ''
+  const sandbox = process.env.NODE_ENV !== 'production'
+
+  if (!clientId) {
+    throw new Error('PayPal client ID not configured. Please set up a platform PayPal account or set NEXT_PUBLIC_PAYPAL_CLIENT_ID environment variable.')
+  }
+
+  return {
+    clientId,
+    sandbox,
+  }
+}

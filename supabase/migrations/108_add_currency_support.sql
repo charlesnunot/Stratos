@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS exchange_rates (
   UNIQUE(base_currency, target_currency, valid_from)
 );
 
-CREATE INDEX idx_exchange_rates_lookup 
+CREATE INDEX IF NOT EXISTS idx_exchange_rates_lookup 
   ON exchange_rates(base_currency, target_currency, valid_from DESC);
 
 -- Index for currency queries

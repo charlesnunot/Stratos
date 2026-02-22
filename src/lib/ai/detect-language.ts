@@ -27,6 +27,16 @@ export function detectContentLanguage(text: string): 'zh' | 'en' {
   return getCjkRatio(text) > CJK_THRESHOLD_ZH ? 'zh' : 'en'
 }
 
+/**
+ * 话题专用语言检测：适用于短文本（如单个词、短语）。
+ * 正文的 CJK 占比阈值对极短文本不稳定，此处改为「含任意 CJK 即视为中文」。
+ */
+export function detectTopicLanguage(text: string | null | undefined): 'zh' | 'en' {
+  const trimmed = text?.trim()
+  if (!trimmed) return 'en'
+  return CJK_RANGE.test(trimmed) ? 'zh' : 'en'
+}
+
 export function shouldShowTranslate(contentLang: 'zh' | 'en', locale: string): boolean {
   const localeLang = locale.startsWith('zh') ? 'zh' : 'en'
   return contentLang !== localeLang

@@ -11,6 +11,8 @@ import { checkTipLimits, checkTipEnabled } from './check-tip-limits'
 import { logPaymentSuccess, logPayment, LogLevel } from './logger'
 import { createPaymentError, logPaymentError } from './error-handler'
 import { logAudit } from '@/lib/api/audit'
+import { recordTipPaymentLedger } from './ledger-helpers'
+import { getPaymentDestination } from './get-payment-destination'
 
 interface ProcessUserTipPaymentParams {
   tipperId: string
@@ -163,6 +165,39 @@ export async function processUserTipPayment({
         currency,
       },
     })
+
+    try {
+      const destination = await getPaymentDestination({
+        recipientId,
+        context: 'tip',
+      })
+
+      const isInternal = destination.isInternal
+      const platformFee = isInternal ? 0 : amount * 0.05
+
+      const { data: tipRecord } = await supabaseAdmin
+        .from('tips')
+        .select('id')
+        .eq('user_id', recipientId)
+        .eq('tipper_id', tipperId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (tipRecord?.id) {
+        await recordTipPaymentLedger(supabaseAdmin, {
+          tipId: tipRecord.id,
+          tipperId,
+          recipientId,
+          amount,
+          currency,
+          isInternal,
+          platformFee,
+        })
+      }
+    } catch (ledgerError: any) {
+      console.error('[process-user-tip-payment] Failed to record ledger:', ledgerError.message)
+    }
 
     return { success: true }
   } catch (error: any) {

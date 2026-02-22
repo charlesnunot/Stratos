@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, usePathname } from '@/i18n/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
@@ -15,6 +15,7 @@ import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelect
 import { formatCurrency } from '@/lib/currency/format-currency'
 import { getCurrencyFromBrowser } from '@/lib/currency/detect-currency'
 import { getWeChatQRCodeUrl } from '@/lib/utils/share'
+import { getPaymentMethodsForCurrency } from '@/lib/payments/currency-payment-support'
 import type { Currency } from '@/lib/currency/detect-currency'
 
 export default function DepositPayPage() {
@@ -33,6 +34,20 @@ export default function DepositPayPage() {
   useEffect(() => {
     setCurrency(getCurrencyFromBrowser())
   }, [])
+
+  const isDirectSeller = false
+
+  const allowedPaymentMethods = useMemo(
+    () => getPaymentMethodsForCurrency(currency),
+    [currency]
+  )
+
+  useEffect(() => {
+    if (allowedPaymentMethods.length === 0) return
+    if (!allowedPaymentMethods.includes(paymentMethod)) {
+      setPaymentMethod(allowedPaymentMethods[0])
+    }
+  }, [currency, allowedPaymentMethods, paymentMethod])
 
   // 检查认证
   useEffect(() => {
@@ -143,7 +158,7 @@ export default function DepositPayPage() {
         }
       }
     },
-    enabled: !!user,
+    enabled: !!user && !isDirectSeller,
   })
 
   const handlePayment = async () => {
@@ -333,7 +348,11 @@ export default function DepositPayPage() {
       {/* 支付方式选择 */}
       <Card className="p-6">
         <h2 className="mb-4 text-lg font-semibold">{t('pay.method.title') || '选择支付方式'}</h2>
-        <PaymentMethodSelector selectedMethod={paymentMethod} onSelect={setPaymentMethod} />
+        <PaymentMethodSelector
+          selectedMethod={paymentMethod}
+          onSelect={setPaymentMethod}
+          availableMethods={allowedPaymentMethods}
+        />
       </Card>
 
       {/* 微信二维码 */}

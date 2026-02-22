@@ -19,6 +19,13 @@ export interface PageCapabilities {
   canRecordView: boolean
 }
 
+export interface AuthorizationToken {
+  hasValidToken: boolean
+  token: string | null
+  resolutionId: string | null
+  expiresAt: string | null
+}
+
 export type PostPageState =
   | { status: 'loading' }
   | { status: 'unavailable'; reason: UnavailableReason }
@@ -32,5 +39,7 @@ export type PostPageState =
       isAuthorBannedOrSuspended?: boolean
       /** 当 canTip 为 false 时的原因，用于 Tip 按钮的 tooltip */
       tipDisabledReason?: string
+      /** MCRE: 授权证明 Token（不暴露能力值） */
+      authorizationToken?: AuthorizationToken
     }
 

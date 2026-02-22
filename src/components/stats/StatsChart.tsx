@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { Card } from '@/components/ui/card'
+import { useLocale } from 'next-intl'
 
 interface ChartData {
   date: string
@@ -16,6 +17,7 @@ interface StatsChartProps {
 }
 
 export function StatsChart({ title, data, color = 'hsl(var(--primary))' }: StatsChartProps) {
+  const locale = useLocale()
   const maxValue = useMemo(() => {
     return Math.max(...data.map(d => d.value), 1)
   }, [data])
@@ -37,12 +39,12 @@ export function StatsChart({ title, data, color = 'hsl(var(--primary))' }: Stats
             />
           </div>
           <span className="text-xs text-muted-foreground">
-            {item.label || new Date(item.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+            {item.label || new Date(item.date).toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}
           </span>
         </div>
       )
     })
-  }, [data, maxValue, color])
+  }, [data, maxValue, color, locale])
 
   return (
     <Card className="p-6">

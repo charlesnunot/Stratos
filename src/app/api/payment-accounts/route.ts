@@ -1,12 +1,15 @@
 /**
  * Payment accounts management API
  * Allows sellers to manage their payment accounts (Stripe, PayPal, Alipay, WeChat, Bank)
+ * 
+ * Now integrated with MCRE (Monetization Capability Resolution Engine):
+ * - Uses resolveUserCapabilities() for permission checks
+ * - Stores capability snapshot at binding time for audit
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { checkSellerPermission } from '@/lib/auth/check-subscription'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { resolveUserCapabilities } from '@/lib/auth/capabilities'
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,16 +23,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check seller permission (including subscription status)
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
-    if (!sellerCheck.hasPermission) {
+    // MCRE: Resolve user capabilities
+    const capability = await resolveUserCapabilities(user.id)
+    if (!capability.capabilityState.payoutRoutingEnabled) {
       return NextResponse.json(
-        { error: sellerCheck.reason || 'Seller subscription required' },
+        { error: capability.capabilityState.canMonetize 
+          ? 'Payout routing not available due to risk or compliance' 
+          : 'Monetization capability not available. Please subscribe to Seller, Affiliate, or Tip plan.' 
+        },
         { status: 403 }
       )
     }
@@ -49,36 +50,83 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get seller payment account status from profiles table (new model)
+    // Get seller payment account status from profiles table (new model); seller_type for direct-seller UI
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('payment_provider, payment_account_id, provider_charges_enabled, provider_payouts_enabled, provider_account_status, seller_payout_eligibility')
+      .select('payment_provider, payment_account_id, provider_charges_enabled, provider_payouts_enabled, provider_account_status, seller_payout_eligibility, seller_type')
       .eq('id', user.id)
       .single()
+
+    // Check if the referenced account in profiles still exists in payment_accounts
+    let profileStatus = profile
+    if (profile?.payment_account_id) {
+      const accountExists = (accounts || []).some(acc => acc.id === profile.payment_account_id)
+      if (!accountExists) {
+        const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+        const supabaseAdmin = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        )
+        await supabaseAdmin
+          .from('profiles')
+          .update({
+            payment_provider: null,
+            payment_account_id: null,
+            provider_charges_enabled: null,
+            provider_payouts_enabled: null,
+            provider_account_status: null,
+            seller_payout_eligibility: null,
+          })
+          .eq('id', user.id)
+        profileStatus = {
+          ...profile,
+          payment_provider: null,
+          payment_account_id: null,
+          provider_charges_enabled: null,
+          provider_payouts_enabled: null,
+          provider_account_status: null,
+          seller_payout_eligibility: null,
+        }
+      }
+    }
 
     // Combine payment_accounts data with profiles status
     const accountsWithStatus = (accounts || []).map((account) => ({
       ...account,
-      // Add status from profiles if this is the bound account
-      ...(profile && profile.payment_provider === account.account_type && profile.payment_account_id ? {
-        provider_charges_enabled: profile.provider_charges_enabled,
-        provider_payouts_enabled: profile.provider_payouts_enabled,
-        provider_account_status: profile.provider_account_status,
-        seller_payout_eligibility: profile.seller_payout_eligibility,
+      ...(profileStatus && profileStatus.payment_provider === account.account_type && profileStatus.payment_account_id ? {
+        provider_charges_enabled: profileStatus.provider_charges_enabled,
+        provider_payouts_enabled: profileStatus.provider_payouts_enabled,
+        provider_account_status: profileStatus.provider_account_status,
+        seller_payout_eligibility: profileStatus.seller_payout_eligibility,
       } : {}),
     }))
 
+    // Return response with no-cache headers to ensure fresh data
     return NextResponse.json({ 
       accounts: accountsWithStatus,
-      // Also return profile status for display
-      profileStatus: profile ? {
-        payment_provider: profile.payment_provider,
-        payment_account_id: profile.payment_account_id,
-        provider_charges_enabled: profile.provider_charges_enabled,
-        provider_payouts_enabled: profile.provider_payouts_enabled,
-        provider_account_status: profile.provider_account_status,
-        seller_payout_eligibility: profile.seller_payout_eligibility,
+      profileStatus: profileStatus ? {
+        payment_provider: profileStatus.payment_provider,
+        payment_account_id: profileStatus.payment_account_id,
+        provider_charges_enabled: profileStatus.provider_charges_enabled,
+        provider_payouts_enabled: profileStatus.provider_payouts_enabled,
+        provider_account_status: profileStatus.provider_account_status,
+        seller_payout_eligibility: profileStatus.seller_payout_eligibility,
+        seller_type: profileStatus.seller_type ?? 'external',
       } : null,
+      // Also return MCRE snapshot for client reference
+      mcre: {
+        resolutionId: capability.resolutionId,
+        resolvedAt: capability.resolvedAt,
+        canMonetize: capability.capabilityState.canMonetize,
+        payoutRoutingEnabled: capability.capabilityState.payoutRoutingEnabled,
+      }
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
     })
   } catch (error: any) {
     console.error('Get payment accounts error:', error)
@@ -101,16 +149,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // 仅允许卖家创建收款账户
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
-    if (!sellerCheck.hasPermission) {
+    // MCRE: Resolve user capabilities
+    const capability = await resolveUserCapabilities(user.id)
+    if (!capability.capabilityState.payoutRoutingEnabled) {
       return NextResponse.json(
-        { error: sellerCheck.reason || 'Seller subscription required' },
+        { error: capability.capabilityState.canMonetize 
+          ? 'Payout routing not available due to risk or compliance' 
+          : 'Monetization capability not available. Please subscribe to Seller, Affiliate, or Tip plan.' 
+        },
         { status: 403 }
       )
     }
@@ -160,7 +206,7 @@ export async function POST(request: NextRequest) {
         .eq('account_type', accountType)
     }
 
-    // Create payment account
+    // Create payment account with MCRE snapshot
     const { data: newAccount, error: createError } = await supabase
       .from('payment_accounts')
       .insert({
@@ -171,8 +217,13 @@ export async function POST(request: NextRequest) {
         currency: currency,
         supported_currencies: supportedCurrencies,
         is_default: isDefault,
-        is_verified: false, // New accounts need verification
+        is_verified: false,
         verification_status: 'pending',
+        // MCRE: Store capability snapshot at binding time
+        capability_resolution_id: capability.resolutionId,
+        capability_hash_proof: capability.hashProof,
+        capability_attestation_signature: capability.attestationSignature,
+        capability_resolved_at: capability.resolvedAt,
       })
       .select()
       .single()
@@ -184,7 +235,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ account: newAccount }, { status: 201 })
+    const { logAudit } = await import('@/lib/api/audit')
+    logAudit({
+      action: 'payment_account_capability_bound',
+      userId: user.id,
+      resourceId: newAccount.id,
+      resourceType: 'payment_account',
+      result: 'success',
+      timestamp: new Date().toISOString(),
+      meta: {
+        resolutionId: capability.resolutionId,
+        hashProof: capability.hashProof,
+        attestationSignature: capability.attestationSignature,
+        boundAt: capability.resolvedAt,
+        capabilityState: capability.capabilityState,
+      },
+    })
+
+    return NextResponse.json({ 
+      account: newAccount,
+      mcre: {
+        resolutionId: capability.resolutionId,
+        hashProof: capability.hashProof,
+        resolvedAt: capability.resolvedAt,
+      }
+    }, { status: 201 })
   } catch (error: any) {
     console.error('Create payment account error:', error)
     return NextResponse.json(
@@ -206,16 +281,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check seller permission (including subscription status)
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
-    if (!sellerCheck.hasPermission) {
+    // MCRE: Resolve user capabilities
+    const capability = await resolveUserCapabilities(user.id)
+    if (!capability.capabilityState.payoutRoutingEnabled) {
       return NextResponse.json(
-        { error: sellerCheck.reason || 'Seller subscription required' },
+        { error: capability.capabilityState.canMonetize 
+          ? 'Payout routing not available due to risk or compliance' 
+          : 'Monetization capability not available. Please subscribe to Seller, Affiliate, or Tip plan.' 
+        },
         { status: 403 }
       )
     }
@@ -333,16 +406,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check seller permission (including subscription status)
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-    const sellerCheck = await checkSellerPermission(user.id, supabaseAdmin)
-    if (!sellerCheck.hasPermission) {
+    // MCRE: Resolve user capabilities
+    const capability = await resolveUserCapabilities(user.id)
+    if (!capability.capabilityState.payoutRoutingEnabled) {
       return NextResponse.json(
-        { error: sellerCheck.reason || 'Seller subscription required' },
+        { error: capability.capabilityState.canMonetize 
+          ? 'Payout routing not available due to risk or compliance' 
+          : 'Monetization capability not available. Please subscribe to Seller, Affiliate, or Tip plan.' 
+        },
         { status: 403 }
       )
     }

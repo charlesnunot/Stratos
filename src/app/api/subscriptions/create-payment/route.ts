@@ -5,8 +5,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getSubscriptionPrice } from '@/lib/subscriptions/pricing'
-import type { SubscriptionType } from '@/lib/subscriptions/pricing'
 import { logAudit } from '@/lib/api/audit'
 
 export async function POST(request: NextRequest) {
@@ -49,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const { data: sub, error: subErr } = await supabaseAdmin
       .from('subscriptions')
-      .select('id, user_id, subscription_type, subscription_tier, status')
+      .select('id, user_id, subscription_type, subscription_tier, status, currency, amount')
       .eq('id', subscriptionId)
       .single()
 
@@ -78,11 +76,55 @@ export async function POST(request: NextRequest) {
       tip: '打赏功能订阅',
     }
     const subject = typeName[sub.subscription_type] || '订阅'
-    const { amount } = getSubscriptionPrice(
-      sub.subscription_type as SubscriptionType,
-      sub.subscription_tier ?? undefined,
-      'CNY'
-    )
+    
+    // 多币种支持: 使用订阅记录中保存的金额和货币
+    // 优先使用平台收款金额 (amount)，如果不存在则使用用户金额 (user_amount)
+    const platformCurrency = (sub.currency as string) || 'CNY'
+    const platformAmount = typeof sub.amount === 'string' ? parseFloat(sub.amount) : (sub.amount as number) || 0
+    
+    // 支付宝/微信支付只支持CNY
+    // 如果平台货币不是CNY，需要转换或报错
+    let paymentAmount = platformAmount
+    let paymentCurrency = platformCurrency
+    
+    // 如果平台货币不是CNY，但使用支付宝/微信，需要检查是否支持
+    if ((paymentMethod === 'alipay' || paymentMethod === 'wechat') && platformCurrency !== 'CNY') {
+      // 查询汇率转换为CNY
+      const { data: rateData } = await supabaseAdmin
+        .from('exchange_rates')
+        .select('rate')
+        .eq('base_currency', platformCurrency)
+        .eq('target_currency', 'CNY')
+        .lte('valid_from', new Date().toISOString())
+        .or('valid_until.is.null,valid_until.gt.' + new Date().toISOString())
+        .order('valid_from', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (rateData) {
+        paymentAmount = platformAmount * rateData.rate
+        paymentCurrency = 'CNY'
+      } else {
+        // 没有汇率，使用固定汇率
+        const fallbackRates: Record<string, number> = {
+          'USD': 7.2,
+          'EUR': 7.8,
+          'GBP': 9.2,
+          'JPY': 0.048,
+          'KRW': 0.0055,
+          'SGD': 5.4,
+          'HKD': 0.92,
+          'AUD': 4.7,
+          'CAD': 5.3,
+        }
+        const rate = fallbackRates[platformCurrency] || 7.2
+        paymentAmount = platformAmount * rate
+        paymentCurrency = 'CNY'
+      }
+    }
+    
+    // 确保金额格式正确 (支付宝/微信要求2位小数)
+    paymentAmount = Math.round(paymentAmount * 100) / 100
 
     const outTradeNo = `sub_${subscriptionId}_${Date.now()}`
     const origin = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000'
@@ -102,10 +144,18 @@ export async function POST(request: NextRequest) {
       const notifyUrl = `${origin}/api/payments/alipay/callback`
       const result = await createAlipayOrder({
         outTradeNo,
-        totalAmount: amount,
+        totalAmount: paymentAmount,
         subject,
         notifyUrl,
-        metadata: { type: 'subscription', subscriptionId, subscriptionType: sub.subscription_type },
+        metadata: { 
+          type: 'subscription', 
+          subscriptionId, 
+          subscriptionType: sub.subscription_type,
+          platformCurrency: String(platformCurrency),
+          platformAmount: String(platformAmount),
+          paymentCurrency: String(paymentCurrency),
+          paymentAmount: String(paymentAmount),
+        },
       })
       const formData: Record<string, string> = {}
       const pairs = (result.orderString || '').split('&')
@@ -134,9 +184,18 @@ export async function POST(request: NextRequest) {
       const notifyUrl = `${origin}/api/payments/wechat/notify`
       const wechatOrder = await createWeChatPayOrder({
         outTradeNo,
-        totalAmount: amount,
+        totalAmount: paymentAmount,
         description: subject,
         notifyUrl,
+        metadata: {
+          type: 'subscription',
+          subscriptionId,
+          subscriptionType: sub.subscription_type,
+          platformCurrency: String(platformCurrency),
+          platformAmount: String(platformAmount),
+          paymentCurrency: String(paymentCurrency),
+          paymentAmount: String(paymentAmount),
+        },
       })
       const codeUrl =
         (wechatOrder as { codeUrl?: string })?.codeUrl ??

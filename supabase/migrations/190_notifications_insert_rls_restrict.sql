@@ -3,9 +3,14 @@
 
 DROP POLICY IF EXISTS "System can insert notifications" ON notifications;
 
-CREATE POLICY "Users can insert own notifications" ON notifications
-  FOR INSERT
-  WITH CHECK (user_id = auth.uid());
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'notifications' AND policyname = 'Users can insert own notifications') THEN
+    CREATE POLICY "Users can insert own notifications" ON notifications
+      FOR INSERT
+      WITH CHECK (user_id = auth.uid());
+  END IF;
+END $$;
 
 COMMENT ON POLICY "Users can insert own notifications" ON notifications IS
   'Users may only insert notifications for themselves (user_id = auth.uid()). Admins/support can insert for any user via "Admins can insert notifications". Triggers inserting for others must use SECURITY DEFINER or service role.';

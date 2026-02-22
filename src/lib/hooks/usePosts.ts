@@ -12,7 +12,7 @@ import {
 
 export type { Post }
 
-/** 个性化 Feed（带推荐理由）：调用 get_personalized_feed_with_reasons，再拉取完整帖子并保持顺序 */
+/** 个性化 Feed（带推荐理由）：只查询 posts 表 */
 async function fetchPersonalizedFeedWithReasons(
   userId: string,
   page: number,
@@ -21,7 +21,7 @@ async function fetchPersonalizedFeedWithReasons(
   const supabase = createClient()
   const offset = page * POSTS_PER_PAGE
 
-  const { data: rows, error: rpcError } = await supabase.rpc('get_personalized_feed_with_reasons', {
+  const { data: rows, error: rpcError } = await supabase.rpc('get_unified_feed_with_reasons', {
     p_user_id: userId,
     p_limit: POSTS_PER_PAGE,
     p_offset: offset,
@@ -34,23 +34,31 @@ async function fetchPersonalizedFeedWithReasons(
   })
 
   if (rpcError) throw rpcError
-  const items = (rows || []) as { post_id: string; reason_type: string | null }[]
-  const ids = items.map((r) => r.post_id).filter(Boolean)
-  if (ids.length === 0) return []
+  const items = (rows || []) as { item_id: string; item_type: string; reason_type: string | null }[]
+  
+  // 只查询 posts 表（带货帖子已同步到 posts）
+  const postIds = items.filter(i => i.item_type === 'post').map(i => i.item_id)
+  
+  if (postIds.length === 0) return []
 
-  const { data, error } = await supabase
+  // 查询 posts 表
+  const { data: postsData, error: postsError } = await supabase
     .from('posts')
     .select(POST_SELECT)
-    .in('id', ids)
+    .in('id', postIds)
 
-  if (error) throw error
+  if (postsError) throw postsError
 
-  const byId = new Map((data || []).map((p: any) => [p.id, mapRowToPost(p)]))
-  return ids.map((id: string) => {
-    const post = byId.get(id)
+  // 转换数据
+  const posts = (postsData || []).map((p: any) => mapRowToPost(p))
+  
+  // 按原始顺序排序
+  const byId = new Map(posts.map(p => [p.id, p]))
+  
+  return items.map((item) => {
+    const post = byId.get(item.item_id)
     if (!post) return null
-    const item = items.find((r) => r.post_id === id)
-    const reasonType = (item?.reason_type ?? 'trending') as FeedRecommendationReasonType
+    const reasonType = (item.reason_type ?? 'trending') as FeedRecommendationReasonType
     return { ...post, recommendationReason: { reasonType } }
   }).filter(Boolean) as Post[]
 }
@@ -61,6 +69,7 @@ async function fetchPosts(page: number = 0, status: string = 'approved') {
   const from = page * POSTS_PER_PAGE
   const to = from + POSTS_PER_PAGE - 1
 
+  // 只查询 posts 表（带货帖子已同步到 posts）
   const { data, error } = await supabase
     .from('posts')
     .select(POST_SELECT)
@@ -69,7 +78,8 @@ async function fetchPosts(page: number = 0, status: string = 'approved') {
     .range(from, to)
 
   if (error) throw error
-  return (data || []).map(mapRowToPost)
+
+  return (data || []).map((p: any) => mapRowToPost(p))
 }
 
 async function fetchUserPosts(
@@ -445,14 +455,16 @@ export function usePost(postId: string) {
     queryFn: async () => {
       const supabase = createClient()
       
-      const { data, error } = await supabase
+      const { data: postData, error: postError } = await supabase
         .from('posts')
         .select(POST_SELECT)
         .eq('id', postId)
         .single()
 
-      if (error) throw error
-      return mapRowToPost(data)
+      if (postError) throw postError
+      if (!postData) throw new Error('Post not found')
+      
+      return mapRowToPost(postData)
     },
     enabled: !!postId,
     staleTime: 10_000,

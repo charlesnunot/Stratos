@@ -61,7 +61,12 @@ export default function PaymentAccountsPage() {
     queryKey: ['payment-accounts', user?.id],
     queryFn: async () => {
       if (!user) return { accounts: [], profileStatus: null }
-      const response = await fetch('/api/payment-accounts')
+      const response = await fetch('/api/payment-accounts', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       if (!response.ok) throw new Error('Failed to fetch accounts')
       const data = await response.json()
       return {
@@ -73,10 +78,14 @@ export default function PaymentAccountsPage() {
           provider_payouts_enabled: boolean | null
           provider_account_status: string | null
           seller_payout_eligibility: 'eligible' | 'blocked' | 'pending_review' | null
+          seller_type?: 'external' | 'direct'
         } | null
       }
     },
     enabled: !!user,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
   })
 
   const accounts = accountsData?.accounts || []
@@ -250,10 +259,27 @@ export default function PaymentAccountsPage() {
     return null
   }
 
+  const isDirectSeller = profileStatus?.seller_type === 'direct'
+
   return (
     <div className="space-y-6">
-      {/* Status Banner */}
-      {profileStatus && (
+      {/* Direct seller: platform collects; no personal accounts */}
+      {isDirectSeller && (
+        <Card className="border-blue-500/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="font-semibold">直营卖家</p>
+                <p className="text-sm text-muted-foreground">您使用平台收款账户收款，无需在此绑定个人收款账户。</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Status Banner (external sellers) */}
+      {profileStatus && !isDirectSeller && (
         <Card className={profileStatus.seller_payout_eligibility === 'eligible' ? 'border-green-500' : profileStatus.seller_payout_eligibility === 'blocked' ? 'border-red-500' : 'border-yellow-500'}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -283,6 +309,36 @@ export default function PaymentAccountsPage() {
                 )}
               </div>
             )}
+            {/* Action buttons based on status */}
+            <div className="mt-4 flex gap-2">
+              {!profileStatus.seller_payout_eligibility && (
+                <Button 
+                  size="sm" 
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  添加收款账户
+                </Button>
+              )}
+              {profileStatus.seller_payout_eligibility === 'blocked' && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open('/support', '_blank')}
+                >
+                  联系客服
+                </Button>
+              )}
+              {profileStatus.seller_payout_eligibility === 'pending_review' && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => document.getElementById('accounts-list')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                  查看详情
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -290,8 +346,9 @@ export default function PaymentAccountsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">支付账户管理</h1>
-          <p className="text-muted-foreground">管理您的收款账户，支持多种支付方式</p>
+          <p className="text-muted-foreground">{isDirectSeller ? '直营卖家使用平台收款账户' : '管理您的收款账户，支持多种支付方式'}</p>
         </div>
+        {!isDirectSeller && (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setSelectedAccountType(null)}>
@@ -343,9 +400,10 @@ export default function PaymentAccountsPage() {
             )}
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
-      {accounts && accounts.length > 0 ? (
+      {accounts && accounts.length > 0 && !isDirectSeller ? (
         <div className="grid gap-4 md:grid-cols-2">
           {accounts.map((account) => {
             const typeInfo = ACCOUNT_TYPE_INFO[account.account_type]
@@ -384,6 +442,7 @@ export default function PaymentAccountsPage() {
                     <span className="text-sm text-muted-foreground">验证状态:</span>
                     {getVerificationBadge(account.verification_status, account.is_verified)}
                   </div>
+                  {!isDirectSeller && (
                   <div className="flex gap-2 pt-2">
                     <Button
                       variant="outline"
@@ -419,11 +478,19 @@ export default function PaymentAccountsPage() {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
+                  )}
                 </CardContent>
               </Card>
             )
           })}
         </div>
+      ) : isDirectSeller ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <CreditCard className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">直营卖家使用平台收款账户，无需在此添加个人账户。</p>
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">

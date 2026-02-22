@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import dynamic from "next/dynamic"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { QueryProvider, AuthProvider } from "@/lib/providers"
+import { QueryProvider, AuthProvider, SubscriptionProvider } from "@/lib/providers"
 import { defaultLocale } from "@/i18n/config"
 import { ErrorSuppressor } from "@/components/ErrorSuppressor"
 
@@ -58,8 +58,10 @@ export default function RootLayout({
         <ErrorSuppressor />
         <QueryProvider>
           <AuthProvider>
-            {children}
-            <Toaster />
+            <SubscriptionProvider>
+              {children}
+              <Toaster />
+            </SubscriptionProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { useProfile, useProfileFollowers } from '@/lib/hooks/useProfile'
+import { useProfile, useFollowers } from '@/lib/hooks/useProfile'
 import { FollowButton } from '@/components/social/FollowButton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Link } from '@/i18n/navigation'
@@ -15,7 +15,7 @@ export default function ProfileFollowersPage() {
   const params = useParams()
   const userId = params.id as string
   const { data: profile } = useProfile(userId)
-  const { data: followers = [], isLoading } = useProfileFollowers(userId)
+  const { data: followers = [], isLoading } = useFollowers()
   const t = useTranslations('profile')
   const tCommon = useTranslations('common')
 
@@ -34,9 +34,9 @@ export default function ProfileFollowersPage() {
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Users className="h-6 w-6" aria-hidden />
           {t('followers')}
-          {profile?.profile && (
+          {profile && 'follower_count' in profile && (
             <span className="text-muted-foreground font-normal text-base">
-              ({profile.profile.follower_count})
+              ({(profile as any).follower_count})
             </span>
           )}
         </h1>
@@ -56,7 +56,7 @@ export default function ProfileFollowersPage() {
               <p className="py-8 text-center text-muted-foreground">{t('noFollowers')}</p>
             ) : (
               <div className="space-y-1">
-                {followers.map((u) => (
+                {followers.map((u: any) => (
                   <div
                     key={u.id}
                     className="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-accent transition-colors"

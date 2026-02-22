@@ -2,8 +2,9 @@
  * Validate if seller is ready to accept payments
  * 
  * This function performs the "hard check" before any payment creation.
+ * Direct sellers (seller_type=direct): do not require subscription or deposit; platform collects.
  * 
- * Validation checks (all must pass):
+ * Validation checks (all must pass for external sellers):
  * 1. Seller exists
  * 2. Seller subscription is valid
  * 3. Payment account is bound
@@ -30,6 +31,8 @@ export interface ValidateParams {
   sellerId: string
   supabaseAdmin: SupabaseClient
   paymentMethod?: 'stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank' // Optional: check if seller supports this specific payment method
+  /** Currency for platform account lookup (used when seller is direct) */
+  currency?: string
 }
 
 /**
@@ -46,12 +49,13 @@ export async function validateSellerPaymentReady({
   sellerId,
   supabaseAdmin,
   paymentMethod,
+  currency = 'USD',
 }: ValidateParams): Promise<ValidationResult> {
   try {
-    // Check 1: Seller exists
+    // Check 1: Seller exists (include seller_type for direct vs external)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('id, payment_provider, payment_account_id, seller_payout_eligibility')
+      .select('id, payment_provider, payment_account_id, seller_payout_eligibility, seller_type')
       .eq('id', sellerId)
       .single()
 
@@ -62,7 +66,57 @@ export async function validateSellerPaymentReady({
       }
     }
 
-    // Check 2: Seller subscription is valid
+    const sellerType = (profile as any).seller_type as 'external' | 'direct' | null
+    const isDirect = sellerType === 'direct'
+
+    // Direct seller: no registration flow; use platform account. Validate platform account is available (fail-fast).
+    if (isDirect) {
+      const providerToCheck = paymentMethod || 'stripe'
+      
+      // First, try to find a platform account with exact currency match
+      let { data: platformAccounts, error: platformError } = await supabaseAdmin.rpc(
+        'get_platform_payment_account',
+        { p_currency: currency.toUpperCase(), p_account_type: providerToCheck }
+      )
+      
+      // If no exact currency match found, try to find a platform account that supports this currency via conversion
+      if (platformError || !platformAccounts || (Array.isArray(platformAccounts) && platformAccounts.length === 0)) {
+        // Try common alternative currencies that might support currency conversion
+        const fallbackCurrencies = ['USD', 'EUR', 'GBP'] // Common base currencies that typically support conversion
+        for (const fallbackCurrency of fallbackCurrencies) {
+          if (fallbackCurrency !== currency.toUpperCase()) {
+            const fallbackResult = await supabaseAdmin.rpc(
+              'get_platform_payment_account',
+              { p_currency: fallbackCurrency, p_account_type: providerToCheck }
+            )
+            
+            if (fallbackResult.data && Array.isArray(fallbackResult.data) && fallbackResult.data.length > 0) {
+              // Found a platform account that can handle this payment via conversion
+              return {
+                canAcceptPayment: true,
+                paymentProvider: providerToCheck,
+                eligibility: 'eligible',
+              }
+            }
+          }
+        }
+        
+        // If still no suitable account found, return error
+        return {
+          canAcceptPayment: false,
+          reason: 'Payment method unavailable for requested currency and no fallback available',
+          paymentProvider: providerToCheck,
+        }
+      }
+      
+      return {
+        canAcceptPayment: true,
+        paymentProvider: providerToCheck,
+        eligibility: 'eligible',
+      }
+    }
+
+    // Check 2: Seller subscription is valid (external sellers only)
     const { data: subscription, error: subscriptionError } = await supabaseAdmin
       .from('subscriptions')
       .select('id, subscription_type, status, expires_at')

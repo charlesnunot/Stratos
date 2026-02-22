@@ -111,7 +111,9 @@ export function ContentReview() {
 
   // 状态映射：商品/帖子/评论/商品讨论使用不同状态值
   const getStatusValue = (type: 'post' | 'product' | 'comment' | 'product_comment', action: 'approved' | 'rejected'): string => {
-    if (action === 'rejected') return 'rejected'
+    if (action === 'rejected') {
+      return 'rejected'
+    }
     if (type === 'product') return 'active'
     if (type === 'comment' || type === 'product_comment') return 'approved'
     return 'approved' // post
@@ -182,24 +184,6 @@ export function ContentReview() {
         }
       }
 
-      // 商品点击「通过」：必须先迁移商品图片，迁移失败则直接审核失败（与帖子一致）
-      if (type === 'product' && action === 'approved') {
-        const migrateRes = await fetch('/api/cloudinary/migrate-product-images', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productId: id }),
-        })
-        const migrateBody = await migrateRes.json().catch(() => ({}))
-        if (!migrateRes.ok || migrateBody?.ok === false) {
-          toast({
-            variant: 'destructive',
-            title: t('reviewFailed'),
-            description: migrateBody?.error ?? t('migrateProductImagesFailed'),
-          })
-          return
-        }
-      }
-
       const endpoint =
         action === 'approved'
           ? `/api/admin/content-review/${id}/approve`
@@ -231,14 +215,6 @@ export function ContentReview() {
         title: tCommon('success'),
         description: t('contentReviewed', { type: typeLabel, result: resultLabel }),
       })
-
-      if (action === 'approved' && type !== 'post') {
-        fetch('/api/ai/translate-after-publish', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type, id }),
-        }).catch(() => {})
-      }
 
       // 使相关查询失效以刷新数据
       if (type === 'post') {
@@ -509,6 +485,67 @@ export function ContentReview() {
               <p className="mb-2 text-sm text-muted-foreground">
                 {product.description}
               </p>
+              
+              {/* 商品详细信息 */}
+              <div className="mb-3 space-y-1 text-sm">
+                {/* 价格 + 货币 */}
+                {product.price != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{t('productPriceLabel')}</span>
+                    <span>{product.currency || 'USD'} {Number(product.price).toFixed(2)}</span>
+                  </div>
+                )}
+                
+                {/* 库存 */}
+                {product.stock != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{t('productStockLabel')}</span>
+                    <span>{product.stock}</span>
+                  </div>
+                )}
+                
+                {/* 运费 */}
+                {product.shipping_fee != null && Number(product.shipping_fee) > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{t('shippingFeeLabel')}</span>
+                    <span>{product.currency || 'USD'} {Number(product.shipping_fee).toFixed(2)}</span>
+                  </div>
+                )}
+                
+                {/* 成色 */}
+                {product.condition && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{t('conditionLabel')}</span>
+                    <span>{product.condition}</span>
+                  </div>
+                )}
+                
+                {/* 销售国家 */}
+                {Array.isArray(product.sales_countries) && product.sales_countries.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-muted-foreground">{t('salesCountriesLabel')}</span>
+                    <span>{product.sales_countries.join(', ')}</span>
+                  </div>
+                )}
+                
+                {/* 可见性 */}
+                {product.visibility && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{t('visibilityLabel')}</span>
+                    <span>{product.visibility}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* 图片缩略图 */}
+              {Array.isArray(product.images) && product.images.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {product.images.slice(0, 3).map((url: string, i: number) => (
+                    <img key={i} src={url} alt={`Product image ${i+1}`} className="h-20 w-20 object-cover rounded" />
+                  ))}
+                </div>
+              )}
+              
               <div className="flex gap-2">
                 <Button
                   size="sm"

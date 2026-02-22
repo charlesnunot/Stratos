@@ -65,17 +65,17 @@ export function AdminMonitoringClient({ initialData, initialError }: AdminMonito
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to load monitoring data')
+        throw new Error(result.error || t('loadFailed'))
       }
 
       if (result.success) {
         setData(result)
         setLastRefresh(new Date())
       } else {
-        throw new Error(result.error || 'Failed to load monitoring data')
+        throw new Error(result.error || t('loadFailed'))
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load monitoring data')
+      setError(err.message || t('loadFailed'))
     } finally {
       setLoading(false)
     }

@@ -1,7 +1,8 @@
 import React from 'react'
 import { NextIntlClientProvider } from 'next-intl'
-import { getMessages } from 'next-intl/server'
 import { notFound } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
 import { locales, type Locale } from '@/i18n/config'
 import { setRequestLocale } from 'next-intl/server'
 import { LocaleScript } from '@/components/i18n/LocaleScript'
@@ -23,12 +24,17 @@ export default async function LocaleLayout({
   // Enable static rendering
   setRequestLocale(locale)
 
-  const messages = (await getMessages({ locale })) ?? {}
+  // 仅以路由 params.locale 加载 messages，保证整站 locale 与 URL 一致（不依赖 getMessages 的 request 解析）
+  const messages =
+    locale === 'zh'
+      ? (await import('@/messages/zh.json')).default
+      : (await import('@/messages/en.json')).default
+  const messagesSafe = messages ?? {}
 
   return (
     <>
       <LocaleScript locale={locale} />
-      <NextIntlClientProvider messages={messages} locale={locale}>
+      <NextIntlClientProvider messages={messagesSafe} locale={locale}>
         {children}
       </NextIntlClientProvider>
     </>

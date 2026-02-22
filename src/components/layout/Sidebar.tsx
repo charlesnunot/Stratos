@@ -22,8 +22,6 @@ import {
   HelpCircle,
   Settings,
   Info,
-  Store,
-  Package,
   Shield
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -31,7 +29,6 @@ import { Card } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from '@/i18n/navigation'
 import { useEffect, useState, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { WelcomeCard } from './WelcomeCard'
 import { useCartStore } from '@/store/cartStore'
 
@@ -73,32 +70,12 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   const t = useTranslations('navigation')
   const tCommon = useTranslations('common')
   const tAuth = useTranslations('auth')
-  const tProfile = useTranslations('profile')
   const tMenu = useTranslations('menu')
-  const tAdmin = useTranslations('admin')
   
-  // 获取用户资料
-  const { data: profileResult } = useProfile(user?.id || '')
-  const profile = profileResult?.profile
+  // 获取用户资料（useProfile 的 data 即为 Profile）
+  const { data: profile } = useProfile(user?.id || '')
 
   // 卖家身份以 subscriptions 为准（与首页、useSellerGuard 一致），不依赖 profile.subscription_type
-  const { data: sellerSubscription } = useQuery({
-    queryKey: ['sellerSubscription', user?.id],
-    queryFn: async () => {
-      if (!user) return null
-      const { data } = await supabase
-        .from('subscriptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('subscription_type', 'seller')
-        .eq('status', 'active')
-        .gt('expires_at', new Date().toISOString())
-        .limit(1)
-        .maybeSingle()
-      return data
-    },
-    enabled: !!user,
-  })
   
   // 获取最后登录时间
   const [lastSeen, setLastSeen] = useState<Date | null>(null)
@@ -285,12 +262,6 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
     }
   }
 
-  // 检查是否为卖家（有效 seller 订阅，与 useSellerGuard / 首页一致）
-  const isSeller = !!sellerSubscription
-
-  // 检查是否为管理员或支持人员
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'support'
-  
   // 基础导航项
   const navItems = [
     { href: '/', icon: Home, label: t('home') },
@@ -303,26 +274,10 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
     { href: '/messages', icon: MessageSquare, label: t('messages') },
     { href: '/notifications', icon: Bell, label: t('notifications') },
   ]
-  
-  if (isAdmin) {
-    navItems.push(
-      { href: '/admin/dashboard', icon: Shield, label: tAdmin('sidebarLabel') },
-      { href: '/admin/community', icon: Users, label: tAdmin('communityOps') }
-    )
-  }
-  
-  // 如果是卖家，添加卖家相关导航
-  if (isSeller) {
-    navItems.push(
-      { href: '/seller/dashboard', icon: Store, label: tProfile('sellerCenter') },
-      { href: '/seller/products', icon: Package, label: tProfile('myProducts') },
-      { href: '/seller/orders', icon: ShoppingCart, label: tProfile('myOrders') }
-    )
-  }
 
   return (
     <aside className={`${isMobile ? 'flex' : 'hidden md:flex'} fixed left-0 top-0 h-screen w-64 bg-background p-4 z-50`}>
-      <div className="flex h-full flex-col">
+      <div className="flex flex-col h-full">
         {/* Logo */}
         <div className="mb-8 flex items-center justify-between gap-2">
           <Link

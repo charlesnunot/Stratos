@@ -6,7 +6,7 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 const nextConfig = {
   images: {
     // 兼容：部分 Next 版本下 domains 更稳定
-    domains: ['res.cloudinary.com'],
+    domains: ['res.cloudinary.com', 'img.alicdn.com', 'images.unsplash.com'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -17,6 +17,18 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '**.supabase.co',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.alicdn.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
         port: '',
         pathname: '/**',
       },

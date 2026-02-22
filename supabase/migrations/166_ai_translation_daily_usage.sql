@@ -17,10 +17,15 @@ CREATE INDEX IF NOT EXISTS idx_ai_translation_daily_usage_user_date
 -- RLS：仅允许用户读自己的记录；写入由 service_role 在 API 中完成
 ALTER TABLE ai_translation_daily_usage ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can read own usage"
-  ON ai_translation_daily_usage
-  FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'ai_translation_daily_usage' AND policyname = 'Users can read own usage') THEN
+    CREATE POLICY "Users can read own usage"
+      ON ai_translation_daily_usage
+      FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- 插入/更新由后端使用 service_role 执行，不开放给 anon/authenticated 写
 COMMENT ON TABLE ai_translation_daily_usage IS 'Daily AI translation usage per user for rate limiting (e.g. 10/day for chat)';

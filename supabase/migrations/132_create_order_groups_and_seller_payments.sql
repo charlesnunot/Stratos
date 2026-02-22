@@ -159,10 +159,15 @@ CREATE TRIGGER update_order_group_status_trigger
 ALTER TABLE order_groups ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Buyers can view their own order groups
-CREATE POLICY "Buyers can view their own order groups"
-  ON order_groups
-  FOR SELECT
-  USING (auth.uid() = buyer_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'order_groups' AND policyname = 'Buyers can view their own order groups') THEN
+    CREATE POLICY "Buyers can view their own order groups"
+      ON order_groups
+      FOR SELECT
+      USING (auth.uid() = buyer_id);
+  END IF;
+END $$;
 
 -- Policy: System can insert order groups (via service role)
 -- Note: Actual inserts should be done via API routes using service_role_key
@@ -174,22 +179,32 @@ CREATE POLICY "Buyers can view their own order groups"
 ALTER TABLE order_seller_payments ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Buyers can view payment records for their orders
-CREATE POLICY "Buyers can view payment records for their orders"
-  ON order_seller_payments
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM orders
-      WHERE orders.id = order_seller_payments.order_id
-      AND orders.buyer_id = auth.uid()
-    )
-  );
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'order_seller_payments' AND policyname = 'Buyers can view payment records for their orders') THEN
+    CREATE POLICY "Buyers can view payment records for their orders"
+      ON order_seller_payments
+      FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM orders
+          WHERE orders.id = order_seller_payments.order_id
+          AND orders.buyer_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
 
 -- Policy: Sellers can view payment records for their orders
-CREATE POLICY "Sellers can view payment records for their orders"
-  ON order_seller_payments
-  FOR SELECT
-  USING (auth.uid() = seller_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'order_seller_payments' AND policyname = 'Sellers can view payment records for their orders') THEN
+    CREATE POLICY "Sellers can view payment records for their orders"
+      ON order_seller_payments
+      FOR SELECT
+      USING (auth.uid() = seller_id);
+  END IF;
+END $$;
 
 -- Policy: System can insert/update payment records (via service role)
 -- Note: Actual inserts/updates should be done via API routes using service_role_key

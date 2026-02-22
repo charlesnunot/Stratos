@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export async function GET(
   request: NextRequest,
@@ -168,10 +169,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify account belongs to user
+    // Verify account belongs to user and check verification status
     const { data: existingAccount, error: fetchError } = await supabase
       .from('payment_accounts')
-      .select('seller_id')
+      .select('seller_id, verification_status, account_type')
       .eq('id', params.id)
       .single()
 
@@ -189,11 +190,47 @@ export async function DELETE(
       )
     }
 
+    // Prevent deleting verified accounts
+    if (existingAccount.verification_status === 'verified') {
+      return NextResponse.json(
+        { error: 'Cannot delete verified account. Please contact support if you need to remove this account.' },
+        { status: 403 }
+      )
+    }
+
     // Delete account
     const { error: deleteError } = await supabase
       .from('payment_accounts')
       .delete()
       .eq('id', params.id)
+
+    // If delete successful and this was the default/bound account, clear profiles reference
+    if (!deleteError) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('payment_account_id')
+        .eq('id', user.id)
+        .single()
+      
+      if (profile?.payment_account_id === params.id) {
+        const supabaseAdmin = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        )
+        await supabaseAdmin
+          .from('profiles')
+          .update({
+            payment_provider: null,
+            payment_account_id: null,
+            provider_charges_enabled: null,
+            provider_payouts_enabled: null,
+            provider_account_status: null,
+            seller_payout_eligibility: null,
+          })
+          .eq('id', user.id)
+      }
+    }
 
     if (deleteError) {
       const { logAudit } = await import('@/lib/api/audit')

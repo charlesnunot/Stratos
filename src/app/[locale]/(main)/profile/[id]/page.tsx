@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useUserPosts } from '@/lib/hooks/usePosts'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useUserPage } from '@/lib/hooks/useUserPage'
+import { useSellerStatus, useAffiliateStatus, useTipStatus } from '@/lib/hooks/useSubscriptionStatus'
 import { FollowButton } from '@/components/social/FollowButton'
 import { PostCardUnit } from '@/components/social/PostCardUnit'
 import { ChatButton } from '@/components/social/ChatButton'
@@ -73,6 +74,15 @@ export default function ProfilePage() {
     viewerRole === 'support' ||
     (isOwnProfile && (profile?.role === 'admin' || profile?.role === 'support'))
 
+  // 使用统一的订阅状态检查钩子（V2.3 统一鉴权系统）
+  const { isSeller: isViewerSeller, isDirectSeller, isLoading: sellerLoading } = useSellerStatus()
+
+  // 使用统一的订阅状态检查钩子
+  const { isAffiliate: isViewerAffiliate, isLoading: affiliateLoading } = useAffiliateStatus()
+
+  // 使用统一的订阅状态检查钩子
+  const { isTipEnabled: isViewerTipEnabled, isLoading: tipLoading } = useTipStatus()
+
   const { data: postsData, isLoading: postsLoading } = useUserPosts(userId, isOwnProfile ? undefined : 'approved')
   const t = useTranslations('profile')
   const tPosts = useTranslations('posts')
@@ -81,6 +91,7 @@ export default function ProfilePage() {
   const tFavorites = useTranslations('favorites')
   const tCart = useTranslations('cart')
   const tOrders = useTranslations('orders')
+  const tBadges = useTranslations('badges')
   const locale = useLocale()
   const [activeTab, setActiveTab] = useState<'posts' | 'products' | 'series' | 'story' | 'music' | 'short_video' | 'favorites' | 'drafts'>('posts')
 
@@ -295,6 +306,16 @@ export default function ProfilePage() {
 
   if (!profile) return null
 
+  const getBadgeName = (badge: { key?: string | null; name?: string | null }) => {
+    const k = badge.key ? String(badge.key) : ''
+    if (!k) return badge.name ?? ''
+    try {
+      return tBadges(`${k}.name` as any)
+    } catch {
+      return badge.name ?? k
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-2 sm:px-4 py-6">
       {/* 数据降级提示：仅在 schema_mismatch / permission_limited 时显示，避免页面直接崩溃 */}
@@ -354,11 +375,11 @@ export default function ProfilePage() {
                       <span className="text-sm">·</span>
                       <span className="flex gap-1">
                         {earnedBadges.slice(0, 5).map((b) => (
-                          <span key={b.id} title={b.name} className="inline-flex items-center">
+                          <span key={b.id} title={getBadgeName(b)} className="inline-flex items-center">
                             {b.icon_url ? (
-                              <img src={b.icon_url} alt={b.name} className="h-5 w-5 rounded-full object-cover" />
+                              <img src={b.icon_url} alt={getBadgeName(b)} className="h-5 w-5 rounded-full object-cover" />
                             ) : (
-                              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs">{b.name}</span>
+                              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs">{getBadgeName(b)}</span>
                             )}
                           </span>
                         ))}
@@ -392,26 +413,33 @@ export default function ProfilePage() {
                 )}
                 {isOwnProfile && (
                   <>
+                {/* 🚨 V2.3 修复：在订阅状态加载完成前禁用链接，防止竞态条件 */}
                 <Link
-                  href="/seller/dashboard"
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
+                  href={sellerLoading ? '#' : (isViewerSeller ? '/seller/dashboard' : '/seller/landing')}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm ${sellerLoading ? 'pointer-events-none opacity-50' : ''}`}
+                  onClick={(e) => sellerLoading && e.preventDefault()}
+                  aria-disabled={sellerLoading}
                 >
                   <Tag className="h-4 w-4" />
                   <span>{t('sellerCenter')}</span>
                 </Link>
                 <Link
-                  href="/affiliate/products"
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
+                  href={affiliateLoading ? '#' : (isViewerAffiliate ? '/affiliate/products' : '/subscription/affiliate')}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm ${affiliateLoading ? 'pointer-events-none opacity-50' : ''}`}
+                  onClick={(e) => affiliateLoading && e.preventDefault()}
+                  aria-disabled={affiliateLoading}
                 >
                   <TrendingUp className="h-4 w-4" />
-                  <span>{t('affiliateCenter')}</span>
+                  <span>{isViewerAffiliate ? t('affiliateCenter') : t('becomeAffiliate')}</span>
                 </Link>
                 <Link
-                  href="/"
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
+                  href={tipLoading ? '#' : (isViewerTipEnabled ? '/tip-center' : '/subscription/tip')}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors text-sm ${tipLoading ? 'pointer-events-none opacity-50' : ''}`}
+                  onClick={(e) => tipLoading && e.preventDefault()}
+                  aria-disabled={tipLoading}
                 >
                   <Gift className="h-4 w-4" />
-                  <span>{t('tips')}</span>
+                  <span>{isViewerTipEnabled ? t('manageTips') : t('tips')}</span>
                 </Link>
                 <Link
                   href="/cart"
@@ -603,7 +631,7 @@ export default function ProfilePage() {
               }`}
             >
               <FileText className="inline-block h-4 w-4 mr-1" />
-              {t('story')} ({formatNumber(storyCount)})
+              {t('storyCreator')} ({formatNumber(storyCount)})
             </button>
           )}
           {musicCount > 0 && (
@@ -616,7 +644,7 @@ export default function ProfilePage() {
               }`}
             >
               <Music2 className="inline-block h-4 w-4 mr-1" />
-              {t('music')} ({formatNumber(musicCount)})
+              {t('musicCreator')} ({formatNumber(musicCount)})
             </button>
           )}
           {shortVideoCount > 0 && (
@@ -629,7 +657,7 @@ export default function ProfilePage() {
               }`}
             >
               <Video className="inline-block h-4 w-4 mr-1" />
-              {t('shortVideo')} ({formatNumber(shortVideoCount)})
+              {t('shortVideoCreator')} ({formatNumber(shortVideoCount)})
             </button>
           )}
           {/* ✅ 修复 P0-2: 草稿 Tab - 只对自己的页面显示 */}
@@ -643,7 +671,7 @@ export default function ProfilePage() {
               }`}
             >
               <Pencil className="inline-block h-4 w-4 mr-1" />
-              {t('drafts') || '草稿'} ({formatNumber(draftCount)})
+              {t('drafts')} ({formatNumber(draftCount)})
             </button>
           )}
           {/* Favorites tab - only show on own profile */}
@@ -664,7 +692,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Content Area */}
-      <div className="mt-6 -mx-2 sm:-mx-4 md:mx-0">
+      <div className="mt-6">
         {activeTab === 'posts' && (
           <>
             {!userPage.capabilities.canViewPosts ? (

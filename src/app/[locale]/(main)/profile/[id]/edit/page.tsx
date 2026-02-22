@@ -31,8 +31,12 @@ export default function EditProfilePage() {
     isLoading: profileLoading,
     error: profileError,
   } = useProfile(userId)
-  const profile = profileResult?.profile
-  const profileErrorKind = profileResult?.errorKind
+  const profile = profileResult ?? null
+  const profileErrorKind = profileError
+    ? ((profileError as { code?: string })?.code === 'PGRST116' || profileError?.message?.includes('Profile not found')
+        ? 'not_found'
+        : 'network')
+    : undefined
 
   const [formData, setFormData] = useState({
     display_name: '',

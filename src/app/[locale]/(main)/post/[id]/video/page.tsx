@@ -5,27 +5,47 @@ import { useParams } from 'next/navigation'
 import { useRouter } from '@/i18n/navigation'
 import { useVideoStream } from '@/lib/hooks/usePosts'
 import type { Post } from '@/lib/hooks/usePosts'
+import { useAuth } from '@/lib/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { LikeButton } from '@/components/social/LikeButton'
 import { FavoriteButton } from '@/components/social/FavoriteButton'
+import { FollowButton } from '@/components/social/FollowButton'
+import { ShareDialog } from '@/components/social/ShareDialog'
+import { ReportDialog } from '@/components/social/ReportDialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Link } from '@/i18n/navigation'
-import { ChevronUp, ChevronDown, ArrowLeft, MessageCircle } from 'lucide-react'
+import { ChevronUp, ChevronDown, ArrowLeft, MessageCircle, Share2, MoreVertical, Flag, FileText } from 'lucide-react'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { showInfo } from '@/lib/utils/toast'
+import { getDisplayContent } from '@/lib/ai/display-translated'
+
+/** 超过该字符数视为「大量内容」，展示展开/收起 */
+const LONG_CONTENT_THRESHOLD = 80
 
 export default function PostVideoStreamPage() {
   const params = useParams()
   const router = useRouter()
+  const { user } = useAuth()
   const postId = params.id as string
   const { data, isLoading, error, fetchOlder, fetchNewer } = useVideoStream(postId)
   const [list, setList] = useState<Post[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [loadingNewer, setLoadingNewer] = useState(false)
+  const [showShareDialog, setShowShareDialog] = useState(false)
+  const [showReportDialog, setShowReportDialog] = useState(false)
+  const [contentExpanded, setContentExpanded] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const t = useTranslations('posts')
   const tCommon = useTranslations('common')
+  const locale = useLocale()
 
   useEffect(() => {
     if (data?.posts?.length) {
@@ -34,8 +54,20 @@ export default function PostVideoStreamPage() {
     }
   }, [data?.posts, data?.currentIndex])
 
-  const post = list[currentIndex]
-  const videoInfo = post && (post as Post).post_type === 'short_video' ? (post as Post).video_info : null
+  // 在 list 未同步前用 data.posts 作为当前帖来源，避免 post 为 undefined
+  const currentPostFromList = list.length > 0 ? list[currentIndex] : null
+  const currentPostFromData =
+    data?.posts?.length && data.currentIndex != null
+      ? data.posts[Math.min(data.currentIndex, data.posts.length - 1)]
+      : null
+  const post = currentPostFromList ?? currentPostFromData ?? null
+  const videoInfo = post?.post_type === 'short_video' ? (post as Post).video_info : null
+
+  // 按当前 locale 显示原文或译文，与详情页一致（必须在 post 声明之后）
+  const displayContent =
+    post != null
+      ? getDisplayContent(locale, post.content_lang ?? null, post.content, post.content_translated)
+      : ''
 
   const handlePrev = useCallback(() => {
     if (currentIndex <= 0) {
@@ -81,6 +113,13 @@ export default function PostVideoStreamPage() {
     }
   }, [currentIndex, post?.id])
 
+  // 切换视频时收起已展开的文案
+  useEffect(() => {
+    setContentExpanded(false)
+  }, [post?.id])
+
+  const isLongContent = displayContent.length > LONG_CONTENT_THRESHOLD
+
   if (isLoading || (!data && !error)) {
     return <LoadingState />
   }
@@ -100,6 +139,10 @@ export default function PostVideoStreamPage() {
     )
   }
 
+  if (!post) {
+    return <LoadingState />
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       {/* 当前条视频：全屏竖版 */}
@@ -108,7 +151,7 @@ export default function PostVideoStreamPage() {
           <video
             ref={videoRef}
             src={videoInfo.video_url}
-            poster={videoInfo.cover_url || (post as Post).image_urls?.[0] || undefined}
+            poster={videoInfo.cover_url || post.image_urls?.[0] || undefined}
             className="w-full h-full max-h-[100vh] object-contain"
             playsInline
             muted
@@ -128,7 +171,7 @@ export default function PostVideoStreamPage() {
           </div>
         )}
 
-        {/* 顶部：返回 */}
+        {/* 顶部：返回 + 更多 */}
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent">
           <Button
             variant="ghost"
@@ -139,43 +182,138 @@ export default function PostVideoStreamPage() {
           >
             <ArrowLeft className="h-6 w-6" />
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                aria-label={tCommon('more')}
+              >
+                <MoreVertical className="h-6 w-6" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/post/${post.id}`} className="flex items-center gap-2 cursor-pointer">
+                  <FileText className="h-4 w-4" />
+                  {t('viewFullPost')}
+                </Link>
+              </DropdownMenuItem>
+              {user && user.id !== post.user_id && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShowReportDialog(true)
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Flag className="h-4 w-4" />
+                  {t('report')}
+                </DropdownMenuItem>
+              )}
+              {!user && (
+                <DropdownMenuItem
+                  onClick={() => showInfo(t('pleaseLoginToReport'))}
+                  className="flex items-center gap-2"
+                >
+                  <Flag className="h-4 w-4" />
+                  {t('report')}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        {/* 右侧：作者、点赞、评论 */}
-        {post?.user && (
-          <div className="absolute right-4 bottom-24 flex flex-col items-center gap-4">
-            <Link
-              href={`/profile/${(post as Post).user_id}`}
-              className="flex flex-col items-center gap-1 text-white"
-            >
-              <div className="h-12 w-12 rounded-full border-2 border-white overflow-hidden bg-muted">
-                {post.user.avatar_url ? (
-                  <img src={post.user.avatar_url} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center text-lg">
-                    {post.user.display_name?.[0] || '?'}
-                  </span>
-                )}
-              </div>
-              <span className="text-xs truncate max-w-[80px]">{post.user.display_name || post.user.username}</span>
-            </Link>
-            <div className="flex flex-col gap-3">
-              <LikeButton postId={(post as Post).id} initialLikes={(post as Post).like_count ?? 0} enabled />
-              <Link href={`/post/${(post as Post).id}`} className="flex flex-col items-center gap-0 text-white">
-                <MessageCircle className="h-8 w-8" />
-                <span className="text-xs">{(post as Post).comment_count ?? 0}</span>
+        {/* 右侧：作者（可选）、关注、点赞、评论、收藏、分享 */}
+        <div className="absolute right-4 bottom-24 flex flex-col items-center gap-4">
+          {post.user && (
+            <>
+              <Link
+                href={`/profile/${post.user_id}`}
+                className="flex flex-col items-center gap-1 text-white"
+              >
+                <div className="h-12 w-12 rounded-full border-2 border-white overflow-hidden bg-muted">
+                  {post.user.avatar_url ? (
+                    <img src={post.user.avatar_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-lg">
+                      {post.user.display_name?.[0] || '?'}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs truncate max-w-[80px]">{post.user.display_name || post.user.username}</span>
               </Link>
-              <FavoriteButton postId={(post as Post).id} initialFavorites={(post as Post).favorite_count ?? 0} enabled />
-            </div>
+              {user && user.id !== post.user_id && (
+                <div className="flex justify-center">
+                  <FollowButton userId={post.user_id} />
+                </div>
+              )}
+            </>
+          )}
+          <div className="flex flex-col gap-3">
+            <LikeButton postId={post.id} initialLikes={post.like_count ?? 0} enabled />
+            <Link href={`/post/${post.id}`} className="flex flex-col items-center gap-0 text-white">
+              <MessageCircle className="h-8 w-8" />
+              <span className="text-xs">{post.comment_count ?? 0}</span>
+            </Link>
+            <FavoriteButton postId={post.id} initialFavorites={post.favorite_count ?? 0} enabled />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-transparent hover:bg-white/20"
+              onClick={() => setShowShareDialog(true)}
+              aria-label={t('share')}
+            >
+              <Share2 className="h-8 w-8" />
+            </Button>
           </div>
-        )}
+        </div>
 
-        {/* 底部：文案摘要（可选） */}
-        {(post as Post).content && (
-          <div className="absolute left-4 right-16 bottom-4 text-white text-sm line-clamp-2 drop-shadow">
-            {(post as Post).content}
-          </div>
-        )}
+        {/* 底部：文案摘要（按 locale）；短内容直接点去详情，长内容可展开/收起 */}
+        <div className="absolute left-4 right-16 bottom-4 min-h-[2.5rem] flex flex-col justify-end gap-1">
+          {!displayContent ? (
+            <Link
+              href={`/post/${post.id}`}
+              className="text-white/80 text-xs hover:underline inline-flex items-center gap-1"
+            >
+              {t('viewFullPost')}
+            </Link>
+          ) : isLongContent && contentExpanded ? (
+            <>
+              <div className="text-white text-sm drop-shadow max-h-32 overflow-y-auto whitespace-pre-wrap break-words pr-1">
+                {displayContent}
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setContentExpanded(false)}
+                  className="text-white/90 text-xs hover:underline focus:outline-none"
+                >
+                  {t('collapseContent')}
+                </button>
+                <Link
+                  href={`/post/${post.id}`}
+                  className="text-white/90 text-xs hover:underline"
+                >
+                  {t('viewFullPost')}
+                </Link>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                isLongContent ? setContentExpanded(true) : router.push(`/post/${post.id}`)
+              }
+              className="text-left text-white text-sm line-clamp-2 drop-shadow hover:underline focus:outline-none focus:underline"
+            >
+              {displayContent}
+              {isLongContent && !contentExpanded && (
+                <span className="text-white/80 ml-1">··· {t('expandContent')}</span>
+              )}
+            </button>
+          )}
+        </div>
 
         {/* 上一条 / 下一条 */}
         <Button
@@ -199,6 +337,24 @@ export default function PostVideoStreamPage() {
           <ChevronDown className="h-8 w-8" />
         </Button>
       </div>
+
+      <ShareDialog
+        open={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+        url={typeof window !== 'undefined' ? `${window.location.origin}/post/${post.id}` : `/post/${post.id}`}
+        title={displayContent ? displayContent.slice(0, 80) : t('viewFullPost')}
+        description={displayContent || undefined}
+        image={videoInfo?.cover_url || post.image_urls?.[0]}
+        itemType="post"
+        itemId={post.id}
+      />
+
+      <ReportDialog
+        open={showReportDialog}
+        onClose={() => setShowReportDialog(false)}
+        reportedType="post"
+        reportedId={post.id}
+      />
     </div>
   )
 }

@@ -98,29 +98,34 @@ COMMENT ON FUNCTION handle_comment_delete() IS '删除评论时，将子评论�
 DROP POLICY IF EXISTS "Users can view approved comments from active users" ON comments;
 DROP POLICY IF EXISTS "Users can view approved comments from active users on visible posts" ON comments;
 
-CREATE POLICY "Users can view approved comments from active users on visible posts"
-ON comments FOR SELECT
-USING (
-  (
-    status = 'approved' AND 
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = comments.user_id 
-      AND profiles.status = 'active'
-    ) AND
-    EXISTS (
-      SELECT 1 FROM posts
-      WHERE posts.id = comments.post_id
-      AND posts.status = 'approved'
-    )
-  ) OR
-  user_id = auth.uid() OR 
-  EXISTS (
-    SELECT 1 FROM profiles 
-    WHERE profiles.id = auth.uid() 
-    AND profiles.role IN ('admin', 'support')
-  )
-);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'comments' AND policyname = 'Users can view approved comments from active users on visible posts') THEN
+    CREATE POLICY "Users can view approved comments from active users on visible posts"
+    ON comments FOR SELECT
+    USING (
+      (
+        status = 'approved' AND 
+        EXISTS (
+          SELECT 1 FROM profiles 
+          WHERE profiles.id = comments.user_id 
+          AND profiles.status = 'active'
+        ) AND
+        EXISTS (
+          SELECT 1 FROM posts
+          WHERE posts.id = comments.post_id
+          AND posts.status = 'approved'
+        )
+      ) OR
+      user_id = auth.uid() OR 
+      EXISTS (
+        SELECT 1 FROM profiles 
+        WHERE profiles.id = auth.uid() 
+        AND profiles.role IN ('admin', 'support')
+      )
+    );
+  END IF;
+END $$;
 
 COMMENT ON POLICY "Users can view approved comments from active users on visible posts" ON comments 
 IS '只能查看可见帖子（status=approved）下的已审核评论，且评论作者必须是活跃用户';
@@ -131,21 +136,26 @@ IS '只能查看可见帖子（status=approved）下的已审核评论，且评�
 
 DROP POLICY IF EXISTS "Users can delete own comments" ON comments;
 
-CREATE POLICY "Users can delete own comments or post authors can delete comments on their posts"
-ON comments FOR DELETE
-USING (
-  auth.uid() = user_id
-  OR EXISTS (
-    SELECT 1 FROM posts
-    WHERE posts.id = comments.post_id
-    AND posts.user_id = auth.uid()
-  )
-  OR EXISTS (
-    SELECT 1 FROM profiles
-    WHERE profiles.id = auth.uid()
-    AND profiles.role IN ('admin', 'support')
-  )
-);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'comments' AND policyname = 'Users can delete own comments or post authors can delete comments on their posts') THEN
+    CREATE POLICY "Users can delete own comments or post authors can delete comments on their posts"
+    ON comments FOR DELETE
+    USING (
+      auth.uid() = user_id
+      OR EXISTS (
+        SELECT 1 FROM posts
+        WHERE posts.id = comments.post_id
+        AND posts.user_id = auth.uid()
+      )
+      OR EXISTS (
+        SELECT 1 FROM profiles
+        WHERE profiles.id = auth.uid()
+        AND profiles.role IN ('admin', 'support')
+      )
+    );
+  END IF;
+END $$;
 
 COMMENT ON POLICY "Users can delete own comments or post authors can delete comments on their posts" ON comments 
 IS '允许评论作者、帖子作者或管理员删除评论';

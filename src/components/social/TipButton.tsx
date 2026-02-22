@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Gift, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,10 +10,11 @@ import { useProfile } from '@/lib/hooks/useProfile'
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector'
 import { PayPalButton } from '@/components/payments/PayPalButton'
 import { Link, useRouter } from '@/i18n/navigation'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useToast } from '@/lib/hooks/useToast'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { getCurrencyFromBrowser, detectCurrency, type Currency } from '@/lib/currency/detect-currency'
 
 interface TipButtonProps {
   postId: string
@@ -21,6 +22,7 @@ interface TipButtonProps {
   currentAmount: number
   enabled?: boolean
   reasonDisabled?: string
+  authorizationToken?: string | null
 }
 
 export function TipButton({
@@ -29,29 +31,104 @@ export function TipButton({
   currentAmount,
   enabled = true,
   reasonDisabled,
+  authorizationToken,
 }: TipButtonProps) {
   const [showModal, setShowModal] = useState(false)
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal'>('stripe')
   const [loading, setLoading] = useState(false)
   const { user } = useAuth()
-  const { data: profileResult, isLoading: profileLoading } = useProfile(user?.id ?? '')
-  const profile = profileResult?.profile
+  const isAuthor = user?.id === postAuthorId
+  
+  // 获取帖子作者的资料（不是当前用户的资料）
+  const { data: authorProfileResult, isLoading: authorProfileLoading } = useProfile(postAuthorId)
+  const authorProfile = authorProfileResult ?? null
   const router = useRouter()
   const { toast } = useToast()
   const t = useTranslations('tips')
   const tCommon = useTranslations('common')
+  const locale = useLocale()
   const supabase = useMemo(() => createClient(), [])
 
-  // 检查打赏订阅是否过期
-  const { data: tipSubscription } = useQuery({
-    queryKey: ['tipSubscription', user?.id],
+  const [currency, setCurrency] = useState<Currency>('CNY')
+
+  const currencySymbol = currency === 'CNY' ? '¥' : '$'
+
+  const MAX_TIP_AMOUNTS: Record<Currency, number> = {
+    CNY: 35,
+    USD: 5,
+    EUR: 5,
+    GBP: 4,
+    JPY: 700,
+    KRW: 6500,
+    SGD: 7,
+    HKD: 40,
+    AUD: 8,
+    CAD: 7,
+  }
+  const maxTipAmount = MAX_TIP_AMOUNTS[currency] || 35
+
+  useEffect(() => {
+    if (locale === 'zh') {
+      setCurrency('CNY')
+    } else {
+      setCurrency('USD')
+    }
+  }, [locale])
+
+  // 获取帖子作者的收款账户
+  const { data: authorPaymentAccounts, isLoading: authorPaymentAccountsLoading } = useQuery({
+    queryKey: ['authorPaymentAccounts', postAuthorId],
     queryFn: async () => {
-      if (!user) return null
+      const response = await fetch(`/api/users/${postAuthorId}/payment-accounts`)
+      if (!response.ok) {
+        console.error('[TipButton] Failed to fetch payment accounts:', response.status)
+        return { paymentAccounts: [] }
+      }
+      return response.json()
+    },
+    enabled: enabled,
+  })
+
+  // 获取收款方信息（平台 vs 用户直达）
+  const { data: paymentDestination, isLoading: paymentDestinationLoading } = useQuery({
+    queryKey: ['paymentDestination', postAuthorId],
+    queryFn: async () => {
+      const response = await fetch(`/api/payments/destination?recipientId=${postAuthorId}&context=tip`)
+      if (!response.ok) {
+        console.error('[TipButton] Failed to fetch payment destination:', response.status)
+        return null
+      }
+      return response.json()
+    },
+    enabled: enabled,
+  })
+
+  // 根据作者收款账户确定可用支付方式
+  // 加载完成前不设置默认值，确保显示正确的支付方式
+  const authorPaymentTypes = authorPaymentAccounts?.paymentAccounts?.map((p: { type: string }) => p.type) || []
+  
+  // 结合 paymentDestination 显示正确的支付选项
+  // 如果是外部用户且无收款账户，显示提示
+  // 如果是内部用户或外部用户有收款账户，显示对应的支付方式
+  const isExternalUserNoPayment = paymentDestination && !paymentDestination.isInternal && !paymentDestination.destinationAccountId
+  const availablePaymentMethods: ('stripe' | 'paypal')[] = 
+    paymentDestinationLoading 
+      ? []
+      : isExternalUserNoPayment
+        ? []
+        : authorPaymentTypes.length > 0 
+          ? authorPaymentTypes.filter((t: string) => t === 'stripe' || t === 'paypal') as ('stripe' | 'paypal')[]
+          : []
+
+  // 检查帖子作者的打赏订阅是否过期
+  const { data: tipSubscription } = useQuery({
+    queryKey: ['tipSubscription', postAuthorId],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('subscriptions')
         .select('expires_at')
-        .eq('user_id', user.id)
+        .eq('user_id', postAuthorId)
         .eq('subscription_type', 'tip')
         .eq('status', 'active')
         .gt('expires_at', new Date().toISOString())
@@ -60,10 +137,12 @@ export function TipButton({
       if (error && error.code !== 'PGRST116') throw error
       return data
     },
-    enabled: !!user && !!profile?.tip_enabled,
+    enabled: !!authorProfile?.tip_enabled,
   })
 
-  const tipEnabled = !!profile?.tip_enabled && !!tipSubscription
+  // MCRE: 打赏按钮只检查帖子级别开关，不检查作者 profile
+  // 接收者能力验证在后端 create-tip-session 进行
+  const tipEnabled = enabled
 
   // 页面级能力关闭时，展示禁用态按钮，悬停显示原因
   if (!enabled) {
@@ -93,28 +172,7 @@ export function TipButton({
     )
   }
 
-  if (profileLoading) {
-    return (
-      <Button variant="outline" size="sm" className="gap-2" disabled>
-        <Gift className="h-4 w-4" />
-        <span className="text-xs">{t('tip')}</span>
-        <span className="text-xs text-muted-foreground ml-1">{tCommon('loading')}</span>
-      </Button>
-    )
-  }
-
-  if (!tipEnabled) {
-    return (
-      <Button variant="outline" size="sm" className="gap-2" asChild>
-        <Link href="/subscription/tip">
-          <Gift className="h-4 w-4" />
-          {t('enableTip')}
-        </Link>
-      </Button>
-    )
-  }
-
-  const MAX_TIP_CNY = 35
+  // MCRE: 打赏按钮只检查帖子级别开关，后端会验证作者收款能力
 
   const handleTip = async () => {
     const tipAmount = parseFloat(amount)
@@ -126,7 +184,7 @@ export function TipButton({
       })
       return
     }
-    if (tipAmount > MAX_TIP_CNY) {
+    if (tipAmount > maxTipAmount) {
       toast({
         variant: 'warning',
         title: tCommon('notice'),
@@ -157,7 +215,8 @@ export function TipButton({
           postAuthorId,
           successUrl: `${window.location.origin}?tip=success`,
           cancelUrl: window.location.href,
-          currency: 'CNY',
+          currency: currency,
+          monetizationToken: authorizationToken,
         }),
         signal: controller.signal,
       })
@@ -231,33 +290,47 @@ export function TipButton({
             </Button>
             <h3 className="mb-4 text-lg font-semibold pr-8">{t('tipCreator')}</h3>
             <p className="mb-4 text-sm text-muted-foreground">
-              {t('currentTipAmount')}: ¥{currentAmount.toFixed(2)}
+              {t('currentTipAmount')}: {currencySymbol}{currentAmount.toFixed(2)}
             </p>
 
             <div className="mb-4 space-y-2">
-              <label className="text-sm font-medium">{t('tipAmount')} (¥)</label>
+              <label className="text-sm font-medium">{t('tipAmount')} ({currencySymbol})</label>
               <Input
                 type="number"
                 min="0.01"
-                max="35"
+                max={maxTipAmount}
                 step="0.01"
                 placeholder={t('enterAmount')}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                disabled={paymentMethod === 'paypal'}
               />
-              <p className="text-xs text-muted-foreground">{t('minimumTipAmount')} · {t('maximumTipAmount')}</p>
+              <p className="text-xs text-muted-foreground">{t('minimumTipAmount', { symbol: currencySymbol, min: '0.01' })} · {t('maximumTipAmount', { symbol: currencySymbol, max: maxTipAmount })}</p>
             </div>
 
             <div className="mb-4">
               <label className="mb-2 block text-sm font-medium">{t('paymentMethod')}</label>
-              <PaymentMethodSelector
-                selectedMethod={paymentMethod}
-                onSelect={(method) => {
-                  if (method === 'stripe' || method === 'paypal') setPaymentMethod(method)
-                }}
-                availableMethods={['stripe', 'paypal']}
-              />
+              {paymentDestinationLoading || authorPaymentAccountsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></span>
+                  {tCommon('loading')}
+                </div>
+              ) : isExternalUserNoPayment ? (
+                <p className="text-sm text-destructive">
+                  {t('noPaymentMethodsAvailable') || '作者暂未绑定收款方式，无法接收打赏'}
+                </p>
+              ) : availablePaymentMethods.length === 0 ? (
+                <p className="text-sm text-destructive">
+                  {t('noPaymentMethodsAvailable') || '作者暂未绑定收款方式'}
+                </p>
+              ) : (
+                <PaymentMethodSelector
+                  selectedMethod={paymentMethod}
+                  onSelect={(method) => {
+                    if (method === 'stripe' || method === 'paypal') setPaymentMethod(method)
+                  }}
+                  availableMethods={availablePaymentMethods}
+                />
+              )}
             </div>
 
             {paymentMethod === 'paypal' ? (
@@ -265,7 +338,7 @@ export function TipButton({
                 {amount && parseFloat(amount) > 0 ? (
                   <PayPalButton
                     amount={parseFloat(amount)}
-                    currency="CNY"
+                    currency={currency}
                     metadata={{
                       type: 'tip',
                       postId: postId,
@@ -289,11 +362,7 @@ export function TipButton({
                       })
                     }}
                   />
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center">
-                    {t('enterAmount')}
-                  </p>
-                )}
+                ) : null}
                 <Button
                   variant="outline"
                   onClick={() => setShowModal(false)}

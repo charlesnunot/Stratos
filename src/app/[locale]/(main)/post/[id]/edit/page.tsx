@@ -19,9 +19,11 @@ import {
   ALLOWED_AUDIO_TYPES,
   ALLOWED_VIDEO_TYPES,
 } from '@/lib/storage/upload-media-file'
+import { uploadCoverImage } from '@/lib/storage/upload-cover-image'
+import { extractVideoFirstFrame } from '@/lib/video/extract-first-frame'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { X, Upload, Loader2, Sparkles, MapPin, ArrowLeft, Package } from 'lucide-react'
+import { X, Upload, Loader2, Sparkles, MapPin, ArrowLeft, Package, Gift } from 'lucide-react'
 import { formatCurrency } from '@/lib/currency/format-currency'
 import { useTranslations, useLocale } from 'next-intl'
 import { useAiTask } from '@/lib/ai/useAiTask'
@@ -64,11 +66,16 @@ export default function EditPostPage() {
   const [musicUrl, setMusicUrl] = useState('')
   const [durationSeconds, setDurationSeconds] = useState<number | ''>('')
   const [videoUrl, setVideoUrl] = useState('')
-  const [coverUrl, setCoverUrl] = useState('')
   const [musicFile, setMusicFile] = useState<File | null>(null)
   const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [postTipEnabled, setPostTipEnabled] = useState(true)
   const extractTopicsDebounceRef = useRef<NodeJS.Timeout | null>(null)
   const tGroups = useTranslations('groups')
+
+  // Helper to convert snake_case to PascalCase for translation keys
+  const toPascalCase = (str: string): string => {
+    return str.replace(/(^|_)([a-z])/g, (_, __, letter) => letter.toUpperCase())
+  }
 
   const {
     images,
@@ -147,7 +154,7 @@ export default function EditPostPage() {
       setMusicUrl(p.music_url ?? '')
       setDurationSeconds(p.duration_seconds ?? '')
       setVideoUrl(p.video_url ?? '')
-      setCoverUrl(p.cover_url ?? '')
+      setPostTipEnabled(p.tip_enabled !== false)
       setInitialized(true)
     }
   }, [post, initialized])
@@ -229,12 +236,22 @@ export default function EditPostPage() {
       toast({ variant: 'warning', title: tCommon('error'), description: t('postTypeVideoUrlRequired') })
       return
     }
+    const hasExistingCover =
+      (post.image_urls && post.image_urls.length > 0) || (post as { cover_url?: string | null }).cover_url
+    if (
+      postType === 'short_video' &&
+      allPreviews.length === 0 &&
+      !videoFile &&
+      !hasExistingCover
+    ) {
+      toast({ variant: 'warning', title: tCommon('error'), description: t('shortVideoCoverRequired') })
+      return
+    }
     setLoading(true)
 
     try {
       let finalMusicUrl = musicUrl.trim()
       let finalVideoUrl = videoUrl.trim()
-      let finalCoverUrl = coverUrl.trim()
       if (postType === 'music' && musicFile && user) {
         finalMusicUrl = await uploadMediaFile(supabase, user.id, 'music', musicFile, {
           maxSizeMb: MAX_MUSIC_SIZE_MB,
@@ -249,8 +266,29 @@ export default function EditPostPage() {
       }
 
       const imageUrls = allPreviews.length > 0 ? await uploadImages() : (post.image_urls ?? [])
-      if (postType === 'short_video' && !finalCoverUrl && imageUrls[0]) {
-        finalCoverUrl = imageUrls[0]
+
+      let shortVideoCoverUrl: string | null = null
+      if (postType === 'short_video') {
+        const existingCover = (post as { cover_url?: string | null }).cover_url ?? null
+        if (imageUrls.length > 0) {
+          shortVideoCoverUrl = imageUrls[Math.floor(Math.random() * imageUrls.length)]
+        } else if (videoFile && user) {
+          try {
+            const blob = await extractVideoFirstFrame(videoFile)
+            shortVideoCoverUrl = await uploadCoverImage(supabase, user.id, blob)
+          } catch (e) {
+            console.error('Extract video cover failed:', e)
+            toast({
+              variant: 'destructive',
+              title: tCommon('error'),
+              description: t('shortVideoCoverExtractFailed'),
+            })
+            setLoading(false)
+            return
+          }
+        } else {
+          shortVideoCoverUrl = existingCover
+        }
       }
 
       const topicIds: string[] = []
@@ -287,6 +325,7 @@ export default function EditPostPage() {
         group_id: selectedGroupId || null,
         updated_at: new Date().toISOString(),
         post_type: postType,
+        tip_enabled: postTipEnabled,
       }
       if (postType === 'story') {
         updatePayload.chapter_number = chapterNumber === '' ? null : chapterNumber
@@ -305,7 +344,7 @@ export default function EditPostPage() {
       } else if (postType === 'short_video') {
         updatePayload.video_url = finalVideoUrl || null
         updatePayload.duration_seconds = durationSeconds === '' ? null : durationSeconds
-        updatePayload.cover_url = finalCoverUrl || (imageUrls[0] ?? null)
+        updatePayload.cover_url = shortVideoCoverUrl
         updatePayload.chapter_number = null
         updatePayload.content_length = null
         updatePayload.music_url = null
@@ -413,7 +452,7 @@ export default function EditPostPage() {
                   postType === type ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
                 }`}
               >
-                {t(`postType_${type}`)}
+                {t(`postType${toPascalCase(type)}` as const)}
               </button>
             ))}
           </div>
@@ -561,17 +600,6 @@ export default function EditPostPage() {
               </div>
               <p className="text-xs text-muted-foreground">{t('postType_videoSizeHint', { max: MAX_VIDEO_SIZE_MB })}</p>
               <div>
-                <label className="text-xs text-muted-foreground">{t('postType_coverUrl')}</label>
-                <input
-                  type="url"
-                  value={coverUrl}
-                  onChange={(e) => setCoverUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-                <p className="mt-0.5 text-xs text-muted-foreground">{t('postType_coverHint')}</p>
-              </div>
-              <div>
                 <label className="text-xs text-muted-foreground">{t('postType_durationSeconds')}</label>
                 <input
                   type="number"
@@ -601,6 +629,12 @@ export default function EditPostPage() {
                 disabled={totalImageCount >= 9}
               />
             </label>
+            {postType === 'music' && (
+              <p className="text-xs text-muted-foreground">{t('uploadImagesHintMusic')}</p>
+            )}
+            {postType === 'short_video' && (
+              <p className="text-xs text-muted-foreground">{t('uploadImagesHintShortVideo')}</p>
+            )}
             {allPreviews.length > 0 && (
               <div className="grid grid-cols-3 gap-2">
                 {allPreviews.map((preview, index) => (
@@ -731,6 +765,28 @@ export default function EditPostPage() {
             </div>
           </Card>
         )}
+
+        {/* 打赏开关 */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Gift className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">{t('tipStatus')}</span>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={postTipEnabled}
+                onChange={(e) => setPostTipEnabled(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm">{postTipEnabled ? t('tipEnabled') : t('tipDisabled')}</span>
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {postTipEnabled ? t('tipEnabledHint') : t('tipDisabledForPostHint')}
+          </p>
+        </Card>
 
         <Card className="p-4">
           <div className="flex items-center justify-between gap-2">

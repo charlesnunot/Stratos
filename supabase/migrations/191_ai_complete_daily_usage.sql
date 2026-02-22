@@ -14,9 +14,14 @@ CREATE INDEX IF NOT EXISTS idx_ai_complete_daily_usage_user_date
 
 ALTER TABLE ai_complete_daily_usage ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can read own ai complete usage"
-  ON ai_complete_daily_usage
-  FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'ai_complete_daily_usage' AND policyname = 'Users can read own ai complete usage') THEN
+    CREATE POLICY "Users can read own ai complete usage"
+      ON ai_complete_daily_usage
+      FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 COMMENT ON TABLE ai_complete_daily_usage IS 'Daily AI complete (non-translate_message) usage per user, limit 50/day';

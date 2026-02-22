@@ -72,7 +72,7 @@ export async function POST(
     }
 
     const updatePayload: Record<string, unknown> = {
-      status: 'rejected',
+      status: 'deleted',
     }
     if (type === 'post' || type === 'product') {
       updatePayload.reviewed_by = user.id

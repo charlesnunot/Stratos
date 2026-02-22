@@ -13,6 +13,11 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      console.error('PayPal capture auth error:', authError)
+      // 如果认证错误是刷新令牌问题，尝试重新认证
+      if (authError?.message?.includes('Refresh Token')) {
+        return NextResponse.json({ error: 'Session expired. Please sign in again.' }, { status: 401 })
+      }
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -71,6 +76,9 @@ export async function POST(request: NextRequest) {
 
         // Get subscription tier from metadata
         const subscriptionTier = metadata.subscriptionTier ? parseFloat(metadata.subscriptionTier) : null
+        
+        // Get first month discount flag from metadata
+        const isFirstMonth = metadata.isFirstMonth === 'true'
 
         // Use unified subscription payment processing
         const { processSubscriptionPayment } = await import('@/lib/payments/process-subscription-payment')
@@ -83,6 +91,7 @@ export async function POST(request: NextRequest) {
           currency: captureDetails?.amount?.currency_code?.toUpperCase() || 'USD',
           paymentMethod: 'paypal',
           supabaseAdmin,
+          isFirstMonth,
         })
 
         if (!result.success) {
@@ -91,49 +100,8 @@ export async function POST(request: NextRequest) {
           // This is logged but doesn't fail the PayPal capture
         }
       } else if (paymentType === 'order' && metadata.orderId) {
-        // Handle order: 校验订单归属，避免用户 B 操作用户 A 的订单支付
-        const ourOrderId = metadata.orderId
-        const { data: orderRow, error: orderErr } = await supabaseAdmin
-          .from('orders')
-          .select('id, buyer_id')
-          .eq('id', ourOrderId)
-          .single()
-
-        if (orderErr || !orderRow) {
-          const { logAudit } = await import('@/lib/api/audit')
-          logAudit({
-            action: 'paypal_capture_order',
-            userId: user.id,
-            resourceId: ourOrderId,
-            resourceType: 'order',
-            result: 'fail',
-            timestamp: new Date().toISOString(),
-            meta: { reason: 'order_not_found' },
-          })
-          return NextResponse.json(
-            { error: 'Order not found' },
-            { status: 404 }
-          )
-        }
-
-        if (orderRow.buyer_id !== user.id) {
-          const { logAudit } = await import('@/lib/api/audit')
-          logAudit({
-            action: 'paypal_capture_order',
-            userId: user.id,
-            resourceId: ourOrderId,
-            resourceType: 'order',
-            result: 'forbidden',
-            timestamp: new Date().toISOString(),
-            meta: { reason: 'order_buyer_mismatch' },
-          })
-          return NextResponse.json(
-            { error: 'Not your order' },
-            { status: 403 }
-          )
-        }
-
-        const orderId = ourOrderId
+        // Handle order
+        const orderId = metadata.orderId
         const captureId = captureDetails?.id || orderId // Use capture ID as provider_ref
 
         // Check idempotency: Look for existing payment transaction
@@ -247,18 +215,16 @@ export async function POST(request: NextRequest) {
         if (txError) {
           console.error('Failed to update platform fee transaction:', txError)
         } else {
-          // Create notification (use content_key for i18n)
-          const reason = metadata.reason || 'Platform service fee'
+          // Create notification
+          const reason = metadata.reason || '平台服务费'
           await supabaseAdmin.from('notifications').insert({
             user_id: userId,
             type: 'system',
-            title: 'Platform Fee Payment Successful',
-            content: `Platform fee of ${amount.toFixed(2)} ${currency} paid successfully.`,
+            title: '平台服务费支付成功',
+            content: `您已成功支付平台服务费 ${amount.toFixed(2)} ${currency}。原因：${reason}`,
             related_type: 'order',
             related_id: transactionId,
             link: '/orders',
-            content_key: 'platform_fee_paid',
-            content_params: { amount: amount.toFixed(2), currency, reason },
           })
         }
       } else if (paymentType === 'deposit' && metadata.depositLotId && metadata.userId) {

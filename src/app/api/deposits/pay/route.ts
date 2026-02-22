@@ -9,6 +9,9 @@ import { createCheckoutSession } from '@/lib/payments/stripe'
 import { checkSellerDepositRequirement } from '@/lib/deposits/check-deposit-requirement'
 import { checkSellerPermission } from '@/lib/auth/check-subscription'
 import { logAudit } from '@/lib/api/audit'
+import { isCurrencySupportedByPaymentMethod } from '@/lib/payments/currency-payment-support'
+import type { PaymentMethodId } from '@/lib/payments/currency-payment-support'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +39,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Direct sellers do not need deposit (platform collects)
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('seller_type')
+      .eq('id', user.id)
+      .single()
+    if ((profile as { seller_type?: string } | null)?.seller_type === 'direct') {
+      return NextResponse.json(
+        { error: 'Direct sellers do not need to pay deposit. Platform collects payments.' },
+        { status: 400 }
+      )
+    }
+
     const { amount, currency = 'USD', paymentMethod = 'stripe' } = await request.json()
+
+    const normalizedCurrency = (currency?.toString() || 'USD').toUpperCase() as Currency
+    if (!isCurrencySupportedByPaymentMethod(normalizedCurrency, paymentMethod as PaymentMethodId)) {
+      return NextResponse.json(
+        { error: 'This payment method does not support the selected currency. Please choose another payment method.' },
+        { status: 400 }
+      )
+    }
 
     // Validate required fields
     if (!amount) {
@@ -82,7 +106,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Create new deposit lot
-      const { data: subscription } = await supabaseAdmin
+      const { data: subscription, error } = await supabase
         .from('subscriptions')
         .select('subscription_tier')
         .eq('user_id', user.id)
@@ -91,7 +115,7 @@ export async function POST(request: NextRequest) {
         .gt('expires_at', new Date().toISOString())
         .order('subscription_tier', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
       const { data: newLot, error: lotError } = await supabaseAdmin
         .from('seller_deposit_lots')

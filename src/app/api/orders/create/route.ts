@@ -2,27 +2,21 @@
  * Order creation API
  * Supports multiple products and multiple sellers (creates separate orders per seller)
  * Note: Deposit check is now done at payment time, not at order creation
- * Rate limit: 10 orders/minute per user (anti-spam).
- * 
- * 审计日志规范：
- * - 记录订单创建操作
- * - 不记录敏感信息（如完整地址、支付账户）
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { validateSellerPaymentReady } from '@/lib/payments/validate-seller-payment-ready'
-import { logAudit } from '@/lib/api/audit'
-import { withApiLogging } from '@/lib/api/logger'
-import { RateLimitConfigs } from '@/lib/api/rate-limit'
 
 interface OrderItem {
   product_id: string
   quantity: number
   price: number
+  color?: string | null
+  size?: string | null
 }
 
-async function createOrderHandler(request: NextRequest) {
+export async function POST(request: NextRequest) {
   let userId: string | undefined
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -71,20 +65,28 @@ async function createOrderHandler(request: NextRequest) {
       affiliate_post_id: bodyAffiliatePostId,
     } = body
 
-    // Get affiliate_post_id with priority: request body > cookie
+    // 🔒 新归因系统：优先读取 checkout_lock_id
+    const checkoutLockId = request.cookies.get('checkout_lock_id')?.value || null
+    const affiliateVisitorId = request.cookies.get('affiliate_visitor_id')?.value || null
+    
+    // 🔒 过渡期：兼容旧的 affiliate_post_id 逻辑
+    const FALLBACK_DEADLINE = new Date('2026-04-01')
     let affiliatePostId: string | null = bodyAffiliatePostId || null
-    if (!affiliatePostId) {
-      // Try to get from cookie
-      const cookieHeader = request.headers.get('cookie')
-      if (cookieHeader) {
-        const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-          const [name, value] = cookie.trim().split('=')
-          if (name && value) {
-            acc[name] = value
-          }
-          return acc
-        }, {} as Record<string, string>)
-        affiliatePostId = cookies['affiliate_post_id'] || null
+    
+    // 如果没有新的 checkout_lock_id，尝试读取旧的 affiliate_post_id（过渡期）
+    if (!checkoutLockId && new Date() < FALLBACK_DEADLINE) {
+      if (!affiliatePostId) {
+        const cookieHeader = request.headers.get('cookie')
+        if (cookieHeader) {
+          const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+            const [name, value] = cookie.trim().split('=')
+            if (name && value) {
+              acc[name] = value
+            }
+            return acc
+          }, {} as Record<string, string>)
+          affiliatePostId = cookies['affiliate_post_id'] || null
+        }
       }
     }
 
@@ -118,7 +120,7 @@ async function createOrderHandler(request: NextRequest) {
     // Fetch products using user-authenticated client (fixes "permission denied for schema public")
     let query = supabase
       .from('products')
-      .select('id, status, stock, seller_id, price, name')
+      .select('id, status, stock, seller_id, price, shipping_fee, name, commission_rate')
 
     if (productIds.length === 1) {
       query = query.eq('id', productIds[0])
@@ -275,10 +277,20 @@ async function createOrderHandler(request: NextRequest) {
     // Calculate total amount for all sellers (for parent order)
     let allSellersTotal = 0
     for (const [sellerId, sellerItems] of Array.from(itemsBySeller.entries())) {
-      const totalAmount = sellerItems.reduce(
-        (sum: number, item: OrderItem) => sum + item.price * item.quantity,
-        0
-      )
+      let productSubtotal = 0
+      let maxShippingFee = 0
+      
+      for (const item of sellerItems) {
+        const product = productMap.get(item.product_id)!
+        productSubtotal += item.price * item.quantity
+        // Get the maximum shipping fee for this seller's products
+        const shippingFee = product.shipping_fee ?? 0
+        if (shippingFee > maxShippingFee) {
+          maxShippingFee = shippingFee
+        }
+      }
+      
+      const totalAmount = productSubtotal + maxShippingFee
       allSellersTotal += totalAmount
     }
 
@@ -428,6 +440,7 @@ async function createOrderHandler(request: NextRequest) {
           sellerId,
           supabaseAdmin,
           paymentMethod: payment_method || undefined, // Pass payment method if provided
+          currency: currency || 'USD', // Pass order currency for platform account lookup
         })
 
         if (!validationResult.canAcceptPayment) {
@@ -454,10 +467,20 @@ async function createOrderHandler(request: NextRequest) {
         const sellerProfile = profileMap.get(sellerId)
 
         // Calculate total amount for this seller's order
-        const totalAmount = sellerItems.reduce(
-          (sum: number, item: OrderItem) => sum + item.price * item.quantity,
-          0
-        )
+        let productSubtotal = 0
+        let maxShippingFee = 0
+        
+        for (const item of sellerItems) {
+          const product = productMap.get(item.product_id)!
+          productSubtotal += item.price * item.quantity
+          // Get the maximum shipping fee for this seller's products
+          const shippingFee = product.shipping_fee ?? 0
+          if (shippingFee > maxShippingFee) {
+            maxShippingFee = shippingFee
+          }
+        }
+        
+        const totalAmount = productSubtotal + maxShippingFee
 
         // Deposit check is now done at payment time, not at order creation
         // This allows orders to be created even if deposit is required
@@ -587,6 +610,7 @@ async function createOrderHandler(request: NextRequest) {
             quantity: sellerItems.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0), // Total quantity
             unit_price: firstItem.price, // First item price for compatibility
             total_amount: totalAmount,
+            shipping_fee: maxShippingFee,
             currency,
             payment_method: sellerPaymentMethod, // Payment method determined by seller's account
             payment_status: 'pending',
@@ -623,6 +647,8 @@ async function createOrderHandler(request: NextRequest) {
           product_id: item.product_id,
           quantity: item.quantity,
           price: item.price,
+          color: item.color || null,
+          size: item.size || null,
         }))
 
         const { error: itemsError } = await supabaseAdmin
@@ -642,20 +668,96 @@ async function createOrderHandler(request: NextRequest) {
 
         createdOrders.push(order)
 
-        // 记录订单创建审计日志
-        logAudit({
-          action: 'create_order',
-          userId: user.id,
-          resourceId: order.id,
-          resourceType: 'order',
-          result: 'success',
-          timestamp: new Date().toISOString(),
-          meta: {
-            sellerId: sellerId.substring(0, 8) + '...',
-            itemCount: sellerItems.length,
-            hasAffiliate: !!orderAffiliatePostId,
-          },
-        })
+        // 🔒 新归因系统：处理 checkout_lock 归因
+        if (checkoutLockId && !orderAffiliateId) {
+          try {
+            // 尝试消费 checkout_lock
+            const { data: lockResult, error: lockError } = await supabaseAdmin
+              .rpc('consume_checkout_lock', {
+                p_lock_id: checkoutLockId,
+                p_order_id: order.id,
+                p_visitor_id: affiliateVisitorId,
+                p_user_id: user.id
+              })
+            
+            if (lockResult && lockResult.length > 0) {
+              const clickId = lockResult[0].click_id
+              
+              // 获取 click 信息
+              const { data: clickData } = await supabaseAdmin
+                .from('affiliate_clicks')
+                .select('affiliate_id, product_id')
+                .eq('id', clickId)
+                .single()
+              
+              if (clickData && clickData.affiliate_id !== user.id) {
+                // 更新订单的归因字段
+                await supabaseAdmin
+                  .from('orders')
+                  .update({
+                    click_id: clickId,
+                    checkout_lock_id: checkoutLockId
+                  })
+                  .eq('id', order.id)
+                
+                // 更新 click 的 order_id
+                await supabaseAdmin
+                  .from('affiliate_clicks')
+                  .update({ order_id: order.id })
+                  .eq('id', clickId)
+                
+                // 获取商品佣金率
+                const product = productMap.get(clickData.product_id)
+                const commissionRate = product?.commission_rate || 0
+                
+                if (commissionRate > 0) {
+                  const commissionAmount = totalAmount * commissionRate / 100
+                  
+                  // 创建 snapshot
+                  const { data: snapshot } = await supabaseAdmin
+                    .from('affiliate_attribution_snapshot')
+                    .insert({
+                      order_id: order.id,
+                      click_id: clickId,
+                      checkout_lock_id: checkoutLockId,
+                      affiliate_id: clickData.affiliate_id,
+                      product_id: clickData.product_id,
+                      commission_rate: commissionRate,
+                      commission_amount: commissionAmount,
+                      order_currency: currency,
+                      order_total: totalAmount,
+                      order_quantity: sellerItems.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0)
+                    })
+                    .select('id')
+                    .single()
+                  
+                  // 创建 ledger entry
+                  if (snapshot) {
+                    await supabaseAdmin
+                      .from('commission_ledger')
+                      .insert({
+                        snapshot_id: snapshot.id,
+                        affiliate_id: clickData.affiliate_id,
+                        order_id: order.id,
+                        amount: commissionAmount,
+                        entry_type: 'commission',
+                        description: `Commission for order ${order.order_number}`
+                      })
+                  }
+                }
+                
+                console.log('[orders/create] Attribution successful:', {
+                  orderId: order.id,
+                  clickId,
+                  affiliateId: clickData.affiliate_id
+                })
+              }
+            }
+          } catch (attrError) {
+            console.error('[orders/create] Attribution error:', attrError)
+            // 不影响订单创建
+          }
+        }
 
         // Send notification to seller about pending payment order
         if (order.seller_id) {
@@ -663,17 +765,12 @@ async function createOrderHandler(request: NextRequest) {
             await supabaseAdmin.from('notifications').insert({
               user_id: order.seller_id,
               type: 'order',
-              title: 'New Order Pending Payment',
-              content: `You received a new order ${order.order_number}, amount ¥${totalAmount.toFixed(2)}, awaiting buyer payment`,
+              title: '新订单待支付',
+              content: `您收到了一个新订单 ${order.order_number}，金额 ¥${totalAmount.toFixed(2)}，等待买家支付`,
               related_id: order.id,
               related_type: 'order',
               link: `/orders/${order.id}`,
-              actor_id: user.id,
-              content_key: 'order_pending_payment',
-              content_params: {
-                orderNumber: order.order_number,
-                amount: totalAmount.toFixed(2),
-              },
+              actor_id: user.id, // 买家 ID
             })
           } catch (notificationError) {
             // Log error but don't fail order creation
@@ -762,7 +859,3 @@ async function createOrderHandler(request: NextRequest) {
     })
   }
 }
-
-export const POST = withApiLogging(createOrderHandler, {
-  rateLimitConfig: RateLimitConfigs.ORDER_CREATE,
-})

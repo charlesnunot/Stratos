@@ -1,26 +1,41 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { useRouter } from '@/i18n/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useImageUpload } from '@/lib/hooks/useImageUpload'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/lib/hooks/useToast'
+import { useAiTask } from '@/lib/ai/useAiTask'
 import { createClient } from '@/lib/supabase/client'
-import { logAudit } from '@/lib/api/audit'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { X, Upload, Loader2, Plus, Trash2, Sparkles } from 'lucide-react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { SalesCountriesSelector } from '@/components/ecommerce/SalesCountriesSelector'
+import { type SalesCountryCode } from '@/lib/constants/sales-countries'
+import { X, Upload, Loader2, Plus, Trash2, RefreshCw } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
-import type { Currency } from '@/lib/currency/detect-currency'
-import { useAiTask } from '@/lib/ai/useAiTask'
+import { type Currency } from '@/lib/currency/detect-currency'
+import { getDisplayContent } from '@/lib/ai/display-translated'
 
 const CURRENCIES: Currency[] = ['USD', 'CNY', 'EUR', 'GBP', 'JPY', 'KRW', 'SGD', 'HKD', 'AUD', 'CAD']
+
+function adjustColorOptionsAfterRemoveImage(
+  colorOptions: Array<{ name: string; image_url: string | null; image_from_index: number | null }>,
+  removedCombinedIndex: number
+) {
+  return colorOptions.map((opt) => {
+    if (opt.image_from_index === null) return opt
+    if (opt.image_from_index === removedCombinedIndex)
+      return { ...opt, image_from_index: null }
+    if (opt.image_from_index > removedCombinedIndex)
+      return { ...opt, image_from_index: opt.image_from_index - 1 }
+    return opt
+  })
+}
 
 export default function EditProductPage() {
   const router = useRouter()
@@ -32,35 +47,51 @@ export default function EditProductPage() {
   const queryClient = useQueryClient()
   const t = useTranslations('seller')
   const tCommon = useTranslations('common')
-  const tAi = useTranslations('ai')
-  const locale = useLocale()
-  const contentLang = locale === 'zh' ? 'zh' : 'en'
-  const { runTask, loading: aiLoading } = useAiTask()
-  
+  const locale = useLocale() as 'zh' | 'en'
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
-    currency: 'USD' as Currency,
     stock: '0',
     category: '',
+    currency: 'USD' as Currency,
     allow_affiliate: false,
     commission_rate: '',
     details: '',
     faq: [] as Array<{ question: string; answer: string }>,
+    color_options: [] as Array<{ name: string; image_url: string | null; image_from_index: number | null }>,
+    sizes: [] as string[],
+    allow_search: true,
+    show_to_guests: true,
+    visibility: 'public' as 'public' | 'followers_only' | 'following_only' | 'self_only',
+    sales_countries: [] as SalesCountryCode[],
+    condition: null as string | null,
+    shipping_fee: '0',
   })
-  
+
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [imageUrlInput, setImageUrlInput] = useState('')
+  
+  // AI Category generation
+  const { runTask, loading: aiLoading, error: aiError } = useAiTask()
+  const [aiCategory, setAiCategory] = useState('')
+  const [isGeneratingCategory, setIsGeneratingCategory] = useState(false)
+  const categoryGenerationRef = useRef<NodeJS.Timeout | null>(null)
+  const didInitForm = useRef(false)
 
   const {
     images,
     imagePreviews,
     existingImages,
+    externalUrls,
     uploading,
     handleImageSelect,
     removeImage,
     removeExistingImage,
+    addExternalUrl,
+    removeExternalUrl,
     uploadImages,
     setExistingImages,
     totalImageCount,
@@ -90,7 +121,9 @@ export default function EditProductPage() {
 
   // Populate form when product data loads
   useEffect(() => {
-    if (product) {
+    if (product && !didInitForm.current) {
+      didInitForm.current = true
+      
       // Parse FAQ if it's a string
       let parsedFaq: Array<{ question: string; answer: string }> = []
       if (product.faq) {
@@ -104,23 +137,142 @@ export default function EditProductPage() {
         }
       }
 
+      const productImages = Array.isArray(product.images) ? product.images as string[] : []
+      let colorOpts: Array<{ name: string; image_url: string | null; image_from_index: number | null }> = []
+      if (product.color_options && Array.isArray(product.color_options)) {
+        colorOpts = (product.color_options as Array<{ name?: string; image_url?: string | null }>).map((o) => {
+          const url = o?.image_url && typeof o.image_url === 'string' ? o.image_url : null
+          const idx = url ? productImages.indexOf(url) : -1
+          return {
+            name: (o?.name && String(o.name)) || '',
+            image_url: url,
+            image_from_index: idx >= 0 ? idx : null,
+          }
+        })
+      }
+
+      // Display content based on locale and content_lang
+      const displayName = getDisplayContent(
+        locale,
+        product.content_lang ?? null,
+        product.name,
+        product.name_translated
+      )
+      const displayDescription = getDisplayContent(
+        locale,
+        product.content_lang ?? null,
+        product.description,
+        product.description_translated
+      )
+      const displayDetails = getDisplayContent(
+        locale,
+        product.content_lang ?? null,
+        product.details,
+        product.details_translated
+      )
+
+      // FAQ: choose based on locale and content_lang
+      let displayFaq = parsedFaq
+      if (product.faq_translated && Array.isArray(product.faq_translated)) {
+        const wantZh = locale === 'zh'
+        const isZh = product.content_lang === 'zh' || (product.content_lang !== 'en' && parsedFaq[0]?.question?.includes('？'))
+        if (wantZh !== isZh) {
+          displayFaq = product.faq_translated
+        }
+      }
+
       setFormData({
-        name: product.name || '',
-        description: product.description || '',
+        name: displayName,
+        description: displayDescription,
         price: product.price?.toString() || '',
-        currency: (product.currency && CURRENCIES.includes(product.currency as Currency)) ? (product.currency as Currency) : 'USD',
+        currency: (product.currency as Currency) || 'USD',
+        shipping_fee: (product.shipping_fee ?? 0).toString(),
         stock: product.stock?.toString() || '0',
         category: product.category || '',
         allow_affiliate: product.allow_affiliate || false,
         commission_rate: product.commission_rate?.toString() || '',
-        details: product.details || '',
-        faq: parsedFaq,
+        details: displayDetails,
+        faq: displayFaq,
+        color_options: colorOpts,
+        sizes: Array.isArray(product.sizes) ? (product.sizes as string[]) : (product.size ? [String(product.size)] : []),
+        allow_search: product.allow_search ?? true,
+        show_to_guests: product.show_to_guests ?? true,
+        visibility: (product.visibility as 'public' | 'followers_only' | 'following_only' | 'self_only') || 'public',
+        sales_countries: (product.sales_countries || []) as SalesCountryCode[],
+        condition: product.condition ?? null,
       })
       if (product.images) {
         setExistingImages(product.images)
       }
+      // Set initial AI category from existing product category
+      setAiCategory(product.category || '')
     }
   }, [product])
+
+  // Auto-generate category using AI when name and description change
+  useEffect(() => {
+    const generateCategory = async () => {
+      if (!formData.name.trim() || !formData.description.trim()) {
+        return
+      }
+
+      setIsGeneratingCategory(true)
+      try {
+        const input = `商品名称: ${formData.name}\n商品描述: ${formData.description}`
+        const result = await runTask({
+          task: 'suggest_category',
+          input,
+        })
+        if (result.result) {
+          setAiCategory(result.result)
+          setFormData(prev => ({ ...prev, category: result.result || '' }))
+        }
+      } catch (error) {
+        console.error('Error generating category:', error)
+      } finally {
+        setIsGeneratingCategory(false)
+      }
+    }
+
+    // Clear previous timeout
+    if (categoryGenerationRef.current) {
+      clearTimeout(categoryGenerationRef.current)
+    }
+
+    // Debounce for 500ms
+    categoryGenerationRef.current = setTimeout(() => {
+      generateCategory()
+    }, 500)
+
+    return () => {
+      if (categoryGenerationRef.current) {
+        clearTimeout(categoryGenerationRef.current)
+      }
+    }
+  }, [formData.name, formData.description, runTask])
+
+  const handleRegenerateCategory = async () => {
+    if (!formData.name.trim() || !formData.description.trim()) {
+      return
+    }
+
+    setIsGeneratingCategory(true)
+    try {
+      const input = `商品名称: ${formData.name}\n商品描述: ${formData.description}`
+      const result = await runTask({
+        task: 'suggest_category',
+        input,
+      })
+      if (result.result) {
+        setAiCategory(result.result)
+        setFormData(prev => ({ ...prev, category: result.result || '' }))
+      }
+    } catch (error) {
+      console.error('Error regenerating category:', error)
+    } finally {
+      setIsGeneratingCategory(false)
+    }
+  }
 
   // Wait for auth to load before checking user
   useEffect(() => {
@@ -172,8 +324,12 @@ export default function EditProductPage() {
       newErrors.price = tCommon('error')
     }
 
-    if (existingImages.length + images.length === 0) {
+    if (existingImages.length + externalUrls.length + images.length === 0) {
       newErrors.images = tCommon('error')
+    }
+
+    if (!formData.category || !formData.category.trim()) {
+      newErrors.category = t('categoryRequired') || '商品分类不能为空，请确保填写商品名称和描述以生成分类'
     }
 
     if (formData.allow_affiliate) {
@@ -192,25 +348,200 @@ export default function EditProductPage() {
     return Object.keys(newErrors).length === 0
   }
 
+  const handleRemoveExistingImage = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      color_options: adjustColorOptionsAfterRemoveImage(prev.color_options, index),
+    }))
+    removeExistingImage(index)
+  }
+
+  const handleAddUrl = () => {
+    addExternalUrl(imageUrlInput)
+    setImageUrlInput('')
+  }
+
+  const handleRemoveExternalUrl = (index: number) => {
+    const combinedIndex = existingImages.length + index
+    setFormData((prev) => ({
+      ...prev,
+      color_options: adjustColorOptionsAfterRemoveImage(prev.color_options, combinedIndex),
+    }))
+    removeExternalUrl(index)
+  }
+
+  const handleRemoveNewImage = (previewIndex: number) => {
+    const combinedIndex = existingImages.length + externalUrls.length + previewIndex
+    setFormData((prev) => ({
+      ...prev,
+      color_options: adjustColorOptionsAfterRemoveImage(prev.color_options, combinedIndex),
+    }))
+    removeImage(previewIndex)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
       return
     }
+
     setLoading(true)
 
     try {
-      // Upload new images (uploadImages already includes existing images)
-      const allImageUrls = await uploadImages()
+      const uploadedUrls = await uploadImages()
 
-      // Prepare product data（content_lang 先用页面语言，审核通过时翻译接口会检测并修正）
-      const productData: any = {
-        name: formData.name.trim(),
-        description: formData.description.trim() || null,
-        content_lang: (formData.name.trim() || formData.description.trim()) ? contentLang : null,
+      // Import external URLs to Supabase if any
+      let importedUrls: string[] = []
+      const externalToImportedMap = new Map<string, string>()
+      if (externalUrls.length > 0) {
+        try {
+          const response = await fetch('/api/seller/upload-images-from-urls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls: externalUrls }),
+          })
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Failed to import external images')
+          }
+          const data = await response.json()
+          importedUrls = data.urls || []
+          // Build mapping from external URL to imported URL
+          externalUrls.forEach((externalUrl, index) => {
+            if (importedUrls[index]) {
+              externalToImportedMap.set(externalUrl, importedUrls[index])
+            }
+          })
+        } catch (error: any) {
+          console.error('Failed to import external images:', error)
+          toast({
+            variant: 'destructive',
+            title: tCommon('error'),
+            description: t('importImagesFailed') || 'Failed to import external images: ' + (error.message || tCommon('retry')),
+          })
+          throw error
+        }
+      }
+
+      // Build UI order to mapped order mapping
+      const uiOrder = [...existingImages, ...externalUrls, ...imagePreviews]
+      const mappedOrder = [...existingImages, ...importedUrls, ...uploadedUrls]
+
+      // Create mapping from UI index to mapped index
+      const uiToMappedIndex = new Map<number, number>()
+      uiOrder.forEach((url, uiIndex) => {
+        // Find the corresponding URL in mappedOrder
+        const mappedIndex = mappedOrder.findIndex(mappedUrl => {
+          // For existing images, match directly
+          if (uiIndex < existingImages.length) {
+            return existingImages[uiIndex] === mappedUrl
+          }
+          // For external URLs, match with importedUrls
+          else if (uiIndex < existingImages.length + externalUrls.length) {
+            const externalIndex = uiIndex - existingImages.length
+            return importedUrls[externalIndex] === mappedUrl
+          }
+          // For uploaded URLs, match directly
+          else {
+            const uploadedIndex = uiIndex - existingImages.length - externalUrls.length
+            return uploadedUrls[uploadedIndex] === mappedUrl
+          }
+        })
+        if (mappedIndex !== -1) {
+          uiToMappedIndex.set(uiIndex, mappedIndex)
+        }
+      })
+
+      // Replace external URLs in existingImages with imported URLs
+      const cleanedExistingImages = existingImages.map(url => externalToImportedMap.get(url) ?? url)
+
+      // Combine cleaned existing, uploaded and imported URLs
+      const allImageUrls = mappedOrder
+
+      // Prepare color options data
+      const colorOptionsPayload = formData.color_options
+        .filter((o) => o?.name && String(o.name).trim())
+        .map((o) => {
+          let imageUrl: string | null
+          if (o!.image_from_index != null) {
+            // Get the mapped index from UI index
+            const mappedIndex = uiToMappedIndex.get(o.image_from_index)
+            if (mappedIndex != null && allImageUrls[mappedIndex] != null) {
+              imageUrl = allImageUrls[mappedIndex]!
+            } else if (o!.image_url?.trim()) {
+              imageUrl = externalToImportedMap.get(o!.image_url.trim()) ?? o!.image_url.trim()
+            } else {
+              imageUrl = null
+            }
+          } else if (o!.image_url?.trim()) {
+            imageUrl = externalToImportedMap.get(o!.image_url.trim()) ?? o!.image_url.trim()
+          } else {
+            imageUrl = null
+          }
+          return {
+            name: String(o!.name).trim(),
+            image_url: imageUrl,
+          }
+        })
+      const sizesPayload = (formData.sizes ?? []).map((s) => s.trim()).filter(Boolean)
+
+      // Determine if editing original or translated content
+      const contentLang = (product.content_lang as 'zh' | 'en') ?? 'zh'
+      const isEditingOriginal = locale === contentLang
+
+      // Check if critical fields have changed
+      const priceChanged = parseFloat(formData.price) !== (product.price ?? 0)
+      const stockChanged = parseInt(formData.stock) !== (product.stock ?? 0)
+      const categoryChanged = formData.category.trim() !== (product.category ?? '')
+      const imagesChanged = JSON.stringify(allImageUrls) !== JSON.stringify(product.images ?? [])
+      const allowAffiliateChanged = formData.allow_affiliate !== (product.allow_affiliate ?? false)
+      const commissionRateChanged = formData.allow_affiliate
+        ? parseFloat(formData.commission_rate) !== (product.commission_rate ?? 0)
+        : product.commission_rate !== null
+      const colorOptionsChanged = JSON.stringify(colorOptionsPayload) !== JSON.stringify(product.color_options ?? [])
+      const sizesChanged = JSON.stringify(sizesPayload) !== JSON.stringify(product.sizes ?? [])
+      const allowSearchChanged = formData.allow_search !== (product.allow_search ?? true)
+      const showToGuestsChanged = formData.show_to_guests !== (product.show_to_guests ?? true)
+      const visibilityChanged = formData.visibility !== (product.visibility ?? 'public')
+      const salesCountriesChanged = JSON.stringify(formData.sales_countries) !== JSON.stringify(product.sales_countries ?? [])
+      const conditionChanged = formData.condition !== (product.condition ?? null)
+      const shippingFeeChanged = parseFloat(formData.shipping_fee) !== (product.shipping_fee ?? 0)
+
+      const changedCriticalFields =
+        priceChanged ||
+        stockChanged ||
+        categoryChanged ||
+        imagesChanged ||
+        allowAffiliateChanged ||
+        commissionRateChanged ||
+        colorOptionsChanged ||
+        sizesChanged ||
+        allowSearchChanged ||
+        showToGuestsChanged ||
+        visibilityChanged ||
+        salesCountriesChanged ||
+        conditionChanged ||
+        shippingFeeChanged
+
+      // Determine if re-review is needed
+      const shouldReReview = isEditingOriginal || changedCriticalFields
+
+      // Debug: Log condition value
+      console.log('Condition being sent:', formData.condition)
+      
+      const processedCondition = (() => {
+        const validConditions = new Set(['new', 'like_new', 'ninety_five', 'ninety', 'eighty', 'seventy_or_below'])
+        const condition = formData.condition?.trim()
+        const result = condition && validConditions.has(condition) ? condition : null
+        console.log('Processed condition:', result)
+        return result
+      })()
+      
+      const productData: Record<string, unknown> = {
         price: parseFloat(formData.price),
         currency: formData.currency,
+        shipping_fee: parseFloat(formData.shipping_fee) || 0,
         stock: parseInt(formData.stock) || 0,
         category: formData.category.trim() || null,
         images: allImageUrls,
@@ -218,16 +549,35 @@ export default function EditProductPage() {
         commission_rate: formData.allow_affiliate && formData.commission_rate
           ? parseFloat(formData.commission_rate)
           : null,
-        details: formData.details.trim() || null,
-        faq: formData.faq.length > 0 ? formData.faq : null,
-        // If editing an active product, set to pending for re-review to ensure content compliance
-        // Only keep 'sold' status as it indicates the product is no longer available
-        status: product.status === 'sold' 
-          ? product.status 
-          : 'pending',
-        // Clear review fields when status changes to pending (for re-review)
-        reviewed_by: product.status === 'sold' ? product.reviewed_by : null,
-        reviewed_at: product.status === 'sold' ? product.reviewed_at : null,
+        color_options: colorOptionsPayload,
+        sizes: sizesPayload,
+        size: sizesPayload[0] ?? null,
+        allow_search: formData.allow_search,
+        show_to_guests: formData.show_to_guests,
+        visibility: formData.visibility,
+        sales_countries: formData.sales_countries,
+        condition: processedCondition,
+        ...(shouldReReview
+          ? {
+              status: product.status === 'sold' ? product.status : 'pending',
+              reviewed_by: product.status === 'sold' ? product.reviewed_by : null,
+              reviewed_at: product.status === 'sold' ? product.reviewed_at : null,
+            }
+          : {}),
+        ...(isEditingOriginal
+          ? {
+              name: formData.name.trim(),
+              description: formData.description.trim() || null,
+              details: formData.details.trim() || null,
+              faq: formData.faq.length > 0 ? formData.faq : null,
+            }
+          : {
+              name_translated: formData.name.trim() || null,
+              description_translated: formData.description.trim() || null,
+              details_translated: formData.details.trim() || null,
+              faq_translated: formData.faq.length > 0 ? formData.faq : null,
+            }
+        ),
       }
 
       // Update product
@@ -235,21 +585,12 @@ export default function EditProductPage() {
         .from('products')
         .update(productData)
         .eq('id', productId)
+        .eq('seller_id', user.id)
 
       if (updateError) throw updateError
 
-      logAudit({
-        action: 'update_product',
-        userId: user!.id,
-        resourceId: productId,
-        resourceType: 'product',
-        result: 'success',
-        timestamp: new Date().toISOString(),
-      })
+      localStorage.setItem('seller_create_sales_countries', JSON.stringify(formData.sales_countries))
 
-      // 自动翻译改为审核通过后触发，避免未通过审核时浪费 AI 资源
-
-      // Invalidate related queries to refresh cache
       queryClient.invalidateQueries({ queryKey: ['sellerProducts', user?.id] })
       queryClient.invalidateQueries({ queryKey: ['product', productId] })
 
@@ -259,7 +600,7 @@ export default function EditProductPage() {
       console.error('Error updating product:', error)
       toast({
         variant: 'destructive',
-        title: '错误',
+        title: tCommon('error'),
         description: t('updateFailed') + ': ' + (error.message || tCommon('retry')),
       })
     } finally {
@@ -298,11 +639,6 @@ export default function EditProductPage() {
           />
         </Card>
 
-        <Alert className="text-sm text-muted-foreground">
-          <Sparkles className="h-4 w-4" />
-          <AlertDescription>{t('autoTranslateHint')}</AlertDescription>
-        </Alert>
-
         {/* Product Details */}
         <Card className="p-4">
           <Label className="mb-2 block text-sm font-medium">
@@ -311,11 +647,11 @@ export default function EditProductPage() {
           <Textarea
             value={formData.details}
             onChange={(e) => setFormData({ ...formData, details: e.target.value })}
-            placeholder={t('productDetailsPlaceholder') || '例如：颜色、尺寸、材质等详细信息...'}
+            placeholder={t('productDetailsPlaceholder')}
             rows={6}
           />
           <p className="mt-1 text-sm text-muted-foreground">
-            {t('productDetailsHint') || '商品的详细信息，如颜色、尺寸、材质等，将显示在商品详情页面的 Details 标签页中'}
+            {t('productDetailsHint')}
           </p>
         </Card>
 
@@ -343,7 +679,7 @@ export default function EditProductPage() {
                   </Button>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">问题</Label>
+                  <Label className="text-xs text-muted-foreground">{t('faqQuestion')}</Label>
                   <Input
                     type="text"
                     value={faq.question}
@@ -352,12 +688,12 @@ export default function EditProductPage() {
                       newFaq[index].question = e.target.value
                       setFormData({ ...formData, faq: newFaq })
                     }}
-                    placeholder={t('faqQuestionPlaceholder') || '输入问题...'}
+                    placeholder={t('faqQuestionPlaceholder')}
                     disabled={loading || uploading}
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">答案</Label>
+                  <Label className="text-xs text-muted-foreground">{t('faqAnswer')}</Label>
                   <Textarea
                     value={faq.answer}
                     onChange={(e) => {
@@ -365,7 +701,7 @@ export default function EditProductPage() {
                       newFaq[index].answer = e.target.value
                       setFormData({ ...formData, faq: newFaq })
                     }}
-                    placeholder={t('faqAnswerPlaceholder') || '输入答案...'}
+                    placeholder={t('faqAnswerPlaceholder')}
                     rows={3}
                     disabled={loading || uploading}
                   />
@@ -384,16 +720,16 @@ export default function EditProductPage() {
               disabled={loading || uploading}
             >
               <Plus className="mr-2 h-4 w-4" />
-              {t('addFAQ') || '添加 FAQ'}
+              {t('addFAQ')}
             </Button>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            {t('faqHint') || '添加常见问题，将显示在商品详情页面的 FAQs & Policies 标签页中'}
+            {t('faqHint')}
           </p>
         </Card>
 
-        {/* Price, Currency and Stock */}
-        <div className="grid gap-4 md:grid-cols-3">
+        {/* Price and Stock */}
+        <div className="grid gap-4 md:grid-cols-2">
           <Card className="p-4">
             <label className="mb-2 block text-sm font-medium">
               {t('productPrice')} <span className="text-destructive">*</span>
@@ -407,12 +743,13 @@ export default function EditProductPage() {
               placeholder="0.00"
               className={errors.price ? 'border-destructive' : ''}
             />
-            <p className="mt-1 text-xs text-muted-foreground">{t('priceUnitHint')}</p>
             {errors.price && <p className="mt-1 text-sm text-destructive">{errors.price}</p>}
           </Card>
 
           <Card className="p-4">
-            <label className="mb-2 block text-sm font-medium">{t('currency')}</label>
+            <label className="mb-2 block text-sm font-medium">
+              {t('currency')} <span className="text-destructive">*</span>
+            </label>
             <select
               value={formData.currency}
               onChange={(e) => setFormData({ ...formData, currency: e.target.value as Currency })}
@@ -424,7 +761,6 @@ export default function EditProductPage() {
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-muted-foreground">{t('currencyHint')}</p>
           </Card>
 
           <Card className="p-4">
@@ -439,54 +775,79 @@ export default function EditProductPage() {
             />
             {errors.stock && <p className="mt-1 text-sm text-destructive">{errors.stock}</p>}
           </Card>
+
+          <Card className="p-4">
+            <label className="mb-2 block text-sm font-medium">{t('shippingFee')}</label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.shipping_fee}
+              onChange={(e) => setFormData({ ...formData, shipping_fee: e.target.value })}
+              placeholder={t('shippingFeePlaceholder')}
+              className={errors.shipping_fee ? 'border-destructive' : ''}
+              disabled={loading || uploading}
+            />
+            {errors.shipping_fee && <p className="mt-1 text-sm text-destructive">{errors.shipping_fee}</p>}
+          </Card>
         </div>
 
-        {/* Category */}
+        {/* AI Category */}
         <Card className="p-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <label className="text-sm font-medium">{t('category')}</label>
-            <Button
+          <div className="mb-2 flex items-center justify-between">
+            <label className="block text-sm font-medium">{t('aiCategory')}</label>
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              disabled={!(formData.name.trim() || formData.description.trim()) || aiLoading}
-              onClick={async () => {
-                const input = [formData.name, formData.description].filter(Boolean).join('\n')
-                if (!input.trim()) return
-                try {
-                  const { result } = await runTask({ task: 'suggest_category', input })
-                  if (result?.trim()) {
-                    setFormData((prev) => ({ ...prev, category: result.trim() }))
-                    toast({ variant: 'success', title: tCommon('success') })
-                  }
-                } catch {
-                  toast({ variant: 'destructive', title: tCommon('error'), description: tAi('failed') })
-                }
-              }}
+              onClick={handleRegenerateCategory}
+              disabled={isGeneratingCategory || !formData.name.trim() || !formData.description.trim()}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
             >
-              {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
-              {tAi('suggestCategory')}
-            </Button>
+              {isGeneratingCategory ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              {t('aiCategoryRegenerate')}
+            </button>
           </div>
-          <Input
-            type="text"
-            value={formData.category}
-            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            placeholder={t('categoryExample')}
-          />
+          {isGeneratingCategory && !aiCategory ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t('aiCategoryGenerating')}
+            </div>
+          ) : aiCategory ? (
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-muted px-3 py-1.5 text-sm font-medium">
+                {aiCategory}
+              </span>
+              <span className="text-xs text-muted-foreground">{t('aiCategoryHint')}</span>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              {formData.name.trim() && formData.description.trim()
+                ? t('aiCategoryGenerating')
+                : t('aiCategoryHint')}
+            </div>
+          )}
+          {aiError && (
+            <p className="mt-1 text-sm text-destructive">{t('aiCategoryError')}</p>
+          )}
+          {errors.category && (
+            <p className="mt-1 text-sm text-destructive">{errors.category}</p>
+          )}
         </Card>
 
         {/* Image Upload */}
         <Card className="p-4">
           <div className="space-y-4">
             <label className="mb-2 block text-sm font-medium">
-              商品图片 <span className="text-destructive">*</span>
+              {t('productImages')} <span className="text-destructive">*</span>
             </label>
             
             {/* Existing Images */}
             {existingImages.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">现有图片</p>
+                <p className="text-sm text-muted-foreground">{t('existingImages')}</p>
                 <div className="grid grid-cols-3 gap-2">
                   {existingImages.map((imageUrl, index) => (
                     <div key={index} className="relative aspect-square">
@@ -497,7 +858,7 @@ export default function EditProductPage() {
                       />
                       <button
                         type="button"
-                        onClick={() => removeExistingImage(index)}
+                        onClick={() => handleRemoveExistingImage(index)}
                         disabled={uploading || loading}
                         className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white hover:bg-black/70 disabled:opacity-50"
                       >
@@ -509,11 +870,56 @@ export default function EditProductPage() {
               </div>
             )}
 
+            {/* Image URL Input */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">{t('externalImageUrls')}</p>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={imageUrlInput}
+                  onChange={(e) => setImageUrlInput(e.target.value)}
+                  placeholder={t('addImageUrlPlaceholder')}
+                  className="flex-1"
+                  disabled={uploading || loading}
+                />
+                <Button
+                  type="button"
+                  onClick={handleAddUrl}
+                  disabled={uploading || loading}
+                >
+                  {t('addImageUrl')}
+                </Button>
+              </div>
+
+              {/* External URLs List */}
+              {externalUrls.length > 0 && (
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {externalUrls.map((url, idx) => (
+                    <div key={idx} className="relative aspect-square">
+                      <img
+                        src={url}
+                        alt={`External ${idx + 1}`}
+                        className="h-full w-full rounded-lg object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExternalUrl(idx)}
+                        disabled={uploading || loading}
+                        className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white hover:bg-black/70 disabled:opacity-50"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* New Image Upload */}
             <div>
               <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
                 <Upload className="h-4 w-4" />
-                <span>{t('maxImages') || '上传新图片（最多 9 张）'}</span>
+                <span>{tCommon('maxImages')}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -537,7 +943,7 @@ export default function EditProductPage() {
                       />
                       <button
                         type="button"
-                        onClick={() => removeImage(index)}
+                        onClick={() => handleRemoveNewImage(index)}
                         disabled={uploading || loading}
                         className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white hover:bg-black/70 disabled:opacity-50"
                       >
@@ -550,6 +956,205 @@ export default function EditProductPage() {
             </div>
           </div>
         </Card>
+
+        {/* Color options：从商品图片选择或填写链接 */}
+        <Card className="p-4">
+          <Label className="mb-2 block text-sm font-medium">{t('productColorOptions')}</Label>
+          <p className="mb-3 text-xs text-muted-foreground">
+            {t('colorOptionsHint')}
+          </p>
+          <div className="space-y-3">
+            {formData.color_options.map((opt, idx) => (
+              <div key={idx} className="flex flex-wrap items-center gap-2 rounded border p-2">
+                <Input
+                  placeholder={t('colorOptionName')}
+                  value={opt.name}
+                  onChange={(e) => {
+                    const next = [...formData.color_options]
+                    next[idx] = { ...next[idx]!, name: e.target.value }
+                    setFormData({ ...formData, color_options: next })
+                  }}
+                  className="w-28"
+                />
+                <select
+                  value={opt.image_from_index != null ? String(opt.image_from_index) : ''}
+                  onChange={(e) => {
+                    const next = [...formData.color_options]
+                    const v = e.target.value
+                    next[idx] = {
+                      ...next[idx]!,
+                      image_from_index: v === '' ? null : parseInt(v, 10),
+                      image_url: v === '' ? next[idx]!.image_url : null,
+                    }
+                    setFormData({ ...formData, color_options: next })
+                  }}
+                  className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="">—</option>
+                  {[...existingImages, ...externalUrls, ...imagePreviews].map((_, i) => (
+                    <option key={i} value={i}>
+                      {t('imageN', { n: i + 1 })}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  placeholder={t('colorImageOrUrl')}
+                  value={opt.image_url ?? ''}
+                  onChange={(e) => {
+                    const next = [...formData.color_options]
+                    next[idx] = {
+                      ...next[idx]!,
+                      image_url: e.target.value || null,
+                      image_from_index: e.target.value ? null : next[idx]!.image_from_index,
+                    }
+                    setFormData({ ...formData, color_options: next })
+                  }}
+                  className="min-w-[180px] flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      color_options: formData.color_options.filter((_, i) => i !== idx),
+                    })
+                  }}
+                  disabled={loading || uploading}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setFormData({
+                  ...formData,
+                  color_options: [
+                    ...formData.color_options,
+                    { name: '', image_url: null, image_from_index: null },
+                  ],
+                })
+              }
+              disabled={loading || uploading}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t('addColorOption')}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Condition */}
+        <Card className="p-4">
+          <Label className="mb-2 block text-sm font-medium">{t('condition') || '成色'}</Label>
+          <select
+            value={formData.condition || ''}
+            onChange={(e) => setFormData({ ...formData, condition: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={loading || uploading}
+          >
+            <option value="">—</option>
+            <option value="new">{t('conditionNew') || '全新'}</option>
+            <option value="like_new">{t('conditionLikeNew') || '99新'}</option>
+            <option value="ninety_five">{t('conditionNinetyFive') || '95新'}</option>
+            <option value="ninety">{t('conditionNinety') || '9成新'}</option>
+            <option value="eighty">{t('conditionEighty') || '8成新'}</option>
+            <option value="seventy_or_below">{t('conditionSeventyOrBelow') || '7成新及以下'}</option>
+          </select>
+        </Card>
+
+        {/* Sizes：可多行添加 */}
+        <Card className="p-4">
+          <Label className="mb-2 block text-sm font-medium">{t('productSizes')}</Label>
+          <div className="space-y-3">
+            {formData.sizes.map((val, idx) => (
+              <div key={idx} className="flex items-center gap-2 rounded border p-2">
+                <Input
+                  placeholder={t('sizeValue')}
+                  value={val}
+                  onChange={(e) => {
+                    const next = [...formData.sizes]
+                    next[idx] = e.target.value
+                    setFormData({ ...formData, sizes: next })
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFormData({ ...formData, sizes: formData.sizes.filter((_, i) => i !== idx) })}
+                  disabled={loading || uploading}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setFormData({ ...formData, sizes: [...formData.sizes, ''] })}
+              disabled={loading || uploading}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t('addSize')}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Visibility / who can see */}
+        <Card className="p-4">
+          <Label className="mb-2 block text-sm font-medium">{t('visibility')}</Label>
+          <p className="mb-3 text-xs text-muted-foreground">{t('visibilityHint')}</p>
+          <div className="space-y-3">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.allow_search}
+                onChange={(e) => setFormData({ ...formData, allow_search: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <span className="text-sm">{t('allowSearch')}</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.show_to_guests}
+                onChange={(e) => setFormData({ ...formData, show_to_guests: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <span className="text-sm">{t('showToGuests')}</span>
+            </label>
+            <div>
+              <Label className="mb-1 block text-xs text-muted-foreground">{t('visibility')}</Label>
+              <select
+                value={formData.visibility}
+                onChange={(e) => setFormData({ ...formData, visibility: e.target.value as typeof formData.visibility })}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="public">{t('visibilityPublic')}</option>
+                <option value="followers_only">{t('visibilityFollowersOnly')}</option>
+                <option value="following_only">{t('visibilityFollowingOnly')}</option>
+                <option value="self_only">{t('visibilitySelfOnly')}</option>
+              </select>
+            </div>
+          </div>
+        </Card>
+
+        {/* Sales Countries */}
+        <div>
+          <Label className="mb-2 block text-sm font-medium">{t('salesCountries')}</Label>
+          <p className="mb-3 text-xs text-muted-foreground">{t('salesCountriesHint')}</p>
+          <SalesCountriesSelector
+            value={formData.sales_countries}
+            onChange={(countries) => setFormData({ ...formData, sales_countries: countries })}
+            disabled={loading || uploading}
+          />
+        </div>
 
         {/* Affiliate Settings */}
         <Card className="p-4">
@@ -608,7 +1213,7 @@ export default function EditProductPage() {
                   : product.status === 'pending'
                   ? tCommon('pending')
                   : product.status === 'sold'
-                  ? '已售罄'
+                  ? tCommon('sold')
                   : tCommon('inactive')}
               </span>
             </div>

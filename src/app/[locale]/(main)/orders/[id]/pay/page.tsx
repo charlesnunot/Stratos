@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { useRouter } from '@/i18n/navigation'
 import { loadStripe } from '@stripe/stripe-js'
@@ -19,6 +19,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ADDRESS_FIELD_LIMITS } from '@/lib/utils/address-validation'
 import { useTranslations } from 'next-intl'
 import { criticalFetch, CriticalPathTimeoutError } from '@/lib/critical-path/critical-fetch'
+import { getPaymentMethodsForCurrency } from '@/lib/payments/currency-payment-support'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
@@ -142,7 +144,22 @@ export default function OrderPayPage() {
     }
   }, [order])
 
-  // Set default payment method from order if available
+  const sellerMethods = useMemo(
+    () => filterPaymentMethods(availablePaymentMethods?.availableMethods),
+    [availablePaymentMethods?.availableMethods]
+  )
+
+  const orderCurrency = (order?.currency as Currency | undefined) || 'USD'
+  const currencyMethods = useMemo(
+    () => getPaymentMethodsForCurrency(orderCurrency),
+    [orderCurrency]
+  )
+
+  const finalPaymentMethods = useMemo(() => {
+    return sellerMethods.filter((m) => currencyMethods.includes(m))
+  }, [sellerMethods, currencyMethods])
+
+  // Set default payment method from order if available, then ensure it's in final list
   useEffect(() => {
     if (order?.payment_method) {
       const validMethods: Array<'stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank'> = [
@@ -157,6 +174,13 @@ export default function OrderPayPage() {
       }
     }
   }, [order])
+
+  useEffect(() => {
+    if (finalPaymentMethods.length === 0) return
+    if (!finalPaymentMethods.includes(paymentMethod)) {
+      setPaymentMethod(finalPaymentMethods[0])
+    }
+  }, [finalPaymentMethods, paymentMethod])
 
   const PAYMENT_TIMEOUT_MS = 30000
 
@@ -714,9 +738,9 @@ export default function OrderPayPage() {
             <PaymentMethodSelector
               selectedMethod={paymentMethod}
               onSelect={setPaymentMethod}
-              availableMethods={filterPaymentMethods(availablePaymentMethods?.availableMethods)}
+              availableMethods={finalPaymentMethods}
             />
-            {filterPaymentMethods(availablePaymentMethods?.availableMethods).length > 0 && (
+            {finalPaymentMethods.length > 0 && (
               <p className="mt-2 text-xs text-muted-foreground">
                 {tOrders('onlySellerMethodsHint')}
               </p>
@@ -937,7 +961,11 @@ export default function OrderPayPage() {
                     return
                   }
                   const diff = Math.abs(amount - order.total_amount)
-                  if (diff > 0.01) {
+                  const orderCurrency = order.currency?.toUpperCase() || 'CNY'
+                  const isZeroDecimalCurrency = ['JPY', 'KRW'].includes(orderCurrency)
+                  const precision = isZeroDecimalCurrency ? 0 : 0.01
+                  
+                  if (diff > precision) {
                     toast({
                       variant: 'warning',
                       title: '提示',

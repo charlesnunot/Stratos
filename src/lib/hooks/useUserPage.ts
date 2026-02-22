@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
-import { useProfile, type ProfileResult, type Profile } from './useProfile'
+import { useProfile, type Profile } from './useProfile'
 
 export type UserPageStatus = 'loading' | 'unavailable' | 'ready'
 
@@ -42,7 +42,9 @@ export interface UserPageState {
   targetUser: Profile | null
   relationship: UserRelationship
   capabilities: UserPageCapabilities
-  profileErrorKind?: ProfileResult['errorKind']
+  profileErrorKind?: 'network' | 'not_found' | 'permission_limited' | 'schema_mismatch'
+  /** 原始 profile 请求错误，用于在 network 时展示具体信息（如管理员排查） */
+  profileError?: unknown
 }
 
 interface RelationshipFacts {
@@ -115,12 +117,15 @@ function computeCapabilities(params: {
     relationship !== 'blocked_by_viewer' &&
     relationship !== 'blocked_by_target'
 
-  // 简化版：未来可基于 tip_enabled / 订阅能力继续细化
+  // 目标用户必须开启打赏功能
+  const targetTipEnabled = targetUser?.tip_enabled === true
+
   const canTip =
     !!viewerId &&
     !!targetUser &&
     !isSelf &&
     !isSuspended &&
+    targetTipEnabled &&
     relationship !== 'blocked_by_viewer' &&
     relationship !== 'blocked_by_target'
 
@@ -141,15 +146,19 @@ export function useUserPage(userId: string): UserPageState {
   const { user: viewer } = useAuth()
   const viewerId = viewer?.id ?? null
 
-  // 复用已有的 profile 查询逻辑（包含 errorKind、status 等）
+  // useProfile 返回的 data 即为 Profile，非 { profile, errorKind }
   const {
-    data: profileResult,
+    data: profileData,
     isLoading: profileLoading,
     error: profileError,
   } = useProfile(userId)
 
-  const targetUser = profileResult?.profile ?? null
-  const profileErrorKind = profileResult?.errorKind
+  const targetUser = profileData ?? null
+  const profileErrorKind = profileError
+    ? ((profileError as { code?: string })?.code === 'PGRST116' || profileError?.message?.includes('Profile not found')
+        ? 'not_found'
+        : 'network')
+    : undefined
 
   const supabase = useMemo(() => createClient(), [])
 
@@ -177,14 +186,14 @@ export function useUserPage(userId: string): UserPageState {
       const [followRes, followBackRes, blockViewerRes, blockTargetRes] = await Promise.all([
         supabase
           .from('follows')
-          .select('id')
+          .select('follower_id')
           .eq('follower_id', viewerId)
           .eq('followee_id', userId)
           .limit(1)
           .maybeSingle(),
         supabase
           .from('follows')
-          .select('id')
+          .select('follower_id')
           .eq('follower_id', userId)
           .eq('followee_id', viewerId)
           .limit(1)
@@ -229,8 +238,6 @@ export function useUserPage(userId: string): UserPageState {
     status = 'unavailable'
     if (profileErrorKind === 'network') {
       unavailableReason = 'network'
-    } else if (profileErrorKind === 'permission_limited') {
-      unavailableReason = 'permission'
     } else {
       unavailableReason = 'not_found'
     }
@@ -259,6 +266,7 @@ export function useUserPage(userId: string): UserPageState {
     relationship,
     capabilities,
     profileErrorKind,
+    profileError,
   }
 }
 

@@ -1,13 +1,18 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, Suspense, useRef, useMemo } from 'react'
 import { useRouter } from '@/i18n/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthGuard } from '@/lib/hooks/useAuthGuard'
+import { useAffiliateGuard } from '@/lib/hooks/useAffiliateGuard'
+import { useTipGuard } from '@/lib/hooks/useTipGuard'
 import { useImageUpload } from '@/lib/hooks/useImageUpload'
 import { useToast } from '@/lib/hooks/useToast'
+import { useSubscription } from '@/lib/subscription/SubscriptionContext'
 import { createClient } from '@/lib/supabase/client'
 import { sanitizeContent } from '@/lib/utils/sanitize-content'
+import { resolveContentLang } from '@/lib/ai/detect-language'
 import { logAudit } from '@/lib/api/audit'
 import {
   uploadMediaFile,
@@ -16,24 +21,30 @@ import {
   ALLOWED_AUDIO_TYPES,
   ALLOWED_VIDEO_TYPES,
 } from '@/lib/storage/upload-media-file'
+import { uploadCoverImage } from '@/lib/storage/upload-cover-image'
+import { extractVideoFirstFrame } from '@/lib/video/extract-first-frame'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { X, Upload, Loader2, Sparkles, MapPin, Package } from 'lucide-react'
+import { X, Upload, Loader2, MapPin, Package } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
-import { useAiTask } from '@/lib/ai/useAiTask'
-import { formatCurrency } from '@/lib/currency/format-currency'
+import { formatPriceWithConversion } from '@/lib/currency/format-currency'
+import { detectCurrency, type Currency } from '@/lib/currency/detect-currency'
+import { PaymentAccountBanner } from '@/components/payment/PaymentAccountBanner'
+import { Gift } from 'lucide-react'
 
-export default function CreatePostPage() {
+function CreatePostContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const { user, loading: authLoading } = useAuthGuard()
+  const { allowed: canUseAffiliate, isInternalUser: isAffiliateInternalUser, hasPaymentAccount: hasAffiliatePaymentAccount } = useAffiliateGuard()
+  const { allowed: canUseTip, isInternalUser: isTipInternalUser, hasPaymentAccount: hasTipPaymentAccount } = useTipGuard()
+  const { isAffiliate, isTipEnabled } = useSubscription()
   const supabase = createClient()
   const { toast } = useToast()
   type CreatePostType = 'image' | 'text' | 'story' | 'music' | 'short_video'
   const [postType, setPostType] = useState<CreatePostType>('image')
   const [content, setContent] = useState('')
-  const [topics, setTopics] = useState<string[]>([])
-  const [newTopic, setNewTopic] = useState('')
   const [location, setLocation] = useState('')
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
@@ -43,16 +54,30 @@ export default function CreatePostPage() {
   const [musicUrl, setMusicUrl] = useState('')
   const [durationSeconds, setDurationSeconds] = useState<number | ''>('')
   const [videoUrl, setVideoUrl] = useState('')
-  const [coverUrl, setCoverUrl] = useState('')
   const [musicFile, setMusicFile] = useState<File | null>(null)
   const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [postTipEnabled, setPostTipEnabled] = useState(true)
   const t = useTranslations('posts')
   const tGroups = useTranslations('groups')
   const tCommon = useTranslations('common')
-  const tAi = useTranslations('ai')
+  const tAffiliate = useTranslations('affiliate')
   const locale = useLocale()
-  const contentLang = locale === 'zh' ? 'zh' : 'en'
-  const { runTask, loading: aiLoading } = useAiTask()
+
+  const canPromoteProducts = canUseAffiliate
+
+  // 从 URL 参数获取预填的商品 ID（只执行一次）
+  const prefillProductId = searchParams.get('product_id')
+  const prefillApplied = useRef(false)
+
+  useEffect(() => {
+    if (prefillProductId && !prefillApplied.current && !selectedProductIds.includes(prefillProductId) && canPromoteProducts) {
+      prefillApplied.current = true
+      setSelectedProductIds(prev => [...prev, prefillProductId])
+    }
+  }, [prefillProductId, selectedProductIds, canPromoteProducts])
+  const toPascalCase = (str: string): string => {
+    return str.replace(/(^|_)([a-z])/g, (_, __, letter) => letter.toUpperCase())
+  }
 
   const [locationDetecting, setLocationDetecting] = useState(false)
 
@@ -89,22 +114,28 @@ export default function CreatePostPage() {
     maxImages: 9,
   })
 
-  const { data: myProducts = [] } = useQuery({
-    queryKey: ['myProducts', user?.id],
+  const { data: affiliateProducts = [] } = useQuery({
+    queryKey: ['affiliateProducts', user?.id],
     queryFn: async () => {
       if (!user) return []
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, images')
-        .eq('seller_id', user.id)
+        .select('id, name, name_translated, price, currency, images, commission_rate, seller_id')
         .eq('status', 'active')
+        .eq('allow_affiliate', true)
         .order('created_at', { ascending: false })
-        .limit(20)
+        .limit(50)
       if (error) throw error
       return data ?? []
     },
-    enabled: !!user,
+    enabled: !!user && isAffiliate,
   })
+
+  const userCurrency = useMemo(() => detectCurrency({ browserLocale: locale }), [locale])
+
+  const getLocalizedName = (product: { name: string; name_translated?: string | null }) => {
+    return locale === 'zh' ? product.name : (product.name_translated || product.name)
+  }
 
   const toggleProduct = (productId: string) => {
     setSelectedProductIds((prev) =>
@@ -133,8 +164,6 @@ export default function CreatePostPage() {
     enabled: !!user,
   })
 
-  const extractTopicsDebounceRef = useRef<NodeJS.Timeout | null>(null)
-
   if (authLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -145,52 +174,6 @@ export default function CreatePostPage() {
 
   if (!user) {
     return null
-  }
-
-  const MAX_TOPICS = 5
-  const MAX_TOPIC_LENGTH = 30
-
-  const addTopic = () => {
-    const trimmed = newTopic.trim()
-    if (!trimmed) return
-    if (topics.length >= MAX_TOPICS) {
-      toast({ variant: 'warning', title: tCommon('error'), description: t('topicsMaxReached', { max: MAX_TOPICS }) })
-      return
-    }
-    if (trimmed.length > MAX_TOPIC_LENGTH) {
-      toast({ variant: 'warning', title: tCommon('error'), description: t('topicTooLong', { max: MAX_TOPIC_LENGTH }) })
-      return
-    }
-    if (!topics.includes(trimmed)) {
-      setTopics([...topics, trimmed])
-      setNewTopic('')
-    }
-  }
-
-  const removeTopic = (topic: string) => {
-    setTopics(topics.filter((t) => t !== topic))
-  }
-
-  const handleExtractTopics = async () => {
-    if (!content.trim()) {
-      toast({ variant: 'warning', title: tCommon('error'), description: t('fillContentOrImages') })
-      return
-    }
-    if (extractTopicsDebounceRef.current) return
-    extractTopicsDebounceRef.current = setTimeout(() => {
-      extractTopicsDebounceRef.current = null
-    }, 2000)
-    try {
-      const { topics: suggested } = await runTask({ task: 'extract_topics', input: content })
-      if (suggested?.length) {
-        const valid = suggested.filter((s) => s.length <= MAX_TOPIC_LENGTH).slice(0, MAX_TOPICS - topics.length)
-        const merged = [...new Set([...topics, ...valid])].slice(0, MAX_TOPICS)
-        setTopics(merged)
-        toast({ variant: 'success', title: tCommon('success'), description: t('topic') + ' ' + valid.join(', ') })
-      }
-    } catch (e) {
-      toast({ variant: 'destructive', title: tCommon('error'), description: tAi('failed') })
-    }
   }
 
   const POST_CONTENT_MAX_LENGTH = 2000
@@ -204,6 +187,14 @@ export default function CreatePostPage() {
         variant: 'warning',
         title: tCommon('error'),
         description: t('contentTooLong', { max: POST_CONTENT_MAX_LENGTH }),
+      })
+      return
+    }
+    if (selectedProductIds.length > 0 && !canPromoteProducts) {
+      toast({
+        variant: 'warning',
+        title: tCommon('error'),
+        description: tAffiliate('paymentAccountNotBoundDesc'),
       })
       return
     }
@@ -239,12 +230,19 @@ export default function CreatePostPage() {
       })
       return
     }
+    if (postType === 'short_video' && imagePreviews.length === 0 && !videoFile) {
+      toast({
+        variant: 'warning',
+        title: tCommon('error'),
+        description: t('shortVideoCoverRequired'),
+      })
+      return
+    }
     setLoading(true)
 
     try {
       let finalMusicUrl = musicUrl.trim()
       let finalVideoUrl = videoUrl.trim()
-      let finalCoverUrl = coverUrl.trim()
 
       if (postType === 'music' && musicFile && user) {
         finalMusicUrl = await uploadMediaFile(supabase, user.id, 'music', musicFile, {
@@ -261,49 +259,42 @@ export default function CreatePostPage() {
 
       const imageUrls = postType === 'image' ? await uploadImages() : (imagePreviews.length ? await uploadImages() : [])
 
-      // Create or get topics
-      const topicIds: string[] = []
-      for (const topicName of topics) {
-        // Check if topic exists
-        const { data: existingTopic } = await supabase
-          .from('topics')
-          .select('id')
-          .eq('name', topicName)
-          .single()
-
-        let topicId: string
-        if (existingTopic) {
-          topicId = existingTopic.id
-        } else {
-          // Create new topic
-          const slug = topicName.toLowerCase().replace(/\s+/g, '-')
-          const { data: newTopic, error } = await supabase
-            .from('topics')
-            .insert({
-              name: topicName,
-              slug,
+      let shortVideoCoverUrl: string | null = null
+      if (postType === 'short_video') {
+        if (imageUrls.length > 0) {
+          shortVideoCoverUrl = imageUrls[Math.floor(Math.random() * imageUrls.length)]
+        } else if (videoFile && user) {
+          try {
+            const frameBlob = await extractVideoFirstFrame(videoFile)
+            shortVideoCoverUrl = await uploadCoverImage(supabase, user.id, frameBlob)
+          } catch (e) {
+            console.error('Extract video cover failed:', e)
+            toast({
+              variant: 'destructive',
+              title: tCommon('error'),
+              description: t('shortVideoCoverExtractFailed'),
             })
-            .select()
-            .single()
-
-          if (error) throw error
-          topicId = newTopic.id
+            setLoading(false)
+            return
+          }
         }
-        topicIds.push(topicId)
       }
 
       // Sanitize 防 XSS，再写入
       const safeContent = sanitizeContent(trimmed) || null
+      // 根据实际内容检测语言，而不是界面语言
+      const detectedContentLang = resolveContentLang(safeContent)
 
       const insertPayload: Record<string, unknown> = {
         user_id: user.id,
         content: safeContent,
-        content_lang: safeContent ? contentLang : null,
+        content_lang: detectedContentLang,
         image_urls: imageUrls,
         location: location.trim() || null,
         group_id: selectedGroupId || null,
         status: 'pending',
         post_type: postType,
+        tip_enabled: isTipEnabled ? postTipEnabled : false,
       }
       if (postType === 'story') {
         if (chapterNumber !== '') insertPayload.chapter_number = chapterNumber
@@ -316,7 +307,7 @@ export default function CreatePostPage() {
       if (postType === 'short_video') {
         insertPayload.video_url = finalVideoUrl || null
         if (durationSeconds !== '') insertPayload.duration_seconds = durationSeconds
-        insertPayload.cover_url = finalCoverUrl || (imageUrls[0] ?? null)
+        insertPayload.cover_url = shortVideoCoverUrl
       }
       const { data: post, error: postError } = await supabase
         .from('posts')
@@ -324,37 +315,49 @@ export default function CreatePostPage() {
         .select()
         .single()
 
-      if (postError) throw postError
-
-      // Link topics（失败时回滚：删除刚创建的 post）
-      if (topicIds.length > 0) {
-        const { error: topicError } = await supabase
-          .from('post_topics')
-          .insert(
-            topicIds.map((topicId) => ({
-              post_id: post.id,
-              topic_id: topicId,
-            }))
-          )
-
-        if (topicError) {
-          await supabase.from('posts').delete().eq('id', post.id).eq('user_id', user.id)
-          throw topicError
-        }
+      if (postError) {
+        console.error('[CreatePost] posts insert error:', postError)
+        throw postError
       }
 
-      // Link products（可选；失败时回滚）
-      if (selectedProductIds.length > 0) {
-        const { error: productsError } = await supabase.from('post_products').insert(
-          selectedProductIds.map((productId, index) => ({
-            post_id: post.id,
-            product_id: productId,
-            sort_order: index,
-          }))
-        )
+      console.log('[CreatePost] post created:', post.id)
+
+      // Link products（带货商品：同时写入 post_products 和 affiliate_posts）
+      // 使用 Set 去重
+      const uniqueProductIds = [...new Set(selectedProductIds)]
+      if (uniqueProductIds.length > 0) {
+        console.log('[CreatePost] linking products:', uniqueProductIds)
+        
+        // 1. 写入 post_products 表
+        const postProductsData = uniqueProductIds.map((productId, index) => ({
+          post_id: post.id,
+          product_id: productId,
+          sort_order: index,
+        }))
+        console.log('[CreatePost] inserting post_products:', postProductsData)
+        
+        const { error: productsError } = await supabase.from('post_products').insert(postProductsData)
         if (productsError) {
+          console.error('[CreatePost] post_products insert error:', productsError)
           await supabase.from('posts').delete().eq('id', post.id).eq('user_id', user.id)
           throw productsError
+        }
+        console.log('[CreatePost] post_products inserted successfully')
+
+        // 2. 写入 affiliate_posts 表（开启佣金追踪）
+        const affiliatePostsData = uniqueProductIds.map((productId) => ({
+          post_id: post.id,
+          product_id: productId,
+          affiliate_id: user.id,
+        }))
+        console.log('[CreatePost] inserting affiliate_posts:', affiliatePostsData)
+        
+        const { error: affiliateError } = await supabase.from('affiliate_posts').insert(affiliatePostsData)
+        if (affiliateError) {
+          console.error('[CreatePost] affiliate_posts insert error:', affiliateError)
+          // 不回滚，因为 affiliate_posts 失败不影响帖子创建
+        } else {
+          console.log('[CreatePost] affiliate_posts inserted successfully')
         }
       }
 
@@ -409,7 +412,7 @@ export default function CreatePostPage() {
                     : 'bg-muted hover:bg-muted/80'
                 }`}
               >
-                {t(`postType_${type}`)}
+                {t(`postType${toPascalCase(type)}` as const)}
               </button>
             ))}
           </div>
@@ -420,7 +423,7 @@ export default function CreatePostPage() {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder={t('shareYourThoughts')}
+            placeholder={postType === 'music' ? t('contentPlaceholderMusic') : t('shareYourThoughts')}
             className="w-full resize-none border-none bg-transparent text-sm focus:outline-none"
             rows={6}
             maxLength={POST_CONTENT_MAX_LENGTH}
@@ -566,17 +569,6 @@ export default function CreatePostPage() {
               </div>
               <p className="text-xs text-muted-foreground">{t('postType_videoSizeHint', { max: MAX_VIDEO_SIZE_MB })}</p>
               <div>
-                <label className="text-xs text-muted-foreground">{t('postType_coverUrl')}</label>
-                <input
-                  type="url"
-                  value={coverUrl}
-                  onChange={(e) => setCoverUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-                <p className="mt-0.5 text-xs text-muted-foreground">{t('postType_coverHint')}</p>
-              </div>
-              <div>
                 <label className="text-xs text-muted-foreground">{t('postType_durationSeconds')}</label>
                 <input
                   type="number"
@@ -606,6 +598,12 @@ export default function CreatePostPage() {
                 className="hidden"
               />
             </label>
+            {postType === 'music' && (
+              <p className="text-xs text-muted-foreground">{t('uploadImagesHintMusic')}</p>
+            )}
+            {postType === 'short_video' && (
+              <p className="text-xs text-muted-foreground">{t('uploadImagesHintShortVideo')}</p>
+            )}
 
             {imagePreviews.length > 0 && (
               <div className="grid grid-cols-3 gap-2">
@@ -624,66 +622,6 @@ export default function CreatePostPage() {
                       <X className="h-3 w-3" />
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Topics */}
-        <Card className="p-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-sm font-medium">{t('topic')}</label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleExtractTopics}
-                disabled={!content.trim() || aiLoading}
-              >
-                {aiLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Sparkles className="mr-1 h-3 w-3" />
-                )}
-                {tAi('extractTopics')}
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newTopic}
-                onChange={(e) => setNewTopic(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addTopic()
-                  }
-                }}
-                placeholder={`${tCommon('create')} ${t('topic')}...`}
-                className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              />
-              <Button type="button" onClick={addTopic} variant="outline">
-                {tCommon('create')}
-              </Button>
-            </div>
-            {topics.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {topics.map((topic) => (
-                  <span
-                    key={topic}
-                    className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm"
-                  >
-                    #{topic}
-                    <button
-                      type="button"
-                      onClick={() => removeTopic(topic)}
-                      className="hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
                 ))}
               </div>
             )}
@@ -709,41 +647,87 @@ export default function CreatePostPage() {
           </Card>
         )}
 
-        {/* 关联商品（可选）：仅展示当前用户已上架商品 */}
-        {myProducts.length > 0 && (
+        {/* 关联商品（带货）：仅对有带货订阅的用户显示 */}
+        {isAffiliate && affiliateProducts.length > 0 && (
           <Card className="p-4">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="flex items-center gap-2 text-sm font-medium">
                 <Package className="h-4 w-4" />
                 {t('linkProducts')}
-                <span className="text-muted-foreground font-normal">({t('linkProductsOptional')})</span>
+                <span className="text-muted-foreground font-normal">({t('affiliateProductsHint') || '选择要推广的商品，开启佣金追踪'})</span>
               </label>
-              <p className="text-xs text-muted-foreground">{t('selectProducts')}</p>
-              <div className="flex flex-wrap gap-2">
-                {myProducts.map((product) => (
-                  <label
-                    key={product.id}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedProductIds.includes(product.id)}
-                      onChange={() => toggleProduct(product.id)}
-                      className="rounded"
-                    />
-                    {product.images?.[0] && (
-                      <img src={product.images[0]} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
-                    )}
-                    <span className="truncate">{product.name}</span>
-                    <span className="text-muted-foreground shrink-0">{formatCurrency(product.price, 'CNY')}</span>
-                  </label>
-                ))}
-              </div>
+              
+              {!canPromoteProducts && !isAffiliateInternalUser && !hasAffiliatePaymentAccount && (
+                <p className="text-sm text-muted-foreground">
+                  {tAffiliate('paymentAccountNotBoundDesc')}
+                </p>
+              )}
+              
+              {canPromoteProducts && (
+                <div className="flex flex-wrap gap-2">
+                  {affiliateProducts.map((product) => (
+                    <label
+                      key={product.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 min-w-0 max-w-[320px]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedProductIds.includes(product.id)}
+                        onChange={() => toggleProduct(product.id)}
+                        className="rounded shrink-0"
+                      />
+                      {product.images?.[0] && (
+                        <img src={product.images[0]} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+                      )}
+                      <span className="truncate min-w-0 flex-1">{getLocalizedName(product)}</span>
+                      <span className="text-muted-foreground shrink-0">{formatPriceWithConversion(product.price, (product.currency || 'CNY') as Currency, userCurrency).main}</span>
+                      {product.commission_rate && (
+                        <span className="text-xs text-green-600 shrink-0">+{product.commission_rate}%</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
         )}
 
-        {/* Location：根据 IP 自动填充，可修改或重新检测 */}
+        {/* 打赏状态提示 */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Gift className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">{t('tipStatus')}</span>
+            </div>
+            {isTipEnabled ? (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={postTipEnabled}
+                  onChange={(e) => setPostTipEnabled(e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-sm">{postTipEnabled ? t('tipEnabled') : t('tipDisabled')}</span>
+              </label>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/subscription/tip')}
+              >
+                {t('enableTip')}
+              </Button>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {isTipEnabled 
+              ? (postTipEnabled ? t('tipEnabledHint') : t('tipDisabledForPostHint'))
+              : t('tipDisabledHint')}
+          </p>
+        </Card>
+
+        {/* Location：仅通过 IP 解析，不提供手动输入 */}
         <Card className="p-4">
           <div className="flex items-center justify-between gap-2">
             <label className="text-sm font-medium">{t('selectLocation')}</label>
@@ -762,13 +746,9 @@ export default function CreatePostPage() {
               {t('detectLocation')}
             </Button>
           </div>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder={t('enterLocation')}
-            className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
+          {location ? (
+            <p className="mt-2 text-sm text-muted-foreground">{location}</p>
+          ) : null}
           <p className="mt-1 text-xs text-muted-foreground">{t('detectLocationHint')}</p>
         </Card>
 
@@ -795,5 +775,17 @@ export default function CreatePostPage() {
         </div>
       </form>
     </div>
+  )
+}
+
+export default function CreatePostPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <CreatePostContent />
+    </Suspense>
   )
 }

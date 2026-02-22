@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     // Get payment methods for each seller
     const { data: sellerProfiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
-      .select('id, payment_provider, seller_payout_eligibility')
+      .select('id, payment_provider, seller_payout_eligibility, seller_type')
       .in('id', targetSellerIds)
 
     if (profilesError) {
@@ -81,13 +81,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Filter eligible sellers with bound payment accounts
-    const eligibleSellers = (sellerProfiles || []).filter(
-      (profile) =>
-        profile.seller_payout_eligibility === 'eligible' &&
-        profile.payment_provider &&
-        profile.payment_provider !== null
-    )
+    // Check payment methods availability for each seller
+    // For direct sellers, we check platform accounts; for external sellers, we check their bound accounts
+    const eligibleSellers = []
+    const sellerPaymentCapabilities = new Map()
+
+    // First, get all platform payment accounts to avoid repeated RPC calls
+    // Get all active platform accounts at once instead of individual RPC calls
+    const { data: allPlatformAccounts, error: platformError } = await supabaseAdmin
+      .from('payment_accounts')
+      .select('account_type')
+      .eq('is_platform_account', true)
+      .eq('status', 'active')
+      .eq('is_verified', true)
+    
+    const availablePlatformMethods = new Set(allPlatformAccounts?.map(acc => acc.account_type) || [])
+    const platformAccountsMap = new Map()
+    const paymentMethodsToCheck = ['stripe', 'paypal', 'alipay', 'wechat', 'bank']
+    
+    for (const method of paymentMethodsToCheck) {
+      platformAccountsMap.set(method, availablePlatformMethods.has(method))
+    }
+
+    for (const profile of (sellerProfiles || [])) {
+      const isDirect = profile.seller_type === 'direct'
+      
+      if (isDirect) {
+        // For direct sellers, check which platform accounts are available
+        const directSellerMethods = []
+        for (const method of paymentMethodsToCheck) {
+          if (platformAccountsMap.get(method)) {
+            directSellerMethods.push(method)
+          }
+        }
+        
+        if (directSellerMethods.length > 0) {
+          eligibleSellers.push(profile)
+          sellerPaymentCapabilities.set(profile.id, directSellerMethods)
+        }
+      } else {
+        // For external sellers, check if they have eligible payment accounts
+        if (profile.seller_payout_eligibility === 'eligible' && profile.payment_provider) {
+          eligibleSellers.push(profile)
+          sellerPaymentCapabilities.set(profile.id, [profile.payment_provider])
+        }
+      }
+    }
 
     if (eligibleSellers.length === 0) {
       return NextResponse.json({
@@ -125,8 +164,19 @@ export async function POST(request: NextRequest) {
       const details = sellerDetailsMap.get(sellerId)
       const availableMethods: string[] = []
 
-      if (profile?.seller_payout_eligibility === 'eligible' && profile.payment_provider) {
-        availableMethods.push(profile.payment_provider)
+      if (profile) {
+        const isDirect = profile.seller_type === 'direct'
+        
+        if (isDirect) {
+          // For direct sellers, get methods from our check above
+          const methods = sellerPaymentCapabilities.get(sellerId) || []
+          availableMethods.push(...methods)
+        } else {
+          // For external sellers, check if they have eligible payment accounts
+          if (profile.seller_payout_eligibility === 'eligible' && profile.payment_provider) {
+            availableMethods.push(profile.payment_provider)
+          }
+        }
       }
 
       return {
@@ -136,29 +186,51 @@ export async function POST(request: NextRequest) {
         eligibility: profile?.seller_payout_eligibility || null,
         reason: profile?.seller_payout_eligibility !== 'eligible'
           ? 'Seller not eligible'
-          : !profile?.payment_provider
+          : !profile?.payment_provider && profile?.seller_type !== 'direct'
           ? 'Payment account not bound'
           : null,
       }
     })
 
     // Calculate intersection: payment methods that ALL sellers support
-    const allPaymentMethods = eligibleSellers.map(p => p.payment_provider).filter(Boolean) as string[]
+    // For each seller, get their available methods
+    const sellerMethodArrays = targetSellerIds.map(sellerId => {
+      const profile = sellerProfiles?.find(p => p.id === sellerId)
+      if (profile) {
+        const isDirect = profile.seller_type === 'direct'
+        if (isDirect) {
+          return sellerPaymentCapabilities.get(sellerId) || []
+        } else {
+          return profile.seller_payout_eligibility === 'eligible' && profile.payment_provider 
+            ? [profile.payment_provider] 
+            : []
+        }
+      }
+      return []
+    }).filter(arr => arr.length > 0) // Only include sellers that have methods
     
-    // Count occurrences of each payment method
-    const methodCounts = new Map<string, number>()
-    allPaymentMethods.forEach(method => {
-      methodCounts.set(method, (methodCounts.get(method) || 0) + 1)
-    })
-
-    // Only include methods that all eligible sellers support
-    const availableMethods = Array.from(methodCounts.entries())
-      .filter(([_, count]) => count === eligibleSellers.length)
-      .map(([method, _]) => method)
-      .filter((method): method is 'stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank' => 
-        ['stripe', 'paypal', 'alipay', 'wechat', 'bank'].includes(method)
+    if (sellerMethodArrays.length === 0) {
+      return NextResponse.json({
+        availableMethods: [],
+        sellerMethods,
+      })
+    }
+    
+    // Find intersection of methods across all sellers
+    // Start with the methods of the first seller
+    let commonMethods = [...sellerMethodArrays[0]]
+    
+    // Intersect with each subsequent seller's methods
+    for (let i = 1; i < sellerMethodArrays.length; i++) {
+      commonMethods = commonMethods.filter(method => 
+        sellerMethodArrays[i].includes(method)
       )
-
+    }
+    
+    const availableMethods = commonMethods.filter((method): method is 'stripe' | 'paypal' | 'alipay' | 'wechat' | 'bank' => 
+      ['stripe', 'paypal', 'alipay', 'wechat', 'bank'].includes(method)
+    )
+    
     return NextResponse.json({
       availableMethods,
       sellerMethods,

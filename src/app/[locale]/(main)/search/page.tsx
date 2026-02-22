@@ -1,20 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { useRouter } from '@/i18n/navigation'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PostCard } from '@/components/social/PostCard'
 import { ProductCard } from '@/components/ecommerce/ProductCard'
 import { Card } from '@/components/ui/card'
 import { useTranslations } from 'next-intl'
-import { sanitizeSearchQuery } from '@/lib/utils/search'
 
 export default function SearchPage() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const qFromUrl = searchParams.get('q') ?? ''
-
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<{
     posts: any[]
@@ -22,30 +15,37 @@ export default function SearchPage() {
     users: any[]
   }>({ posts: [], products: [], users: [] })
   const [loading, setLoading] = useState(false)
+  const supabase = createClient()
   const t = useTranslations('search')
 
-  const doSearch = useCallback(async (safe: string) => {
-    const client = createClient()
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!query.trim()) return
+
     setLoading(true)
     try {
-      const { data: posts } = await client
-          .from('posts')
-          .select('*, user:profiles!posts_user_id_fkey(username, display_name, avatar_url)')
-          .eq('status', 'approved')
-          .ilike('content', `%${safe}%`)
+      // Search posts
+      const { data: posts } = await supabase
+        .from('posts')
+        .select('*, user:profiles!posts_user_id_fkey(username, display_name, avatar_url)')
+        .eq('status', 'approved')
+        .ilike('content', `%${query}%`)
         .limit(10)
 
-      const { data: products } = await client
+      // Search products (only products that allow search)
+      const { data: products } = await supabase
         .from('products')
-          .select('*, seller:profiles!products_seller_id_fkey(username, display_name)')
-          .eq('status', 'active')
-        .or(`name.ilike.%${safe}%,description.ilike.%${safe}%`)
+        .select('*, seller:profiles!products_seller_id_fkey(username, display_name)')
+        .eq('status', 'active')
+        .eq('allow_search', true)
+        .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
         .limit(10)
 
-      const { data: users } = await client
+      // Search users
+      const { data: users } = await supabase
         .from('profiles')
-          .select('id, username, display_name, avatar_url')
-        .or(`username.ilike.%${safe}%,display_name.ilike.%${safe}%`)
+        .select('*')
+        .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
         .limit(10)
 
       setResults({
@@ -58,19 +58,6 @@ export default function SearchPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
-
-  useEffect(() => {
-    setQuery(qFromUrl)
-    const safe = sanitizeSearchQuery(qFromUrl)
-    if (safe) doSearch(safe)
-  }, [qFromUrl, doSearch])
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = query.trim()
-    if (!trimmed) return
-    router.replace(`/search?q=${encodeURIComponent(trimmed)}`)
   }
 
   return (

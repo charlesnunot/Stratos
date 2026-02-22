@@ -1,15 +1,11 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useRouter } from '@/i18n/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useConversation } from '@/lib/hooks/useConversation'
 import { useCartStore } from '@/store/cartStore'
-import { createClient } from '@/lib/supabase/client'
 import { showError, showInfo } from '@/lib/utils/toast'
-import { useTranslations } from 'next-intl'
-import { useQueryClient } from '@tanstack/react-query'
-import { openChat } from '@/lib/chat/ChatNavigationService'
-import { getOrCreateConversationCore } from '@/lib/chat/getOrCreateConversationCore'
 import type { ListProductDTO } from './types'
 import type { ProductCardCapabilities } from './types'
 
@@ -22,8 +18,6 @@ export interface UseProductDetailActionsParams {
 export interface ProductDetailActions {
   adding: boolean
   buying: boolean
-  /** 正在打开聊天（咨询卖家） */
-  messageSellerLoading: boolean
   addToCart: () => Promise<void>
   buyNow: () => Promise<void>
   messageSeller: () => Promise<void>
@@ -42,16 +36,12 @@ export function useProductDetailActions({
 }: UseProductDetailActionsParams): ProductDetailActions {
   const { user } = useAuth()
   const router = useRouter()
-  const queryClient = useQueryClient()
-  const supabase = useMemo(() => createClient(), [])
+  const { getOrCreateConversation } = useConversation()
   const addItem = useCartStore((s) => s.addItem)
   const removeItem = useCartStore((s) => s.removeItem)
-  const t = useTranslations('products')
-  const tCommon = useTranslations('common')
 
   const [adding, setAdding] = useState(false)
   const [buying, setBuying] = useState(false)
-  const [messageSellerLoading, setMessageSellerLoading] = useState(false)
 
   const getProductUrl = useCallback(() => {
     if (typeof window === 'undefined') return `/product/${dto.id}`
@@ -68,6 +58,7 @@ export function useProductDetailActions({
       product_id: productIdForCart,
       quantity: 1,
       price: dto.price,
+      currency: dto.currency,
       name: displayName,
       image: dto.content.images[0] ?? '',
     })
@@ -90,17 +81,17 @@ export function useProductDetailActions({
       if (!res.ok || !data?.ok) {
         removeItem(productIdForCart)
         const reason = data?.reason ?? 'server_error'
-        if (reason === 'not_found') showError(t('productNotFoundOrDeleted'))
-        else if (reason === 'inactive') showError(t('productInactiveCannotAdd'))
-        else if (reason === 'out_of_stock') showError(t('productOutOfStockCannotAdd'))
-        else showError(t('validationFailedRetry'))
+        if (reason === 'not_found') showError('商品不存在或已被删除')
+        else if (reason === 'inactive') showError('商品已下架，无法加入购物车')
+        else if (reason === 'out_of_stock') showError('商品库存不足，无法加入购物车')
+        else showError('验证失败，请重试')
         setAdding(false)
         return
       }
       const p = data.product
       if (!p?.id || p.price == null) {
         removeItem(productIdForCart)
-        showError(t('validationFailedRetry'))
+        showError('验证失败，请重试')
         setAdding(false)
         return
       }
@@ -109,7 +100,8 @@ export function useProductDetailActions({
         product_id: p.id,
         quantity: 1,
         price: p.price,
-        name: displayName,
+        currency: p.currency,
+        name: p.name ?? displayName,
         image: p.image ?? dto.content.images[0] ?? '',
       })
     } catch (err: any) {
@@ -118,11 +110,11 @@ export function useProductDetailActions({
         console.error('Add to cart error:', err)
       }
       const isAbort = err?.name === 'AbortError'
-      showError(isAbort ? t('validationTimeoutRetry') : t('validationFailedRetry'))
+      showError(isAbort ? '验证超时，请重试' : '验证失败，请重试')
     } finally {
       setAdding(false)
     }
-  }, [dto, displayName, addItem, removeItem, t])
+  }, [dto, displayName, addItem, removeItem])
 
   const buyNow = useCallback(async () => {
     setBuying(true)
@@ -143,17 +135,17 @@ export function useProductDetailActions({
 
       if (!res.ok || !data?.ok) {
         const reason = data?.reason ?? 'server_error'
-        if (reason === 'not_found') showError(t('productNotFoundOrDeleted'))
-        else if (reason === 'inactive') showError(t('productInactiveCannotBuy'))
-        else if (reason === 'out_of_stock') showError(t('productOutOfStockCannotBuy'))
-        else if (reason === 'unauthorized') showError(t('pleaseLoginToBuy'))
-        else showError(t('validationFailedRefresh'))
+        if (reason === 'not_found') showError('商品不存在或已被删除')
+        else if (reason === 'inactive') showError('商品已下架，无法购买')
+        else if (reason === 'out_of_stock') showError('商品库存不足，无法购买')
+        else if (reason === 'unauthorized') showError('请先登录后再购买')
+        else showError('验证失败，请刷新页面后重试')
         setBuying(false)
         return
       }
       const p = data.product
       if (!p?.id || p.price == null) {
-        showError(t('validationFailedRefresh'))
+        showError('验证失败，请刷新页面后重试')
         setBuying(false)
         return
       }
@@ -161,7 +153,8 @@ export function useProductDetailActions({
         product_id: p.id,
         quantity: 1,
         price: p.price,
-        name: displayName,
+        currency: p.currency,
+        name: p.name ?? displayName,
         image: p.image ?? dto.content.images[0] ?? '',
       })
       router.push('/checkout')
@@ -170,70 +163,40 @@ export function useProductDetailActions({
         console.error('Buy Now error:', err)
       }
       const isAbort = err?.name === 'AbortError'
-      showError(isAbort ? t('validationTimeoutRetry') : t('validationFailedRetry'))
+      showError(isAbort ? '验证超时，请重试' : '验证失败，请重试')
     } finally {
       setBuying(false)
     }
-  }, [dto.id, dto.content.images, displayName, addItem, router, t])
+  }, [dto.id, dto.content.images, displayName, addItem, router])
 
   const messageSeller = useCallback(async () => {
     if (!user) {
-      showInfo(t('pleaseLoginToMessage'))
+      showInfo('请先登录后再私聊')
       return
     }
     if (dto.seller.id === user.id) return
-    if (messageSellerLoading) return
-    setMessageSellerLoading(true)
     try {
-      await openChat(
-        { targetUserId: dto.seller.id },
-        {
-          getConversationId: (tid) =>
-            getOrCreateConversationCore(supabase, user.id, tid),
-          navigate: (path) => router.push(path),
-          invalidateConversations: () => {
-            queryClient.invalidateQueries({
-              queryKey: ['conversations', user.id],
-            })
-            queryClient.invalidateQueries({
-              queryKey: ['conversationDetails', user.id],
-            })
-          },
-        }
-      )
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message ?? ''
-      const isAbort =
-        (err as { name?: string })?.name === 'AbortError' ||
-        msg.includes('aborted') ||
-        msg.includes('请求被取消')
+      const conversationId = await getOrCreateConversation(dto.seller.id)
+      router.push(`/messages/${conversationId}`)
+    } catch (err: any) {
+      const msg = err?.message ?? ''
+      const isAbort = err?.name === 'AbortError' || msg.includes('aborted') || msg.includes('请求被取消')
       const isTimeout = msg.includes('超时')
-      showError(
-        isTimeout
-          ? msg
-          : isAbort
-            ? t('requestCancelledRetry')
-            : msg.includes('私聊')
-              ? msg
-              : t('cannotStartChat', { error: msg })
-      )
-    } finally {
-      setMessageSellerLoading(false)
+      showError(isTimeout ? msg : isAbort ? '请求被取消，请重试' : msg.includes('私聊') ? msg : `无法发起私聊: ${msg}`)
     }
-  }, [dto.seller.id, user, supabase, router, queryClient, t])
+  }, [dto.seller.id, user, getOrCreateConversation, router])
 
   const requestReportDialog = useCallback(() => {
     if (!user) {
-      showInfo(t('pleaseLoginToReport'))
+      showInfo('请先登录后再举报')
       return false
     }
     return true
-  }, [user, t])
+  }, [user])
 
   return {
     adding,
     buying,
-    messageSellerLoading,
     addToCart,
     buyNow,
     messageSeller,

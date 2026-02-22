@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAlipayOrder } from '@/lib/payments/alipay'
 import { validateSellerPaymentReady } from '@/lib/payments/validate-seller-payment-ready'
+import { isCurrencySupportedByPaymentMethod } from '@/lib/payments/currency-payment-support'
+import type { Currency } from '@/lib/currency/detect-currency'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate amount (required and positive; actual order amount comes from DB below)
+    // Validate amount
     const numericAmount = parseFloat(amount)
     if (isNaN(numericAmount) || numericAmount <= 0) {
       console.error('Invalid amount:', amount)
@@ -44,10 +46,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get order from database
+    // Get order from database (seller_type_snapshot for direct-seller deposit skip)
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('payment_status, seller_id, total_amount, currency, shipping_address, buyer_id, order_number')
+      .select('payment_status, seller_id, total_amount, currency, shipping_address, buyer_id, order_number, seller_type_snapshot')
       .eq('id', orderId)
       .single()
 
@@ -56,18 +58,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Order not found' },
         { status: 404 }
-      )
-    }
-
-    // 订单支付：强制使用服务端订单金额，防止前端篡改
-    const orderTotalAmount = typeof order.total_amount === 'number' ? order.total_amount : parseFloat(String(order.total_amount))
-    if (isNaN(orderTotalAmount) || orderTotalAmount <= 0) {
-      return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 })
-    }
-    if (Math.abs(numericAmount - orderTotalAmount) > 0.01) {
-      return NextResponse.json(
-        { error: 'Amount does not match order total' },
-        { status: 400 }
       )
     }
 
@@ -100,6 +90,14 @@ export async function POST(request: NextRequest) {
     if (!shippingAddress.recipientName || !shippingAddress.phone || !shippingAddress.address || !shippingAddress.country) {
       return NextResponse.json(
         { error: 'Shipping address is incomplete. Please fill in all required fields (name, phone, address, country).' },
+        { status: 400 }
+      )
+    }
+
+    const orderCurrency = (order.currency?.toString() || 'USD').toUpperCase() as Currency
+    if (!isCurrencySupportedByPaymentMethod(orderCurrency, 'alipay')) {
+      return NextResponse.json(
+        { error: 'Alipay only supports CNY. Please choose another payment method for this currency.' },
         { status: 400 }
       )
     }
@@ -150,10 +148,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create Alipay order FIRST (before deposit check)，使用服务端订单金额
+    // Create Alipay order FIRST (before deposit check)
     const alipayOrder = await createAlipayOrder({
       outTradeNo: order.order_number || orderId,
-      totalAmount: orderTotalAmount,
+      totalAmount: numericAmount,
       subject: subject || `订单 ${order.order_number}`,
       body: `订单号: ${order.order_number}`,
       returnUrl: returnUrl || `${request.nextUrl.origin}/orders/${orderId}`,
@@ -174,8 +172,10 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', orderId)
 
-    // NOW check deposit requirement AFTER payment session creation
-    if (order.seller_id && order.total_amount) {
+    // Direct sellers: skip deposit check (platform collects)
+    // NOW check deposit requirement AFTER payment session creation (external sellers only)
+    const isDirectOrder = (order as { seller_type_snapshot?: string }).seller_type_snapshot === 'direct'
+    if (!isDirectOrder && order.seller_id && order.total_amount) {
       // Call database function that handles deposit check + side-effects atomically
       const { data: depositResult, error: depositError } = await supabaseAdmin.rpc(
         'check_deposit_and_execute_side_effects',

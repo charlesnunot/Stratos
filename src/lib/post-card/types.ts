@@ -33,7 +33,7 @@ export interface ListPostStatsDTO {
 export interface ListPostLinkedProductDTO {
   product_id: string
   sort_order: number
-  product?: { id: string; name: string; price: number; images: string[]; seller_id: string }
+  product?: { id: string; name: string; name_translated?: string | null; content_lang?: 'zh' | 'en' | null; price: number; currency?: string; images: string[]; seller_id: string }
 }
 
 /** 内容类型（与 Post post_type 一致） */
@@ -49,6 +49,10 @@ export type ListPostContentType =
 
 export interface ListPostContentDTO {
   text: string | null
+  /** 正文语言，与 content_translated 配合按 locale 显示 */
+  contentLang?: 'zh' | 'en' | null
+  /** 正文译文，与 contentLang 配合按 locale 显示 */
+  contentTranslated?: string | null
   imageUrls: string[]
   // 列表场景下，topics 用于展示即可（不要求全量）
   topics: ListPostTopicDTO[]

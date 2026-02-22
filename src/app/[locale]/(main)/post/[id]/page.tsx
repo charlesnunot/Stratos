@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { useRouter } from '@/i18n/navigation'
 import { CommentSection } from '@/components/social/CommentSection'
 import { TipButton } from '@/components/social/TipButton'
 import { LikeButton } from '@/components/social/LikeButton'
@@ -11,7 +12,7 @@ import { ReportDialog } from '@/components/social/ReportDialog'
 import { ChatButton } from '@/components/social/ChatButton'
 import { ProductCard } from '@/components/ecommerce/ProductCard'
 import { Button } from '@/components/ui/button'
-import { Loader2, MessageCircle, Share2, ChevronLeft, ChevronRight, Flag, Repeat2, ShoppingBag, Upload } from 'lucide-react'
+import { Loader2, MessageCircle, Share2, ChevronLeft, ChevronRight, Flag, Repeat2, ShoppingBag, Play, Pause } from 'lucide-react'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useParams } from 'next/navigation'
@@ -22,43 +23,73 @@ import { RepostDialog } from '@/components/social/RepostDialog'
 import { ShareDialog } from '@/components/social/ShareDialog'
 import { showSuccess, showInfo, showError, showWarning } from '@/lib/utils/toast'
 import { useTranslations, useLocale } from 'next-intl'
-import { useQueryClient } from '@tanstack/react-query'
 import { usePostPage } from '@/lib/hooks/usePostPage'
-import { useAuth } from '@/lib/hooks/useAuth'
-import { useProfile } from '@/lib/hooks/useProfile'
 import { getDisplayContent } from '@/lib/ai/display-translated'
-import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
-import { formatCurrency } from '@/lib/currency/format-currency'
-
+import { createImageErrorHandler } from '@/lib/utils/image-retry'
+import { formatPriceWithConversion } from '@/lib/currency/format-currency'
+import { detectCurrency, type Currency } from '@/lib/currency/detect-currency'
 export default function PostPage() {
   const params = useParams()
   const postId = params.id as string
+  const router = useRouter()
   const state = usePostPage(postId)
-  const queryClient = useQueryClient()
-  const { user: authUser } = useAuth()
-  const supabase = createClient()
-  const { data: currentProfileData } = useProfile(authUser?.id ?? '')
-  const isAdminOrSupport =
-    currentProfileData?.profile?.role === 'admin' || currentProfileData?.profile?.role === 'support'
   const t = useTranslations('posts')
   const tMessages = useTranslations('messages')
   const tCommon = useTranslations('common')
   const tAffiliate = useTranslations('affiliate')
   const locale = useLocale()
+  const userCurrency = useMemo(() => detectCurrency({ browserLocale: locale }), [locale])
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [showRepostDialog, setShowRepostDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
-  const [migrateLoading, setMigrateLoading] = useState(false)
-  
+  const [musicBgIndex, setMusicBgIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [videoPaused, setVideoPaused] = useState(true)
+  const [imageRetryCount, setImageRetryCount] = useState(0)
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  const handleImageError = createImageErrorHandler({
+    maxRetries: 3,
+    retryDelay: 1000,
+    fallbackSrc: '/placeholder-product.png',
+  })
+
+  // 音乐帖多图背景轮播
+  useEffect(() => {
+    if (state.status !== 'ready') return
+    const post = state.post
+    if (!post) return
+    const imgs = post.image_urls ?? []
+    if (post.post_type !== 'music' || imgs.length <= 1) return
+    const n = imgs.length
+    const id = setInterval(() => {
+      setMusicBgIndex((prev) => (prev + 1) % n)
+    }, 5000)
+    return () => clearInterval(id)
+  }, [state.status, state.status === 'ready' ? state.post?.id : undefined])
+
+  // 短视频：进入详情页自动播放，播完显示播放按钮可重播
+  useEffect(() => {
+    if (state.status !== 'ready') return
+    const post = state.post
+    if (!post) return
+    if (post.post_type !== 'short_video') return
+    const el = videoRef.current
+    if (!el) return
+    setVideoPaused(true)
+    el.play().catch(() => {})
+  }, [state.status, state.status === 'ready' ? state.post?.id : undefined])
+
   // 转发相关
   const repostMutation = useRepost()
 
   // PV/UV 统计（含匿名）：仅在 ready 且帖子已审核时上报
+  const canTrackView = state.status === 'ready' && state.post?.status === 'approved'
   useTrackView(
-    state.status === 'ready' && state.post?.status === 'approved' ? 'post' : null,
-    state.status === 'ready' && state.post?.status === 'approved' ? postId : null
+    canTrackView ? 'post' : null,
+    canTrackView ? postId : null
   )
 
   if (state.status === 'loading') {
@@ -94,7 +125,7 @@ export default function PostPage() {
     return null
   }
 
-  const { post, user, capabilities, tipDisabledReason } = state
+  const { post, user, capabilities, tipDisabledReason, authorizationToken } = state
 
   const images = post.image_urls || []
   const hasMultipleImages = images.length > 1
@@ -113,29 +144,6 @@ export default function PostPage() {
 
   const handleShare = () => {
     setShowShareDialog(true)
-  }
-
-  const handleMigrateImages = async () => {
-    if (migrateLoading) return
-    setMigrateLoading(true)
-    try {
-      const res = await fetch('/api/cloudinary/migrate-post-images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId }),
-      })
-      const body = await res.json().catch(() => ({}))
-      if (res.ok && body?.ok) {
-        showSuccess(t('migrateImagesSuccess', { count: body.migrated ?? 0 }))
-        queryClient.invalidateQueries({ queryKey: ['post', postId] })
-      } else {
-        showError(body?.error ?? t('migrateImagesFailed'))
-      }
-    } catch {
-      showError(t('migrateImagesFailed'))
-    } finally {
-      setMigrateLoading(false)
-    }
   }
 
   const handleRepost = () => {
@@ -182,14 +190,35 @@ export default function PostPage() {
         <div className="min-w-0">
           {postType === 'short_video' && videoInfo?.video_url ? (
             <div className="relative w-full max-w-full overflow-hidden rounded-lg bg-muted space-y-2">
-              <div className="relative w-full" style={{ aspectRatio: '9/16', maxHeight: 'min(80vh, 600px)' }}>
+              <div className="relative w-full bg-muted" style={{ aspectRatio: '9/16', maxHeight: 'min(80vh, 600px)' }}>
                 <video
+                  key={`${videoInfo.video_url}-${imageRetryCount}`}
+                  ref={videoRef}
                   src={videoInfo.video_url}
                   poster={videoInfo.cover_url || images[0] || undefined}
-                  controls
                   className="h-full w-full object-contain"
-                  preload="metadata"
+                  preload="auto"
+                  playsInline
+                  onPlay={() => setVideoPaused(false)}
+                  onPause={() => setVideoPaused(true)}
+                  onEnded={() => setVideoPaused(true)}
+                  onError={() => {
+                    console.error('Video load error:', videoInfo.video_url)
+                    setImageRetryCount(prev => prev + 1)
+                  }}
                 />
+                {videoPaused && (
+                  <button
+                    type="button"
+                    onClick={() => videoRef.current?.play()}
+                    className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors rounded-lg"
+                    aria-label={t('play')}
+                  >
+                    <div className="rounded-full bg-black/50 p-5">
+                      <Play className="h-14 w-14 text-white fill-white" />
+                    </div>
+                  </button>
+                )}
               </div>
               <Link
                 href={`/post/${postId}/video`}
@@ -199,14 +228,62 @@ export default function PostPage() {
               </Link>
             </div>
           ) : postType === 'music' && musicInfo?.music_url ? (
-            <div className="relative w-full max-w-full overflow-hidden rounded-lg bg-muted">
-              <div className="relative aspect-video w-full md:min-h-[300px] flex flex-col items-center justify-center p-4">
-                {(musicInfo.cover_url || images[0]) ? (
-                  <img src={musicInfo.cover_url || images[0]} alt="" className="w-full max-h-[50vh] object-contain rounded" />
-                ) : (
-                  <span className="text-muted-foreground text-4xl mb-2">♪</span>
-                )}
-                <audio src={musicInfo.music_url} controls className="w-full mt-4 max-w-md" preload="metadata" />
+            <div className="relative w-full max-w-full overflow-hidden rounded-lg bg-muted aspect-video min-h-[280px] md:min-h-[300px]">
+              {/* 底层：无图占位 / 有图则用 image_urls 作背景（多图轮播由 musicBgIndex 控制） */}
+              {images.length === 0 ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-muted-foreground text-5xl">♪</span>
+                </div>
+              ) : (
+                <img
+                  key={`${images[musicBgIndex] ?? musicInfo.cover_url ?? images[0]}-${imageRetryCount}`}
+                  src={images[musicBgIndex] ?? musicInfo.cover_url ?? images[0]}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={handleImageError}
+                />
+              )}
+              {/* 变暗层 */}
+              <div className="absolute inset-0 bg-black/50" aria-hidden />
+              {/* 上层：居中大播放钮 + 底部 audio 控制条 */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-16 w-16 rounded-full bg-white/90 text-black hover:bg-white shrink-0"
+                  onClick={() => {
+                    const el = audioRef.current
+                    if (!el) return
+                    if (el.paused) {
+                      el.play().catch(() => {})
+                      setIsPlaying(true)
+                    } else {
+                      el.pause()
+                      setIsPlaying(false)
+                    }
+                  }}
+                  aria-label={isPlaying ? t('pause') : t('play')}
+                >
+                  {isPlaying ? (
+                    <Pause className="h-8 w-8 fill-current" />
+                  ) : (
+                    <Play className="h-8 w-8 fill-current ml-0.5" />
+                  )}
+                </Button>
+                <audio
+                  key={`${musicInfo.music_url}-${imageRetryCount}`}
+                  ref={audioRef}
+                  src={musicInfo.music_url}
+                  controls
+                  className="w-full max-w-md opacity-90 rounded"
+                  preload="metadata"
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onError={() => {
+                    console.error('Audio load error:', musicInfo.music_url)
+                    setImageRetryCount(prev => prev + 1)
+                  }}
+                />
               </div>
             </div>
           ) : (postType === 'story' || postType === 'series') && !images.length ? (
@@ -217,10 +294,12 @@ export default function PostPage() {
             <div className="relative w-full max-w-full overflow-hidden rounded-lg bg-muted">
               <div className="relative aspect-[4/3] w-full md:min-h-[600px]">
                 <img
+                  key={`${images[currentImageIndex]}-${imageRetryCount}`}
                   src={images[currentImageIndex]}
                   alt={post.content || 'Post image'}
                   className="h-full w-full max-w-full object-contain"
                   loading="eager"
+                  onError={handleImageError}
                 />
                 {hasMultipleImages && (
                   <>
@@ -273,9 +352,11 @@ export default function PostPage() {
                   <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                     {post.user.avatar_url ? (
                       <img
+                        key={`${post.user.avatar_url}-${imageRetryCount}`}
                         src={post.user.avatar_url}
                         alt={post.user.display_name}
                         className="h-full w-full object-cover"
+                        onError={handleImageError}
                       />
                     ) : (
                       <span className="text-lg">
@@ -399,23 +480,6 @@ export default function PostPage() {
                 <Share2 className="h-4 w-4" />
                 <span className="text-sm">{post.share_count || 0}</span>
               </Button>
-              {isAdminOrSupport && images.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={handleMigrateImages}
-                  disabled={migrateLoading}
-                  title={t('migrateImages')}
-                >
-                  {migrateLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                  <span className="text-sm">{t('migrateImages')}</span>
-                </Button>
-              )}
             </div>
 
             {/* Tip Button */}
@@ -426,73 +490,66 @@ export default function PostPage() {
                 currentAmount={post.tip_amount || 0}
                 enabled={capabilities.canTip}
                 reasonDisabled={tipDisabledReason}
+                authorizationToken={authorizationToken?.token}
               />
             </div>
 
-            {/* 关联商品（帖子内嵌） */}
-            {post.linkedProducts && post.linkedProducts.length > 0 && (
-              <div className="pt-4 border-t min-w-0">
-                <div className="flex items-center gap-2 mb-3">
-                  <ShoppingBag className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-semibold">{t('linkedProducts')}</h3>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {post.linkedProducts
-                    .filter((lp) => lp.product)
-                    .map((lp) => (
-                      <ProductCard
-                        key={lp.product_id}
-                        product={{
-                          id: lp.product!.id,
-                          name: lp.product!.name,
-                          description: null,
-                          price: lp.product!.price,
-                          images: lp.product!.images ?? [],
-                          seller_id: lp.product!.seller_id,
-                          stock: 0,
-                          status: 'active',
-                          like_count: 0,
-                          want_count: 0,
-                          share_count: 0,
-                          repost_count: 0,
-                          favorite_count: 0,
-                        }}
-                      />
-                    ))}
-                </div>
+            {/* 带货商品 - 单行简洁展示 */}
+            {(post.linkedProducts && post.linkedProducts.length > 0) && (
+              <div className="pt-3 border-t min-w-0">
+                {post.linkedProducts
+                  .filter((lp) => lp.product)
+                  .slice(0, 1)
+                  .map((lp) => (
+                    <button
+                      key={lp.product_id}
+                      onClick={async () => {
+                        // 🔒 先记录点击，再跳转
+                        try {
+                          await fetch('/api/affiliate/clicks', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ affiliate_post_id: postId }),
+                            credentials: 'include'
+                          })
+                        } catch (e) {
+                          // 静默失败
+                        }
+                        router.push(`/product/${lp.product!.id}?ap=${postId}`)
+                      }}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors w-full text-left"
+                    >
+                      <span className="text-lg">💰</span>
+                      <span className="text-sm text-muted-foreground">{tAffiliate('promoted') || '推广'}:</span>
+                      {lp.product!.images?.[0] ? (
+                        <img
+                          src={lp.product!.images[0]}
+                          alt={lp.product!.name}
+                          className="h-10 w-10 shrink-0 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 shrink-0 rounded bg-muted flex items-center justify-center">
+                          <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {getDisplayContent(
+                            locale,
+                            lp.product!.content_lang ?? null,
+                            lp.product!.name,
+                            lp.product!.name_translated
+                          )}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-primary">
+                        {formatPriceWithConversion(lp.product!.price, (lp.product!.currency || 'CNY') as Currency, userCurrency).main}
+                      </span>
+                      <span className="text-muted-foreground">›</span>
+                    </button>
+                  ))}
               </div>
             )}
-
-            {/* Affiliate Product */}
-            {post.affiliatePost?.product && (() => {
-              const p = post.affiliatePost.product as Record<string, unknown>
-              return (
-                <div className="pt-4 border-t min-w-0">
-                  <div className="flex items-center gap-2 mb-3">
-                    <ShoppingBag className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">{t('promotedProduct')}</h3>
-                  </div>
-                  <ProductCard
-                    product={{
-                      id: String(p.id ?? ''),
-                      name: String(p.name ?? ''),
-                      description: p.description != null ? String(p.description) : null,
-                      price: Number(p.price ?? 0),
-                      images: Array.isArray(p.images) ? (p.images as string[]) : [],
-                      seller_id: String(p.seller_id ?? ''),
-                      stock: 0,
-                      status: 'active',
-                      like_count: 0,
-                      want_count: 0,
-                      share_count: 0,
-                      repost_count: 0,
-                      favorite_count: 0,
-                      ...(p.seller ? { seller: p.seller as { username: string; display_name: string; avatar_url: string | null } } : {}),
-                    }}
-                  />
-                </div>
-              )
-            })()}
 
             {/* Comments Section */}
             <div className="pt-4 border-t min-w-0 overflow-visible">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Gift, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,10 +10,12 @@ import { useProfile } from '@/lib/hooks/useProfile'
 import { PaymentMethodSelector } from '@/components/payments/PaymentMethodSelector'
 import { PayPalButton } from '@/components/payments/PayPalButton'
 import { Link, useRouter } from '@/i18n/navigation'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useToast } from '@/lib/hooks/useToast'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { PayoutEligibility } from '@/lib/hooks/usePaymentAccount'
+import { getCurrencyFromBrowser, type Currency } from '@/lib/currency/detect-currency'
 
 interface UserTipButtonProps {
   targetUserId: string
@@ -31,13 +33,26 @@ export function UserTipButton({
   const { user } = useAuth()
   const { data: profileResult, isLoading: profileLoading } = useProfile(user?.id ?? '')
   const { data: targetProfileResult } = useProfile(targetUserId)
-  const profile = profileResult?.profile
-  const targetTipEnabled = targetProfileResult?.profile?.tip_enabled
+  const profile = profileResult ?? null
+  const targetTipEnabled = targetProfileResult?.tip_enabled
   const router = useRouter()
   const { toast } = useToast()
   const t = useTranslations('tips')
   const tCommon = useTranslations('common')
+  const locale = useLocale()
   const supabase = useMemo(() => createClient(), [])
+
+  const [currency, setCurrency] = useState<Currency>('CNY')
+
+  const currencySymbol = currency === 'CNY' ? '¥' : '$'
+
+  useEffect(() => {
+    if (locale === 'zh') {
+      setCurrency('CNY')
+    } else {
+      setCurrency('USD')
+    }
+  }, [locale])
 
   // 检查打赏订阅是否过期
   const { data: tipSubscription } = useQuery({
@@ -59,8 +74,29 @@ export function UserTipButton({
     enabled: !!user && !!profile?.tip_enabled,
   })
 
+  // 检查目标用户的收款账户状态
+  const { data: targetPaymentAccount } = useQuery({
+    queryKey: ['targetPaymentAccount', targetUserId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('payment_provider, payment_account_id, seller_payout_eligibility')
+        .eq('id', targetUserId)
+        .single()
+      
+      if (error) throw error
+      return {
+        hasPaymentAccount: !!(data.payment_provider && data.payment_account_id),
+        eligibility: data.seller_payout_eligibility as PayoutEligibility | null,
+      }
+    },
+    enabled: !!targetUserId,
+  })
+
   const tipEnabled = !!profile?.tip_enabled && !!tipSubscription
   const recipientAcceptsTips = targetTipEnabled !== false
+  const recipientHasActivePaymentAccount = targetPaymentAccount?.hasPaymentAccount && 
+    targetPaymentAccount?.eligibility === 'eligible'
 
   // 未登录用户显示"登录后打赏"按钮
   if (!user) {
@@ -104,7 +140,30 @@ export function UserTipButton({
     )
   }
 
-  const MAX_TIP_CNY = 35
+  // 目标用户没有绑定收款账户或账户未激活
+  if (!recipientHasActivePaymentAccount) {
+    return (
+      <Button variant="outline" size="sm" className="gap-2" disabled title={t('tipRecipientPaymentNotReady')}>
+        <Gift className="h-4 w-4" />
+        {t('tip')}
+      </Button>
+    )
+  }
+
+  const MAX_TIP_AMOUNTS: Record<Currency, number> = {
+    CNY: 35,
+    USD: 5,
+    EUR: 5,
+    GBP: 4,
+    JPY: 700,
+    KRW: 6500,
+    SGD: 7,
+    HKD: 40,
+    AUD: 8,
+    CAD: 7,
+  }
+
+  const maxTipAmount = MAX_TIP_AMOUNTS[currency] || 35
 
   const handleTip = async () => {
     const tipAmount = parseFloat(amount)
@@ -116,7 +175,7 @@ export function UserTipButton({
       })
       return
     }
-    if (tipAmount > MAX_TIP_CNY) {
+    if (tipAmount > maxTipAmount) {
       toast({
         variant: 'warning',
         title: tCommon('notice'),
@@ -146,7 +205,7 @@ export function UserTipButton({
           targetUserId,
           successUrl: `${window.location.origin}/profile/${targetUserId}?tip=success`,
           cancelUrl: window.location.href,
-          currency: 'CNY',
+          currency: currency,
         }),
         signal: controller.signal,
       })
@@ -226,18 +285,17 @@ export function UserTipButton({
             <p className="mb-4 text-sm text-muted-foreground">{t('tipUserDirectly')}</p>
 
             <div className="mb-4 space-y-2">
-              <label className="text-sm font-medium">{t('tipAmount')} (¥)</label>
+              <label className="text-sm font-medium">{t('tipAmount')} ({currencySymbol})</label>
               <Input
                 type="number"
                 min="0.01"
-                max="35"
+                max={maxTipAmount}
                 step="0.01"
                 placeholder={t('enterAmount')}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                disabled={paymentMethod === 'paypal'}
               />
-              <p className="text-xs text-muted-foreground">{t('minimumTipAmount')} · {t('maximumTipAmount')}</p>
+              <p className="text-xs text-muted-foreground">{t('minimumTipAmount', { symbol: currencySymbol, min: '0.01' })} · {t('maximumTipAmount', { symbol: currencySymbol, max: maxTipAmount })}</p>
             </div>
 
             <div className="mb-4">
@@ -256,7 +314,7 @@ export function UserTipButton({
                 {amount && parseFloat(amount) > 0 ? (
                   <PayPalButton
                     amount={parseFloat(amount)}
-                    currency="CNY"
+                    currency={currency}
                     metadata={{
                       type: 'user_tip',
                       targetUserId: targetUserId,
@@ -279,9 +337,7 @@ export function UserTipButton({
                       })
                     }}
                   />
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center">{t('enterTipAmount')}</p>
-                )}
+                ) : null}
                 <Button
                   variant="outline"
                   onClick={() => setShowModal(false)}

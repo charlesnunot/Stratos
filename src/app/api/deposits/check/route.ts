@@ -45,6 +45,25 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Direct sellers: no deposit required (platform collects)
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('seller_type')
+      .eq('id', user.id)
+      .single()
+    if ((profile as { seller_type?: string } | null)?.seller_type === 'direct') {
+      return NextResponse.json({
+        requiresDeposit: false,
+        requiredAmount: 0,
+        currentTier: 0,
+        suggestedTier: 0,
+        reason: 'Direct seller: no deposit required',
+        unfilledTotal: 0,
+        currency: 'USD',
+        depositLot: null,
+      })
+    }
+
     // Check deposit requirement with newOrderAmount = 0 (check current state)
     const depositCheck = await checkSellerDepositRequirement(user.id, 0, supabaseAdmin)
 

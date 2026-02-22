@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
     // Find order by order number
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('id, total_amount, payment_status')
+      .select('id, total_amount, payment_status, currency')
       .eq('order_number', out_trade_no)
       .single()
 
@@ -269,10 +269,14 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', existingTransaction.id)
     } else {
-      // Verify amount (total_fee is in fen, convert to CNY)
+      // Verify amount with currency-based precision (total_fee is in fen, convert to CNY)
       const paidAmount = parseFloat(total_fee || '0') / 100
-      if (Math.abs(paidAmount - order.total_amount) > 0.01) {
-        console.error('Amount mismatch:', { paidAmount, orderAmount: order.total_amount })
+      const orderCurrency = order.currency?.toUpperCase() || 'CNY'
+      const isZeroDecimalCurrency = ['JPY', 'KRW'].includes(orderCurrency)
+      const precision = isZeroDecimalCurrency ? 0 : 0.01
+      
+      if (Math.abs(paidAmount - order.total_amount) > precision) {
+        console.error('Amount mismatch:', { paidAmount, orderAmount: order.total_amount, currency: orderCurrency })
         return NextResponse.json(
           { error: 'Amount mismatch' },
           { status: 400 }

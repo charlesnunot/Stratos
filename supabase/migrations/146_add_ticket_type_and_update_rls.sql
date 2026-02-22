@@ -9,22 +9,37 @@ ALTER TABLE support_tickets
 -- 2. Admin/support can update any ticket (status, assigned_to, etc.)
 -- 3. Assigned support can update tickets assigned to them (e.g. when replying, updated_at)
 
-CREATE POLICY "Users can update own tickets" ON support_tickets
-  FOR UPDATE
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'support_tickets' AND policyname = 'Users can update own tickets') THEN
+    CREATE POLICY "Users can update own tickets" ON support_tickets
+      FOR UPDATE
+      USING (user_id = auth.uid())
+      WITH CHECK (user_id = auth.uid());
+  END IF;
+END $$;
 
-CREATE POLICY "Admin and support can update all tickets" ON support_tickets
-  FOR UPDATE
-  USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'support'))
-  )
-  WITH CHECK (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'support'))
-  );
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'support_tickets' AND policyname = 'Admin and support can update all tickets') THEN
+    CREATE POLICY "Admin and support can update all tickets" ON support_tickets
+      FOR UPDATE
+      USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'support'))
+      )
+      WITH CHECK (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'support'))
+      );
+  END IF;
+END $$;
 
 -- Assigned support can update tickets assigned to them (e.g. replying updates updated_at)
-CREATE POLICY "Assigned support can update assigned tickets" ON support_tickets
-  FOR UPDATE
-  USING (assigned_to = auth.uid())
-  WITH CHECK (assigned_to = auth.uid());
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'support_tickets' AND policyname = 'Assigned support can update assigned tickets') THEN
+    CREATE POLICY "Assigned support can update assigned tickets" ON support_tickets
+      FOR UPDATE
+      USING (assigned_to = auth.uid())
+      WITH CHECK (assigned_to = auth.uid());
+  END IF;
+END $$;

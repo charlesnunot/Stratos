@@ -105,7 +105,7 @@ export function ProductDetailsTabs({
           ) : hasPolicies ? (
             <div>
               <h3 className="text-lg font-semibold mb-4">
-                {t('storePolicies') || 'Store Policies'}
+                {t('sellerPolicies') || 'Seller Policies'}
               </h3>
               <div className="space-y-4">
                 {sellerProfile?.return_policy && (

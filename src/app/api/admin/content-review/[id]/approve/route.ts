@@ -1,13 +1,14 @@
 /**
  * Admin content approval API
  * Approves posts, products, or comments. Updates status, notifies author, triggers AI, logAudit.
- * Note: Image migration must be done by caller before approval.
+ * For products: migrates images to Cloudinary before approval.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminOrSupport } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { logAudit } from '@/lib/api/audit'
+import { createHash } from 'crypto'
 
 type ContentType = 'post' | 'product' | 'comment' | 'product_comment'
 
@@ -23,6 +24,166 @@ const TABLE_MAP: Record<ContentType, string> = {
   product: 'products',
   comment: 'comments',
   product_comment: 'product_comments',
+}
+
+const SUPABASE_PUBLIC_PATTERN = /^https?:\/\/[^/]+\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/
+
+function parseSupabasePublicUrl(url: string): { bucket: string; path: string } | null {
+  if (!url || typeof url !== 'string') return null
+  const m = url.trim().match(SUPABASE_PUBLIC_PATTERN)
+  if (!m) return null
+  const bucket = decodeURIComponent(m[1])
+  const path = decodeURIComponent(m[2]).split('?')[0].trim()
+  return path ? { bucket, path } : null
+}
+
+function isSupabaseStorageUrl(url: string): boolean {
+  return !!url && url.includes('supabase.co') && !!parseSupabasePublicUrl(url)
+}
+
+function cloudinarySignature(params: Record<string, string>, apiSecret: string): string {
+  const sorted = Object.keys(params)
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join('&')
+  return createHash('sha1').update(sorted + apiSecret).digest('hex')
+}
+
+async function uploadImageToCloudinary(
+  buffer: Buffer,
+  cloudName: string,
+  apiKey: string,
+  apiSecret: string,
+  folder: string,
+  contentType: string
+): Promise<string> {
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const params: Record<string, string> = { folder, timestamp }
+  const signature = cloudinarySignature(params, apiSecret)
+  const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : contentType.includes('gif') ? 'gif' : 'jpg'
+  const form = new FormData()
+  form.append('file', new Blob([new Uint8Array(buffer)], { type: contentType }), `image.${ext}`)
+  form.append('api_key', apiKey)
+  form.append('timestamp', timestamp)
+  form.append('signature', signature)
+  form.append('folder', folder)
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: form })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Cloudinary image upload failed: ${res.status} ${text}`)
+  }
+  const data = (await res.json()) as { secure_url?: string }
+  if (!data?.secure_url) throw new Error('Cloudinary response missing secure_url')
+  return data.secure_url
+}
+
+async function migrateProductImages(
+  admin: any,
+  productId: string
+): Promise<{ success: boolean; migrated: number; error?: string }> {
+  const cloudName = (process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? process.env.CLOUDINARY_CLOUD_NAME)?.trim()
+  const apiKey = process.env.CLOUDINARY_API_KEY?.trim()
+  const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim()
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    const missing = [
+      !cloudName && 'NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME 或 CLOUDINARY_CLOUD_NAME',
+      !apiKey && 'CLOUDINARY_API_KEY',
+      !apiSecret && 'CLOUDINARY_API_SECRET',
+    ].filter(Boolean)
+    return { success: false, migrated: 0, error: `Cloudinary 未配置，请在 .env.local 中设置：${missing.join('、')}` }
+  }
+
+  const { data: product } = await admin
+    .from('products')
+    .select('id, images, color_options')
+    .eq('id', productId)
+    .single()
+
+  if (!product) {
+    return { success: false, migrated: 0, error: 'Product not found' }
+  }
+
+  const images = (product.images ?? []) as string[]
+  const colorOptions = (product.color_options ?? []) as Array<{ name: string; image_url: string | null }>
+
+  const supabaseImageUrls = images.filter(isSupabaseStorageUrl)
+  
+  const colorOptionImageUrls = colorOptions
+    .map(opt => opt.image_url)
+    .filter((url): url is string => !!url && isSupabaseStorageUrl(url))
+
+  const allSupabaseUrls = [...supabaseImageUrls, ...colorOptionImageUrls]
+
+  if (allSupabaseUrls.length === 0) {
+    return { success: true, migrated: 0 }
+  }
+
+  const failed: { url: string; reason: string }[] = []
+  const toDelete: { bucket: string; path: string }[] = []
+  const urlToNewUrl = new Map<string, string>()
+
+  for (const url of allSupabaseUrls) {
+    try {
+      const parsed = parseSupabasePublicUrl(url)
+      if (!parsed) {
+        failed.push({ url, reason: 'invalid_supabase_url' })
+        continue
+      }
+
+      const res = await fetch(url, { headers: { 'User-Agent': 'Stratos-Approve/1' } })
+      if (!res.ok) {
+        failed.push({ url, reason: `fetch_${res.status}` })
+        continue
+      }
+
+      const buffer = Buffer.from(await res.arrayBuffer())
+      const contentType = res.headers.get('content-type') || 'image/jpeg'
+      const cloudinaryUrl = await uploadImageToCloudinary(buffer, cloudName, apiKey, apiSecret, 'products', contentType)
+
+      urlToNewUrl.set(url, cloudinaryUrl)
+      toDelete.push({ bucket: parsed.bucket, path: parsed.path })
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e)
+      failed.push({ url, reason })
+    }
+  }
+
+  if (failed.length > 0) {
+    const firstReason = failed[0]?.reason ?? ''
+    return {
+      success: false,
+      migrated: 0,
+      error: `图片迁移失败 ${failed.length}/${allSupabaseUrls.length} 项${firstReason ? '：' + firstReason : ''}`,
+    }
+  }
+
+  const newImages = images.map((url) => urlToNewUrl.get(url) ?? url)
+  
+  const newColorOptions = colorOptions.map(opt => ({
+    ...opt,
+    image_url: opt.image_url ? (urlToNewUrl.get(opt.image_url) ?? opt.image_url) : null,
+  }))
+
+  const { error: updateError } = await admin.from('products').update({
+    images: newImages,
+    color_options: newColorOptions,
+    updated_at: new Date().toISOString(),
+  }).eq('id', productId)
+
+  if (updateError) {
+    return { success: false, migrated: 0, error: 'Failed to update product: ' + updateError.message }
+  }
+
+  for (const { bucket, path } of toDelete) {
+    const { error: deleteError } = await admin.storage.from(bucket).remove([path])
+    if (deleteError) {
+      console.error('[approve] Supabase storage remove failed', { productId, bucket, path, error: deleteError.message })
+    }
+  }
+
+  return { success: true, migrated: toDelete.length }
 }
 
 export async function POST(
@@ -58,7 +219,9 @@ export async function POST(
 
     const selectFields = type === 'post'
       ? 'id, status, post_type, content'
-      : 'id, status'
+      : type === 'product'
+        ? 'id, status, images, category'
+        : 'id, status'
     const { data: row, error: fetchError } = await admin
       .from(table)
       .select(selectFields)
@@ -67,6 +230,36 @@ export async function POST(
 
     if (fetchError || !row) {
       return NextResponse.json({ error: `${type} not found` }, { status: 404 })
+    }
+
+    // For products, check if images are present
+    if (type === 'product') {
+      const productRow = row as unknown as { id: string; status: string; images: string[] | null; category: string | null }
+      const images = productRow.images ?? []
+      
+      // 检查是否有图片
+      if (images.length === 0) {
+        return NextResponse.json(
+          { error: '商品必须至少包含一张图片才能审核通过' },
+          { status: 400 }
+        )
+      }
+      
+      // 检查是否所有图片都已迁移（已经是 Cloudinary URL）
+      const hasCloudinaryImage = images.some(url => url && url.includes('cloudinary.com'))
+      const hasSupabaseImage = images.some(isSupabaseStorageUrl)
+      
+      // 如果既有 Cloudinary 图片又有 Supabase 图片，或者只有 Cloudinary 图片，说明已迁移
+      // 如果只有 Supabase 图片，需要在审核时迁移
+      // 这种情况是允许的，不报错
+      
+      // Check if category is not empty
+      if (!productRow.category || !productRow.category.trim()) {
+        return NextResponse.json(
+          { error: '商品分类为空，无法翻译和审核通过' },
+          { status: 400 }
+        )
+      }
     }
 
     const rowWithStatus = row as unknown as { id: string; status: string }
@@ -84,6 +277,17 @@ export async function POST(
       )
     }
 
+    // For products, migrate images to Cloudinary before approval
+    if (type === 'product') {
+      const migrationResult = await migrateProductImages(admin, id)
+      if (!migrationResult.success) {
+        return NextResponse.json(
+          { error: migrationResult.error || 'Image migration failed' },
+          { status: 500 }
+        )
+      }
+    }
+
     const updatePayload: Record<string, unknown> = {
       status: statusValue,
     }
@@ -99,29 +303,37 @@ export async function POST(
       .eq('id', id)
 
     if (updateError) {
+      try {
+        logAudit({
+          action: 'content_review_approve',
+          userId: user.id,
+          resourceId: id,
+          resourceType: type,
+          result: 'fail',
+          timestamp: new Date().toISOString(),
+          meta: { reason: updateError.message },
+        })
+      } catch (_) {
+        // ignore audit failure
+      }
+      return NextResponse.json(
+        { error: updateError.message || 'Database update failed' },
+        { status: 500 }
+      )
+    }
+
+    try {
       logAudit({
         action: 'content_review_approve',
         userId: user.id,
         resourceId: id,
         resourceType: type,
-        result: 'fail',
+        result: 'success',
         timestamp: new Date().toISOString(),
-        meta: { reason: updateError.message },
       })
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 500 }
-      )
+    } catch (_) {
+      // do not fail the request if audit logging fails
     }
-
-    logAudit({
-      action: 'content_review_approve',
-      userId: user.id,
-      resourceId: id,
-      resourceType: type,
-      result: 'success',
-      timestamp: new Date().toISOString(),
-    })
 
     // Notify content author (post/product/comment/product_comment owner)
     const ownerIdField = type === 'product' ? 'seller_id' : 'user_id'
@@ -297,15 +509,20 @@ export async function POST(
 
     return NextResponse.json({ ok: true })
   } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
     console.error('[content-review/approve]', e)
-    logAudit({
-      action: 'content_review_approve',
-      result: 'fail',
-      timestamp: new Date().toISOString(),
-      meta: { reason: e instanceof Error ? e.message : String(e) },
-    })
+    try {
+      logAudit({
+        action: 'content_review_approve',
+        result: 'fail',
+        timestamp: new Date().toISOString(),
+        meta: { reason: message },
+      })
+    } catch (_) {
+      // ignore
+    }
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: process.env.NODE_ENV === 'development' ? message : 'Internal server error' },
       { status: 500 }
     )
   }

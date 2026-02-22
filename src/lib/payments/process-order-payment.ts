@@ -12,6 +12,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
 import { logPaymentSuccess, logPaymentFailure, logIdempotencyHit, logPayment, LogLevel } from './logger'
 import { createPaymentError, logPaymentError } from './error-handler'
 import { logAudit } from '@/lib/api/audit'
+import { recordOrderPaymentLedger } from './ledger-helpers'
 
 interface ProcessOrderPaymentParams {
   orderId: string
@@ -28,7 +29,7 @@ export async function processOrderPayment({
     // Get order details first (for validation and commission calculation)
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('id, buyer_id, seller_id, affiliate_id, affiliate_post_id, product_id, quantity, total_amount, commission_amount, order_items(product_id, quantity, price)')
+      .select('id, buyer_id, seller_id, affiliate_id, affiliate_post_id, product_id, quantity, total_amount, commission_amount, order_items(product_id, quantity, price), currency')
       .eq('id', orderId)
       .single()
 
@@ -36,8 +37,12 @@ export async function processOrderPayment({
       return { success: false, error: `Order not found: ${orderError?.message}` }
     }
 
-    // Verify amount matches
-    if (Math.abs(amount - order.total_amount) > 0.01) {
+    // Verify amount matches with currency-based precision
+    const orderCurrency = order.currency?.toUpperCase() || 'USD'
+    const isZeroDecimalCurrency = ['JPY', 'KRW'].includes(orderCurrency)
+    const precision = isZeroDecimalCurrency ? 0 : 0.01
+    
+    if (Math.abs(amount - order.total_amount) > precision) {
       return { success: false, error: `Amount mismatch: expected ${order.total_amount}, got ${amount}` }
     }
 
@@ -242,6 +247,28 @@ export async function processOrderPayment({
         paymentMethod: orderPaymentInfo?.payment_method || 'unknown',
       },
     })
+
+    const platformFee = 0
+
+    if (paymentTransaction?.id) {
+      const ledgerResult = await recordOrderPaymentLedger(supabaseAdmin, {
+        orderId: paymentTransaction.id,
+        buyerId: order.buyer_id,
+        sellerId: order.seller_id,
+        affiliateId: order.affiliate_id,
+        amount: order.total_amount,
+        currency: orderPaymentInfo?.currency || 'CNY',
+        platformFee,
+        commissionAmount: order.commission_amount || 0,
+      })
+
+      if (!ledgerResult.success) {
+        logPayment(LogLevel.ERROR, 'Failed to record order payment ledger', {
+          orderId,
+          error: ledgerResult.error,
+        })
+      }
+    }
 
     return { success: true }
   } catch (error: any) {

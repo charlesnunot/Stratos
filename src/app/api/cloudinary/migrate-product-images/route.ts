@@ -1,7 +1,6 @@
 /**
- * 商品审核通过后：将商品图片从 Supabase Storage 迁移到 Cloudinary，
- * 更新 products.images，并删除 Supabase 中的原图（仅保留已审核内容到 Cloudinary）。
- * 仅允许 admin/support 调用。
+ * 商品审核通过前：将商品图片从 Supabase Storage 迁移到 Cloudinary。
+ * 更新 products.images 字段并删除 Supabase 中的原文件。仅允许 admin/support 调用。
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -9,29 +8,22 @@ import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { createHash } from 'crypto'
 
-const SUPABASE_PRODUCTS_BUCKET = 'products'
-const SUPABASE_PUBLIC_PREFIX = '/storage/v1/object/public/' + SUPABASE_PRODUCTS_BUCKET + '/'
+const SUPABASE_PUBLIC_PATTERN = /^https?:\/\/[^/]+\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/
 
-function isSupabaseProductImageUrl(url: string): boolean {
-  if (!url || typeof url !== 'string') return false
-  return (
-    url.includes('supabase.co') &&
-    url.includes(SUPABASE_PUBLIC_PREFIX)
-  )
+function parseSupabasePublicUrl(url: string): { bucket: string; path: string } | null {
+  if (!url || typeof url !== 'string') return null
+  const m = url.trim().match(SUPABASE_PUBLIC_PATTERN)
+  if (!m) return null
+  const bucket = decodeURIComponent(m[1])
+  const path = decodeURIComponent(m[2]).split('?')[0].trim()
+  return path ? { bucket, path } : null
 }
 
-/** 从 Supabase 公开 URL 解析 bucket 内路径，如 "products/user_id/xxx.jpg" */
-function getStoragePathFromPublicUrl(url: string): string | null {
-  try {
-    const idx = url.indexOf(SUPABASE_PUBLIC_PREFIX)
-    if (idx === -1) return null
-    const path = url.slice(idx + SUPABASE_PUBLIC_PREFIX.length)
-    return decodeURIComponent(path).split('?')[0].trim() || null
-  } catch {
-    return null
-  }
+function isSupabaseStorageUrl(url: string): boolean {
+  return !!url && url.includes('supabase.co') && !!parseSupabasePublicUrl(url)
 }
 
+/** Cloudinary 签名：参数按 key 排序后 key1=value1&key2=value2，再 sha1(str + api_secret) */
 function cloudinarySignature(params: Record<string, string>, apiSecret: string): string {
   const sorted = Object.keys(params)
     .sort()
@@ -40,18 +32,18 @@ function cloudinarySignature(params: Record<string, string>, apiSecret: string):
   return createHash('sha1').update(sorted + apiSecret).digest('hex')
 }
 
-async function uploadToCloudinary(
+/** 将图片 buffer 上传到 Cloudinary Image API，返回 secure_url */
+async function uploadImageToCloudinary(
   buffer: Buffer,
   cloudName: string,
   apiKey: string,
   apiSecret: string,
-  folder: string = 'products',
-  contentType: string = 'image/jpeg'
+  folder: string,
+  contentType: string
 ): Promise<string> {
   const timestamp = Math.floor(Date.now() / 1000).toString()
   const params: Record<string, string> = { folder, timestamp }
   const signature = cloudinarySignature(params, apiSecret)
-
   const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : contentType.includes('gif') ? 'gif' : 'jpg'
   const form = new FormData()
   form.append('file', new Blob([new Uint8Array(buffer)], { type: contentType }), `image.${ext}`)
@@ -60,17 +52,11 @@ async function uploadToCloudinary(
   form.append('signature', signature)
   form.append('folder', folder)
 
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-    { method: 'POST', body: form }
-  )
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: form })
   if (!res.ok) {
     const text = await res.text()
-    const hint =
-      res.status === 401
-        ? ' 请确认 .env.local 中 CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET 来自 Cloudinary 控制台「Dashboard → API Keys」（Programmable Media），不要使用 MediaFlows 等其它产品的密钥；并确认密钥无多余空格或换行。'
-        : ''
-    throw new Error(`Cloudinary upload failed: ${res.status} ${text}${hint}`)
+    const hint = res.status === 401 ? ' 请确认 .env.local 中 CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET 来自 Programmable Media。' : ''
+    throw new Error(`Cloudinary image upload failed: ${res.status} ${text}${hint}`)
   }
   const data = (await res.json()) as { secure_url?: string }
   if (!data?.secure_url) throw new Error('Cloudinary response missing secure_url')
@@ -123,7 +109,7 @@ export async function POST(request: NextRequest) {
 
   const { data: product, error: fetchError } = await admin
     .from('products')
-    .select('id, images')
+    .select('id, images, color_options')
     .eq('id', productId)
     .single()
 
@@ -131,123 +117,97 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Product not found' }, { status: 404 })
   }
 
-  const urls = (product.images ?? []) as string[]
-  if (urls.length === 0) {
-    return NextResponse.json({ ok: true, migrated: 0, reason: 'no_images' })
+  const images = (product.images ?? []) as string[]
+  const supabaseImageUrls = images.filter(isSupabaseStorageUrl)
+
+  const colorOptions = (product.color_options ?? []) as Array<{ name: string; image_url: string | null }>
+  const colorOptionImageUrls = colorOptions
+    .map(opt => opt.image_url)
+    .filter((url): url is string => !!url && isSupabaseStorageUrl(url))
+
+  const allSupabaseUrls = [...supabaseImageUrls, ...colorOptionImageUrls]
+
+  if (allSupabaseUrls.length === 0) {
+    return NextResponse.json({ ok: true, migrated: 0, reason: 'no_supabase_images' })
   }
 
-  const supabaseCount = urls.filter(isSupabaseProductImageUrl).length
-  if (supabaseCount === 0) {
-    console.warn('[migrate-product-images] product has images but none are Supabase storage URLs', {
-      productId,
-      urlCount: urls.length,
-      sampleUrl: urls[0]?.slice(0, 80) + (urls[0] && urls[0].length > 80 ? '...' : ''),
-    })
-    return NextResponse.json({
-      ok: true,
-      migrated: 0,
-      reason: 'no_supabase_urls',
-      hint: '图片链接不是 Supabase 存储格式，请确认创建商品时图片已上传到 Supabase Storage',
-    })
-  }
-
-  const newUrls: string[] = []
-  const pathsToDelete: string[] = []
   const failed: { url: string; reason: string }[] = []
+  const toDelete: { bucket: string; path: string }[] = []
+  const urlToNewUrl = new Map<string, string>()
 
-  for (const oldUrl of urls) {
-    if (!isSupabaseProductImageUrl(oldUrl)) {
-      newUrls.push(oldUrl)
-      continue
-    }
-    const path = getStoragePathFromPublicUrl(oldUrl)
-    if (!path) {
-      failed.push({ url: oldUrl, reason: 'invalid_path' })
-      continue
-    }
-
+  for (const url of allSupabaseUrls) {
     try {
-      const imageRes = await fetch(oldUrl, { headers: { 'User-Agent': 'Stratos-Migrate/1' } })
-      if (!imageRes.ok) {
-        const hint403 = imageRes.status === 403
-          ? '（请确认 Supabase Storage 中 products 桶为公开可读）'
-          : ''
-        failed.push({
-          url: oldUrl,
-          reason: `fetch_${imageRes.status}${hint403}`,
-        })
-        console.error('[migrate-product-images] fetch Supabase image failed', {
-          productId,
-          url: oldUrl.slice(0, 80),
-          status: imageRes.status,
-          hint: imageRes.status === 403 ? 'products bucket may be private' : undefined,
-        })
+      const parsed = parseSupabasePublicUrl(url)
+      if (!parsed) {
+        failed.push({ url, reason: 'invalid_supabase_url' })
         continue
       }
-      const buffer = Buffer.from(await imageRes.arrayBuffer())
-      const contentType = imageRes.headers.get('content-type') || 'image/jpeg'
-      const cloudinaryUrl = await uploadToCloudinary(
-        buffer,
-        cloudName,
-        apiKey,
-        apiSecret,
-        'products',
-        contentType
-      )
-      newUrls.push(cloudinaryUrl)
-      pathsToDelete.push(path)
+
+      const res = await fetch(url, { headers: { 'User-Agent': 'Stratos-Migrate/1' } })
+      if (!res.ok) {
+        failed.push({ url, reason: `fetch_${res.status}` })
+        console.error('[migrate-product-images] fetch failed', { productId, url: url.slice(0, 80), status: res.status })
+        continue
+      }
+
+      const buffer = Buffer.from(await res.arrayBuffer())
+      const contentType = res.headers.get('content-type') || 'image/jpeg'
+      const cloudinaryUrl = await uploadImageToCloudinary(buffer, cloudName, apiKey, apiSecret, 'products', contentType)
+
+      urlToNewUrl.set(url, cloudinaryUrl)
+      toDelete.push({ bucket: parsed.bucket, path: parsed.path })
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e)
-      failed.push({ url: oldUrl, reason })
-      console.error('[migrate-product-images] single image failed', { productId, url: oldUrl, reason })
+      failed.push({ url, reason })
+      console.error('[migrate-product-images] single migration failed', { productId, url: url.slice(0, 80), reason })
     }
   }
 
   if (failed.length > 0) {
     const firstReason = failed[0]?.reason ?? ''
-    const message = `商品图片迁移失败 ${failed.length}/${supabaseCount} 张${firstReason ? '：' + firstReason : ''}。请稍后重试或到商品页点击「迁移图片」。`
+    const message = `图片迁移失败 ${failed.length}/${supabaseImageUrls.length} 项${firstReason ? '：' + firstReason : ''}。请稍后重试。`
     console.error('[migrate-product-images] migration failed', { productId, failedCount: failed.length, failed })
     return NextResponse.json(
       {
         ok: false,
         error: message,
         failedCount: failed.length,
-        totalSupabase: supabaseCount,
-        failedUrls: failed.map((f) => f.url),
+        total: supabaseImageUrls.length,
         firstReason: failed[0]?.reason,
       },
       { status: 500 }
     )
   }
 
-  const { error: updateError } = await admin
-    .from('products')
-    .update({ images: newUrls })
-    .eq('id', productId)
+  const newImages = images.map((url) => urlToNewUrl.get(url) ?? url)
+  const newColorOptions = colorOptions.map(opt => ({
+    ...opt,
+    image_url: opt.image_url ? (urlToNewUrl.get(opt.image_url) ?? opt.image_url) : null,
+  }))
+
+  const updatePayload: Record<string, unknown> = {
+    images: newImages,
+    color_options: newColorOptions,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { error: updateError } = await admin.from('products').update(updatePayload).eq('id', productId)
 
   if (updateError) {
     console.error('[migrate-product-images] update product failed', { productId, error: updateError.message })
     return NextResponse.json(
-      { ok: false, error: 'Failed to update product images: ' + updateError.message },
+      { ok: false, error: 'Failed to update product: ' + updateError.message },
       { status: 500 }
     )
   }
 
-  if (pathsToDelete.length > 0) {
-    const { error: deleteError } = await admin.storage
-      .from(SUPABASE_PRODUCTS_BUCKET)
-      .remove(pathsToDelete)
+  for (const { bucket, path } of toDelete) {
+    const { error: deleteError } = await admin.storage.from(bucket).remove([path])
     if (deleteError) {
-      console.error('[migrate-product-images] Supabase storage remove failed (product already updated)', {
-        productId,
-        error: deleteError.message,
-      })
+      console.error('[migrate-product-images] Supabase storage remove failed', { productId, bucket, path, error: deleteError.message })
     }
   }
 
-  console.log('[migrate-product-images] success', { productId, migrated: pathsToDelete.length })
-  return NextResponse.json({
-    ok: true,
-    migrated: pathsToDelete.length,
-  })
+  console.log('[migrate-product-images] success', { productId, migrated: toDelete.length })
+  return NextResponse.json({ ok: true, migrated: toDelete.length })
 }

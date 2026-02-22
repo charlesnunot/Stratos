@@ -2,8 +2,8 @@
  * 管理员驳回用户资料修改：清空 pending_*，profile_status = 'approved'（保持主字段不变）
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { requireAdminOrSupport } from '@/lib/auth/require-admin'
 import { logAudit } from '@/lib/api/audit'
 
 export async function POST(
@@ -11,23 +11,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: profileId } = await params
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authResult = await requireAdminOrSupport(request)
+  if (!authResult.success) {
+    return authResult.response
   }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin' && profile?.role !== 'support') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const actorUserId = authResult.data.user.id
 
   const admin = await getSupabaseAdmin()
   const { error: updateError } = await admin
@@ -48,7 +36,7 @@ export async function POST(
     console.error('Reject profile error:', updateError)
     logAudit({
       action: 'reject_profile',
-      userId: user.id,
+      userId: actorUserId,
       resourceId: profileId,
       resourceType: 'profile',
       result: 'fail',
@@ -60,7 +48,7 @@ export async function POST(
 
   logAudit({
     action: 'reject_profile',
-    userId: user.id,
+    userId: actorUserId,
     resourceId: profileId,
     resourceType: 'profile',
     result: 'success',
@@ -77,7 +65,7 @@ export async function POST(
       related_id: profileId,
       related_type: 'profile',
       link: '/profile/' + profileId,
-      actor_id: user.id,
+      actor_id: actorUserId,
       content_key: 'profile_rejected',
       content_params: {},
     })

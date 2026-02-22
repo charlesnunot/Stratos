@@ -10,9 +10,6 @@ export interface SubscriptionCheckResult {
   subscription: any | null
 }
 
-/**
- * Check if user has an active subscription of a specific type
- */
 export async function checkSubscriptionStatus(
   userId: string,
   subscriptionType: 'tip' | 'seller' | 'affiliate',
@@ -33,17 +30,13 @@ export async function checkSubscriptionStatus(
   }
 }
 
-/**
- * Check seller permission (including subscription status)
- */
 export async function checkSellerPermission(
   userId: string,
   supabaseAdmin: SupabaseClient
 ): Promise<{ hasPermission: boolean; reason?: string }> {
-  // 1. Check profile
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('subscription_type, role')
+    .select('subscription_type, role, seller_type')
     .eq('id', userId)
     .single()
 
@@ -51,11 +44,15 @@ export async function checkSellerPermission(
     return { hasPermission: false, reason: 'User profile not found' }
   }
 
-  if (profile.subscription_type !== 'seller' && profile.role !== 'seller') {
+  const p = profile as { seller_subscription_active?: boolean; role?: string; seller_type?: string }
+  if (p.seller_type === 'direct') {
+    return { hasPermission: true }
+  }
+
+  if (p.seller_subscription_active !== true && p.role !== 'seller') {
     return { hasPermission: false, reason: 'User is not a seller' }
   }
 
-  // 2. Check subscription status
   const { hasActive } = await checkSubscriptionStatus(userId, 'seller', supabaseAdmin)
   if (!hasActive) {
     return { hasPermission: false, reason: 'Seller subscription expired or not found' }
@@ -64,43 +61,92 @@ export async function checkSellerPermission(
   return { hasPermission: true }
 }
 
-/**
- * Check affiliate permission (including subscription status)
- */
 export async function checkAffiliatePermission(
   userId: string,
   supabaseAdmin: SupabaseClient
 ): Promise<{ hasPermission: boolean; reason?: string }> {
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('user_origin, internal_affiliate_enabled, payment_provider, payment_account_id, seller_payout_eligibility')
+    .eq('id', userId)
+    .single()
+
+  const p = profile as { 
+    user_origin?: string
+    internal_affiliate_enabled?: boolean
+    payment_provider?: string
+    payment_account_id?: string
+    seller_payout_eligibility?: string
+  } | null
+  
+  if (!p) {
+    return { hasPermission: false, reason: 'User profile not found' }
+  }
+  
+  if (p.user_origin === 'internal' && p.internal_affiliate_enabled) {
+    return { hasPermission: true }
+  }
+
   const { hasActive } = await checkSubscriptionStatus(userId, 'affiliate', supabaseAdmin)
   if (!hasActive) {
     return { hasPermission: false, reason: 'Affiliate subscription expired or not found' }
   }
 
+  const hasPaymentAccount = !!(p.payment_provider && p.payment_account_id)
+  if (!hasPaymentAccount) {
+    return { hasPermission: false, reason: 'No payment account bound' }
+  }
+  
+  if (p.seller_payout_eligibility === 'blocked') {
+    return { hasPermission: false, reason: 'Payment account is blocked' }
+  }
+
   return { hasPermission: true }
 }
 
-/**
- * Check tip permission (including subscription status)
- */
 export async function checkTipPermission(
   userId: string,
   supabaseAdmin: SupabaseClient
 ): Promise<{ hasPermission: boolean; reason?: string }> {
-  // 1. Check profile tip_enabled flag
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('tip_enabled')
+    .select('tip_enabled, user_origin, internal_tip_enabled, payment_provider, payment_account_id, seller_payout_eligibility')
     .eq('id', userId)
     .single()
 
-  if (!profile?.tip_enabled) {
+  if (!profile) {
+    return { hasPermission: false, reason: 'User profile not found' }
+  }
+
+  const p = profile as { 
+    tip_enabled?: boolean
+    user_origin?: string
+    internal_tip_enabled?: boolean
+    payment_provider?: string
+    payment_account_id?: string
+    seller_payout_eligibility?: string
+  }
+  
+  if (p.user_origin === 'internal' && p.internal_tip_enabled) {
+    return { hasPermission: true }
+  }
+
+  if (!p.tip_enabled) {
     return { hasPermission: false, reason: 'Tip feature not enabled' }
   }
 
-  // 2. Check subscription status
   const { hasActive } = await checkSubscriptionStatus(userId, 'tip', supabaseAdmin)
   if (!hasActive) {
     return { hasPermission: false, reason: 'Tip subscription expired or not found' }
+  }
+
+  const hasPaymentAccount = !!(p.payment_provider && p.payment_account_id)
+  if (!hasPaymentAccount) {
+    return { hasPermission: false, reason: 'No payment account bound' }
+  }
+  
+  if (p.seller_payout_eligibility === 'blocked') {
+    return { hasPermission: false, reason: 'Payment account is blocked' }
   }
 
   return { hasPermission: true }

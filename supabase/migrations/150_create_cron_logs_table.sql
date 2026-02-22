@@ -21,19 +21,29 @@ CREATE INDEX IF NOT EXISTS idx_cron_logs_status ON cron_logs(status);
 ALTER TABLE cron_logs ENABLE ROW LEVEL SECURITY;
 
 -- Allow service role to insert (for cron jobs)
-CREATE POLICY "Service role can insert cron logs" ON cron_logs
-  FOR INSERT
-  WITH CHECK (true);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'cron_logs' AND policyname = 'Service role can insert cron logs') THEN
+    CREATE POLICY "Service role can insert cron logs" ON cron_logs
+      FOR INSERT
+      WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Allow admins to read cron logs
-CREATE POLICY "Admins can read cron logs" ON cron_logs
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE id = auth.uid() 
-      AND role IN ('admin', 'support')
-    )
-  );
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'cron_logs' AND policyname = 'Admins can read cron logs') THEN
+    CREATE POLICY "Admins can read cron logs" ON cron_logs
+      FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM profiles 
+          WHERE id = auth.uid() 
+          AND role IN ('admin', 'support')
+        )
+      );
+  END IF;
+END $$;
 
 COMMENT ON TABLE cron_logs IS 'Tracks execution status and performance of cron jobs for monitoring and debugging';

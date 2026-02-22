@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react'
 import { useRouter, usePathname } from '@/i18n/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,6 +15,7 @@ export default function DepositPolicyPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const supabase = createClient()
   const t = useTranslations('deposit')
 
   // 检查认证
@@ -21,6 +24,22 @@ export default function DepositPolicyPage() {
       router.push(`/login?redirect=${encodeURIComponent(pathname)}`)
     }
   }, [authLoading, user, router, pathname])
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile-seller-type', user?.id],
+    queryFn: async () => {
+      if (!user) return null
+      const { data } = await supabase.from('profiles').select('seller_type').eq('id', user.id).single()
+      return data as { seller_type?: string } | null
+    },
+    enabled: !!user,
+  })
+  useEffect(() => {
+    if (!user || !profile) return
+    if ((profile as { seller_type?: string })?.seller_type === 'direct') {
+      router.replace('/seller/dashboard')
+    }
+  }, [user, profile, router])
 
   if (authLoading) {
     return (
@@ -32,6 +51,14 @@ export default function DepositPolicyPage() {
 
   if (!user) {
     return null
+  }
+
+  if (profile && (profile as { seller_type?: string })?.seller_type === 'direct') {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/payments/stripe'
 import { checkTipEnabled, checkTipLimits } from '@/lib/payments/check-tip-limits'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { verifyMonetizationToken } from '@/lib/auth/capabilities'
+import { getPaymentDestination } from '@/lib/payments/get-payment-destination'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,13 +18,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { amount, postId, postAuthorId, successUrl, cancelUrl, currency = 'CNY' } =
+    const { amount, postId, postAuthorId, successUrl, cancelUrl, currency = 'CNY', monetizationToken } =
       await request.json()
 
     if (!amount || !postId || !postAuthorId || !successUrl || !cancelUrl) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
+      )
+    }
+
+    // P4 修复: 强制要求 Monetization Token（金融级安全）
+    if (!monetizationToken) {
+      return NextResponse.json(
+        { error: 'Monetization token required' },
+        { status: 403 }
+      )
+    }
+
+    const tokenVerification = verifyMonetizationToken(monetizationToken)
+    if (!tokenVerification.valid) {
+      return NextResponse.json(
+        { error: `Monetization authorization invalid: ${tokenVerification.error}` },
+        { status: 403 }
+      )
+    }
+    if (!tokenVerification.payload?.canReceiveTips) {
+      return NextResponse.json(
+        { error: 'Author cannot receive tips' },
+        { status: 403 }
+      )
+    }
+    if (tokenVerification.payload?.userId !== postAuthorId) {
+      return NextResponse.json(
+        { error: 'Monetization token does not match post author' },
+        { status: 403 }
       )
     }
 
@@ -171,6 +201,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get payment destination (platform vs user direct)
+    const destination = await getPaymentDestination({
+      recipientId: postAuthorId,
+      context: 'tip',
+    })
+
     const session = await createCheckoutSession(
       numericAmount,
       successUrl,
@@ -181,7 +217,8 @@ export async function POST(request: NextRequest) {
         postAuthorId,
         type: 'tip',
       },
-      String(currency || 'CNY').toLowerCase()
+      String(currency || 'CNY').toLowerCase(),
+      destination?.destinationAccountId
     )
 
     if (!session || !session.url) {

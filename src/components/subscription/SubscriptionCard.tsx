@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Check } from 'lucide-react'
 import { formatCurrency } from '@/lib/currency/format-currency'
 import type { Currency } from '@/lib/currency/detect-currency'
+import { useTranslations } from 'next-intl'
 
 interface SubscriptionCardProps {
   type: 'seller' | 'affiliate' | 'tip'
@@ -36,18 +37,21 @@ export function SubscriptionCard({
   subscribeLabel,
   processingLabel,
 }: SubscriptionCardProps) {
+  const t = useTranslations('subscription')
+  const tCommon = useTranslations('common')
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          {title ?? (type === 'seller' ? '成为卖家' : type === 'affiliate' ? '成为带货者' : '打赏功能订阅')}
+          {title ?? (type === 'seller' ? t('sellerTitle') : type === 'affiliate' ? t('affiliateTitle') : t('tipTitle'))}
         </CardTitle>
         <CardDescription>
-          {description ?? (type === 'seller' ? '开始销售您的商品' : type === 'affiliate' ? '通过推广商品赚取佣金' : '启用打赏功能，支持您喜欢的创作者')}
+          {description ?? (type === 'seller' ? t('sellerDescription') : type === 'affiliate' ? t('affiliateDescription') : t('tipDescription'))}
         </CardDescription>
         <div className="mt-4">
           <span className="text-3xl font-bold">{formatCurrency(price, currency)}</span>
-          <span className="text-muted-foreground">/月</span>
+          <span className="text-muted-foreground">{t('perMonth')}</span>
         </div>
       </CardHeader>
       <CardContent>
@@ -65,7 +69,7 @@ export function SubscriptionCard({
           <p className="text-sm text-muted-foreground w-full text-center py-2">{usePayPalHint}</p>
         ) : (
           <Button className="w-full" onClick={onSubscribe} disabled={loading}>
-            {loading ? (processingLabel ?? '处理中...') : (subscribeLabel ?? '立即订阅')}
+            {loading ? (processingLabel ?? t('processing')) : (subscribeLabel ?? t('subscribeNow'))}
           </Button>
         )}
       </CardFooter>

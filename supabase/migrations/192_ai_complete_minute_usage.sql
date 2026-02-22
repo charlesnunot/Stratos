@@ -17,8 +17,13 @@ COMMENT ON TABLE ai_complete_minute_usage IS 'Per-minute AI complete (non-transl
 -- RLS: 仅服务端（admin）读写，用户不可直接访问
 ALTER TABLE ai_complete_minute_usage ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Service role only for ai_complete_minute_usage"
-  ON ai_complete_minute_usage
-  FOR ALL
-  USING (false)
-  WITH CHECK (false);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'ai_complete_minute_usage' AND policyname = 'Service role only for ai_complete_minute_usage') THEN
+    CREATE POLICY "Service role only for ai_complete_minute_usage"
+      ON ai_complete_minute_usage
+      FOR ALL
+      USING (false)
+      WITH CHECK (false);
+  END IF;
+END $$;

@@ -28,7 +28,7 @@ export function ProductWantButton({ productId, initialWants }: ProductWantButton
         .select('user_id')
         .eq('product_id', productId)
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
       return data
     },
     enabled: !!user,

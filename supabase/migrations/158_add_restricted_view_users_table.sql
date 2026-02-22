@@ -19,19 +19,34 @@ CREATE INDEX IF NOT EXISTS idx_restricted_view_users_restricted_id ON restricted
 ALTER TABLE restricted_view_users ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own restriction list (who they restricted)
-CREATE POLICY "Users can view own restriction list" ON restricted_view_users
-  FOR SELECT
-  USING (auth.uid() = restrictor_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'restricted_view_users' AND policyname = 'Users can view own restriction list') THEN
+    CREATE POLICY "Users can view own restriction list" ON restricted_view_users
+      FOR SELECT
+      USING (auth.uid() = restrictor_id);
+  END IF;
+END $$;
 
 -- Users can restrict others from viewing their content
-CREATE POLICY "Users can restrict others" ON restricted_view_users
-  FOR INSERT
-  WITH CHECK (auth.uid() = restrictor_id AND auth.uid() != restricted_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'restricted_view_users' AND policyname = 'Users can restrict others') THEN
+    CREATE POLICY "Users can restrict others" ON restricted_view_users
+      FOR INSERT
+      WITH CHECK (auth.uid() = restrictor_id AND auth.uid() != restricted_id);
+  END IF;
+END $$;
 
 -- Users can un-restrict users they restricted
-CREATE POLICY "Users can un-restrict others" ON restricted_view_users
-  FOR DELETE
-  USING (auth.uid() = restrictor_id);
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'restricted_view_users' AND policyname = 'Users can un-restrict others') THEN
+    CREATE POLICY "Users can un-restrict others" ON restricted_view_users
+      FOR DELETE
+      USING (auth.uid() = restrictor_id);
+  END IF;
+END $$;
 
 -- Add comments
 COMMENT ON TABLE restricted_view_users IS 'User view restriction relationships. restrictor_id is the user who restricts, restricted_id is the user who is restricted from viewing.';

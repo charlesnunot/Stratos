@@ -6,7 +6,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,20 +38,18 @@ interface PaymentAccount {
   verification_notes: string | null
   verification_documents: any
   created_at: string
-  profiles?: { id: string; username: string; display_name: string }
+  profiles?: { id: string; username: string; display_name: string; seller_type?: 'external' | 'direct' | null }
 }
 
-const ACCOUNT_TYPE_INFO: Record<string, { nameKey?: string; name?: string; icon: any }> = {
+const ACCOUNT_TYPE_INFO: Record<string, { name: string; icon: any }> = {
   stripe: { name: 'Stripe', icon: CreditCard },
   paypal: { name: 'PayPal', icon: Wallet },
-  alipay: { nameKey: 'providerAlipay', icon: Smartphone },
-  wechat: { nameKey: 'providerWechat', icon: Smartphone },
-  bank: { nameKey: 'providerBank', icon: Building2 },
+  alipay: { name: '支付宝', icon: Smartphone },
+  wechat: { name: '微信支付', icon: Smartphone },
+  bank: { name: '银行转账', icon: Building2 },
 }
 
 export function AdminPaymentAccountsClient() {
-  const t = useTranslations('admin')
-  const tCommon = useTranslations('common')
   const supabase = createClient()
   const { toast } = useToast()
   const [accounts, setAccounts] = useState<PaymentAccount[]>([])
@@ -60,6 +57,7 @@ export function AdminPaymentAccountsClient() {
   const [selectedAccount, setSelectedAccount] = useState<PaymentAccount | null>(null)
   const [verificationNotes, setVerificationNotes] = useState('')
   const [verifying, setVerifying] = useState(false)
+  const [updatingSellerType, setUpdatingSellerType] = useState<string | null>(null)
 
   useEffect(() => {
     loadAccounts()
@@ -70,13 +68,13 @@ export function AdminPaymentAccountsClient() {
     try {
       const { data, error } = await supabase
         .from('payment_accounts')
-        .select(`*, profiles!payment_accounts_seller_id_fkey(id, username, display_name)`)
+        .select(`*, profiles!payment_accounts_seller_id_fkey(id, username, display_name, seller_type)`)
         .order('created_at', { ascending: false })
       if (error) throw error
       setAccounts(data || [])
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : t('loadPaymentAccountsFailed')
-      toast({ variant: 'destructive', title: tCommon('error'), description: msg })
+      const msg = e instanceof Error ? e.message : '加载支付账户失败'
+      toast({ variant: 'destructive', title: '错误', description: msg })
     } finally {
       setLoading(false)
     }
@@ -93,21 +91,42 @@ export function AdminPaymentAccountsClient() {
       })
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || t('verifyFailed'))
+        throw new Error(err.error || '验证失败')
       }
       toast({
         variant: 'success',
-        title: tCommon('success'),
-        description: status === 'verified' ? t('paymentAccountVerified') : t('paymentAccountRejected'),
+        title: '成功',
+        description: status === 'verified' ? '支付账户已通过验证' : '支付账户已拒绝',
       })
       setSelectedAccount(null)
       setVerificationNotes('')
       loadAccounts()
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : t('verifyFailed')
-      toast({ variant: 'destructive', title: tCommon('error'), description: msg })
+      const msg = e instanceof Error ? e.message : '验证失败'
+      toast({ variant: 'destructive', title: '错误', description: msg })
     } finally {
       setVerifying(false)
+    }
+  }
+
+  const handleSetSellerType = async (sellerId: string, sellerType: 'external' | 'direct') => {
+    setUpdatingSellerType(sellerId)
+    try {
+      const res = await fetch(`/api/admin/profiles/${sellerId}/seller-type`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seller_type: sellerType }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || '更新失败')
+      }
+      toast({ title: '成功', description: sellerType === 'direct' ? '已设为直营卖家' : '已取消直营' })
+      loadAccounts()
+    } catch (e: unknown) {
+      toast({ variant: 'destructive', title: '错误', description: e instanceof Error ? e.message : '更新失败' })
+    } finally {
+      setUpdatingSellerType(null)
     }
   }
 
@@ -115,45 +134,39 @@ export function AdminPaymentAccountsClient() {
     if (isVerified && status === 'verified')
       return (
         <Badge variant="default" className="bg-green-500">
-          <CheckCircle className="mr-1 h-3 w-3" />{t('verified')}
+          <CheckCircle className="mr-1 h-3 w-3" />已验证
         </Badge>
       )
     if (status === 'pending')
       return (
         <Badge variant="outline">
-          <Clock className="mr-1 h-3 w-3" />{t('pendingVerify')}
+          <Clock className="mr-1 h-3 w-3" />待验证
         </Badge>
       )
     if (status === 'rejected')
       return (
         <Badge variant="destructive">
-          <XCircle className="mr-1 h-3 w-3" />{t('rejectedStatus')}
+          <XCircle className="mr-1 h-3 w-3" />已拒绝
         </Badge>
       )
     return null
-  }
-
-  const getAccountTypeName = (type: string) => {
-    const Info = ACCOUNT_TYPE_INFO[type]
-    if (!Info) return type
-    return Info.nameKey ? t(Info.nameKey) : (Info.name ?? type)
   }
 
   const getAccountDisplayInfo = (account: PaymentAccount) => {
     const info = account.account_info || {}
     switch (account.account_type) {
       case 'stripe':
-        return info.stripe?.account_id ? `ID: ${info.stripe.account_id}` : t('notConnected')
+        return info.stripe?.account_id ? `账户ID: ${info.stripe.account_id}` : '未连接'
       case 'paypal':
-        return info.paypal?.email || t('notSet')
+        return info.paypal?.email || '未设置'
       case 'alipay':
-        return `${info.alipay?.account || t('notSet')} (${info.alipay?.real_name || ''})`
+        return `${info.alipay?.account || '未设置'} (${info.alipay?.real_name || ''})`
       case 'wechat':
-        return `mch_id: ${info.wechat?.mch_id || t('notSet')}`
+        return `商户号: ${info.wechat?.mch_id || '未设置'}`
       case 'bank':
-        return `${info.bank?.bank_name || ''} ${info.bank?.account_number || ''}`.trim() || t('notSet')
+        return `${info.bank?.bank_name || ''} ${info.bank?.account_number || ''}`
       default:
-        return t('notSet')
+        return '未设置'
     }
   }
 
@@ -162,7 +175,7 @@ export function AdminPaymentAccountsClient() {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4 text-muted-foreground">{tCommon('loading')}</p>
+          <p className="mt-4 text-muted-foreground">加载中...</p>
         </div>
       </div>
     )
@@ -181,10 +194,10 @@ export function AdminPaymentAccountsClient() {
 
       <Tabs defaultValue="pending" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="pending">{t('pendingVerify')} ({pending.length})</TabsTrigger>
-          <TabsTrigger value="verified">{t('verified')} ({verified.length})</TabsTrigger>
-          <TabsTrigger value="rejected">{t('rejectedStatus')} ({rejected.length})</TabsTrigger>
-          <TabsTrigger value="all">{t('filterAll')} ({accounts.length})</TabsTrigger>
+          <TabsTrigger value="pending">待验证 ({pending.length})</TabsTrigger>
+          <TabsTrigger value="verified">已验证 ({verified.length})</TabsTrigger>
+          <TabsTrigger value="rejected">已拒绝 ({rejected.length})</TabsTrigger>
+          <TabsTrigger value="all">全部 ({accounts.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="space-y-4">
@@ -201,7 +214,37 @@ export function AdminPaymentAccountsClient() {
                           <Icon className="h-6 w-6" />
                           <div>
                             <CardTitle className="text-lg">{account.account_name || Info.name}</CardTitle>
-                            <CardDescription>{account.profiles?.display_name || account.profiles?.username || 'Unknown'}</CardDescription>
+                            <CardDescription className="flex flex-wrap items-center gap-2">
+                              {account.profiles?.display_name || account.profiles?.username || 'Unknown'}
+                              {account.profiles?.seller_type === 'direct' ? (
+                                <Badge variant="secondary">直营</Badge>
+                              ) : (
+                                <Badge variant="outline">外部</Badge>
+                              )}
+                              {account.seller_id && (
+                                account.profiles?.seller_type === 'direct' ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs"
+                                    disabled={updatingSellerType === account.seller_id}
+                                    onClick={() => handleSetSellerType(account.seller_id, 'external')}
+                                  >
+                                    {updatingSellerType === account.seller_id ? <Loader2 className="h-3 w-3 animate-spin" /> : '取消直营'}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs"
+                                    disabled={updatingSellerType === account.seller_id}
+                                    onClick={() => handleSetSellerType(account.seller_id, 'direct')}
+                                  >
+                                    {updatingSellerType === account.seller_id ? <Loader2 className="h-3 w-3 animate-spin" /> : '设为直营'}
+                                  </Button>
+                                )
+                              )}
+                            </CardDescription>
                           </div>
                         </div>
                         {getVerificationBadge(account.verification_status, account.is_verified)}
@@ -264,7 +307,19 @@ export function AdminPaymentAccountsClient() {
                           <Icon className="h-6 w-6" />
                           <div>
                             <CardTitle className="text-lg">{account.account_name || Info.name}</CardTitle>
-                            <CardDescription>{account.profiles?.display_name || account.profiles?.username || 'Unknown'}</CardDescription>
+                            <CardDescription className="flex flex-wrap items-center gap-2">
+                              {account.profiles?.display_name || account.profiles?.username || 'Unknown'}
+                              {account.profiles?.seller_type === 'direct' ? <Badge variant="secondary">直营</Badge> : <Badge variant="outline">外部</Badge>}
+                              {account.seller_id && (account.profiles?.seller_type === 'direct' ? (
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={updatingSellerType === account.seller_id} onClick={() => handleSetSellerType(account.seller_id, 'external')}>
+                                  {updatingSellerType === account.seller_id ? <Loader2 className="h-3 w-3 animate-spin" /> : '取消直营'}
+                                </Button>
+                              ) : (
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={updatingSellerType === account.seller_id} onClick={() => handleSetSellerType(account.seller_id, 'direct')}>
+                                  {updatingSellerType === account.seller_id ? <Loader2 className="h-3 w-3 animate-spin" /> : '设为直营'}
+                                </Button>
+                              ))}
+                            </CardDescription>
                           </div>
                         </div>
                         {getVerificationBadge(account.verification_status, account.is_verified)}
@@ -300,7 +355,15 @@ export function AdminPaymentAccountsClient() {
                           <Icon className="h-6 w-6" />
                           <div>
                             <CardTitle className="text-lg">{account.account_name || Info.name}</CardTitle>
-                            <CardDescription>{account.profiles?.display_name || account.profiles?.username || 'Unknown'}</CardDescription>
+                            <CardDescription className="flex flex-wrap items-center gap-2">
+                              {account.profiles?.display_name || account.profiles?.username || 'Unknown'}
+                              {account.profiles?.seller_type === 'direct' ? <Badge variant="secondary">直营</Badge> : <Badge variant="outline">外部</Badge>}
+                              {account.seller_id && (account.profiles?.seller_type === 'direct' ? (
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={updatingSellerType === account.seller_id} onClick={() => handleSetSellerType(account.seller_id, 'external')}>{updatingSellerType === account.seller_id ? <Loader2 className="h-3 w-3 animate-spin" /> : '取消直营'}</Button>
+                              ) : (
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={updatingSellerType === account.seller_id} onClick={() => handleSetSellerType(account.seller_id, 'direct')}>{updatingSellerType === account.seller_id ? <Loader2 className="h-3 w-3 animate-spin" /> : '设为直营'}</Button>
+                              ))}
+                            </CardDescription>
                           </div>
                         </div>
                         {getVerificationBadge(account.verification_status, account.is_verified)}
@@ -322,7 +385,7 @@ export function AdminPaymentAccountsClient() {
           ) : (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <p className="text-muted-foreground">{t('noRejectedPaymentAccounts')}</p>
+                <p className="text-muted-foreground">没有已拒绝的支付账户</p>
               </CardContent>
             </Card>
           )}
@@ -341,7 +404,15 @@ export function AdminPaymentAccountsClient() {
                         <Icon className="h-6 w-6" />
                         <div>
                           <CardTitle className="text-lg">{account.account_name || Info.name}</CardTitle>
-                          <CardDescription>{account.profiles?.display_name || account.profiles?.username || 'Unknown'}</CardDescription>
+                          <CardDescription className="flex flex-wrap items-center gap-2">
+                            {account.profiles?.display_name || account.profiles?.username || 'Unknown'}
+                            {account.profiles?.seller_type === 'direct' ? <Badge variant="secondary">直营</Badge> : <Badge variant="outline">外部</Badge>}
+                            {account.seller_id && (account.profiles?.seller_type === 'direct' ? (
+                              <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={updatingSellerType === account.seller_id} onClick={() => handleSetSellerType(account.seller_id, 'external')}>{updatingSellerType === account.seller_id ? <Loader2 className="h-3 w-3 animate-spin" /> : '取消直营'}</Button>
+                            ) : (
+                              <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={updatingSellerType === account.seller_id} onClick={() => handleSetSellerType(account.seller_id, 'direct')}>{updatingSellerType === account.seller_id ? <Loader2 className="h-3 w-3 animate-spin" /> : '设为直营'}</Button>
+                            ))}
+                          </CardDescription>
                         </div>
                       </div>
                       {getVerificationBadge(account.verification_status, account.is_verified)}
@@ -362,7 +433,7 @@ export function AdminPaymentAccountsClient() {
           <CardHeader>
             <CardTitle>验证支付账户</CardTitle>
             <CardDescription>
-              {getAccountTypeName(selectedAccount.account_type)} – {selectedAccount.profiles?.display_name || selectedAccount.profiles?.username}
+              {ACCOUNT_TYPE_INFO[selectedAccount.account_type]?.name} – {selectedAccount.profiles?.display_name || selectedAccount.profiles?.username}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -394,7 +465,7 @@ export function AdminPaymentAccountsClient() {
                 id="notes"
                 value={verificationNotes}
                 onChange={(e) => setVerificationNotes(e.target.value)}
-                placeholder={t('enterVerifyNotes')}
+                placeholder="输入验证备注..."
                 rows={3}
               />
             </div>
@@ -403,7 +474,7 @@ export function AdminPaymentAccountsClient() {
                 {verifying ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />处理中...</> : <><CheckCircle className="mr-2 h-4 w-4" />通过验证</>}
               </Button>
               <Button variant="destructive" onClick={() => handleVerify('rejected')} disabled={verifying} className="flex-1">
-                {verifying ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{tCommon('submitting')}</> : <><XCircle className="mr-2 h-4 w-4" />{t('reject')}</>}
+                {verifying ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />处理中...</> : <><XCircle className="mr-2 h-4 w-4" />拒绝</>}
               </Button>
               <Button variant="outline" onClick={() => { setSelectedAccount(null); setVerificationNotes('') }}>
                 取消

@@ -35,7 +35,7 @@ export async function detectCompensationNeeded(
         total_amount,
         currency,
         payment_method,
-        payment_transfers!inner(
+        payment_transfers(
           id,
           status,
           retry_count,
@@ -45,7 +45,6 @@ export async function detectCompensationNeeded(
       `)
       .eq('payment_status', 'paid')
       .eq('payment_transfers.status', 'failed')
-      .gte('payment_transfers.retry_count', supabaseAdmin.from('payment_transfers').select('max_retries').single() || 3)
       .limit(limit)
 
     if (error) {
@@ -57,10 +56,19 @@ export async function detectCompensationNeeded(
       return []
     }
 
+    // Filter orders that need compensation (retry_count >= max_retries)
+    const ordersNeedingCompensation = (orders as any[]).filter(order => {
+      const transfers = order.payment_transfers
+      if (!transfers || transfers.length === 0) return false
+      const transfer = transfers[0]
+      return transfer && transfer.retry_count >= transfer.max_retries
+    })
+
     // Transform to compensation records
     const compensations: CompensationRecord[] = []
-    for (const order of orders) {
-      const transfer = (order as any).payment_transfers?.[0]
+    for (const order of ordersNeedingCompensation) {
+      const transfers = (order as any).payment_transfers
+      const transfer = transfers?.[0]
       if (transfer) {
         compensations.push({
           id: transfer.id,
