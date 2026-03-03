@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { verifyWeChatPayNotify, type WeChatPayNotifyParams } from '@/lib/payments/wechat'
 import { processOrderPayment } from '@/lib/payments/process-order-payment'
 
@@ -40,7 +40,9 @@ export async function POST(request: NextRequest) {
 
     // Verify signature
     if (!(await verifyWeChatPayNotify(params))) {
-      console.error('Invalid WeChat Pay callback signature')
+      if (process.env.NODE_ENV === 'development') {
+      console.error('Invalid WeChat Pay callback signature');
+      }
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 400 }
@@ -49,23 +51,63 @@ export async function POST(request: NextRequest) {
 
     // Check return code
     if (params.return_code !== 'SUCCESS') {
-      console.error('WeChat Pay return code not SUCCESS:', params.return_msg)
+      if (process.env.NODE_ENV === 'development') {
+      console.error('WeChat Pay return code not SUCCESS:', params.return_msg);
+      }
       return NextResponse.json({ error: params.return_msg || 'Payment failed' }, { status: 400 })
     }
 
     // Check result code
     if (params.result_code !== 'SUCCESS') {
-      console.error('WeChat Pay result code not SUCCESS:', params.err_code_des || params.err_code)
+      if (process.env.NODE_ENV === 'development') {
+      console.error('WeChat Pay result code not SUCCESS:', params.err_code_des || params.err_code);
+      }
       return NextResponse.json({ error: params.err_code_des || 'Payment failed' }, { status: 400 })
     }
 
     const { out_trade_no, transaction_id, total_fee } = params
     if (!out_trade_no) {
-      console.error('WeChat Pay notify missing out_trade_no')
+      if (process.env.NODE_ENV === 'development') {
+      console.error('WeChat Pay notify missing out_trade_no');
+      }
       return NextResponse.json({ error: 'Missing out_trade_no' }, { status: 400 })
     }
 
-    // P3：支付回调统一结构化审计日志（不含敏感字段）
+    // Phase 0.1: Webhook event idempotency guard using transaction_id as unique event ID
+    if (!transaction_id) {
+      if (process.env.NODE_ENV === 'development') {
+      console.error('[wechat/notify] Missing transaction_id for idempotency check');
+      }
+      return NextResponse.json({ error: 'Missing transaction_id' }, { status: 400 })
+    }
+    const { data: webhookEventId, error: webhookEventError } = await supabaseAdmin.rpc(
+      'process_webhook_event',
+      {
+        p_provider: 'wechat',
+        p_event_id: transaction_id,
+        p_event_type: params.result_code || 'notify',
+        p_payload: { out_trade_no, transaction_id, total_fee, result_code: params.result_code },
+      }
+    )
+    if (webhookEventError) {
+      if (process.env.NODE_ENV === 'development') {
+      console.error('[wechat/notify] Failed to process webhook event:', webhookEventError);
+      }
+      return NextResponse.json(
+        { error: 'Failed to process webhook event' },
+        { status: 500 }
+      )
+    }
+    if (webhookEventId === null) {
+      if (process.env.NODE_ENV === 'development') {
+      console.log('[wechat/notify] Duplicate event, skipping:', transaction_id);
+      }
+      const successXml =
+        '<xml><return_code><![CDATA[SUCCESS]]></return_code><return_msg><![CDATA[OK]]></return_msg></xml>'
+      return new NextResponse(successXml, { headers: { 'Content-Type': 'application/xml' } })
+    }
+
+    // Callback audit log (non-blocking).
     try {
       const { logAudit } = await import('@/lib/api/audit')
       logAudit({
@@ -77,11 +119,13 @@ export async function POST(request: NextRequest) {
         meta: { out_trade_no, total_fee },
       })
     } catch (_) {
-      // 忽略审计日志失败，不影响主流程
+      // Ignore audit log failures so payment callback can continue.
     }
 
     const successXml =
       '<xml><return_code><![CDATA[SUCCESS]]></return_code><return_msg><![CDATA[OK]]></return_msg></xml>'
+    const failXml =
+      '<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[PROCESSING_ERROR]]></return_msg></xml>'
 
     // Handle subscription payment (out_trade_no = sub_<subscriptionId>_<timestamp>)
     if (out_trade_no.startsWith('sub_')) {
@@ -91,7 +135,9 @@ export async function POST(request: NextRequest) {
         return new NextResponse(successXml, { headers: { 'Content-Type': 'application/xml' } })
       }
       if (!transaction_id) {
-        console.error('WeChat Pay notify subscription missing transaction_id')
+        if (process.env.NODE_ENV === 'development') {
+        console.error('WeChat Pay notify subscription missing transaction_id');
+        }
         return NextResponse.json({ error: 'Missing transaction_id' }, { status: 400 })
       }
       const paidAmount = parseFloat(total_fee || '0') / 100
@@ -177,7 +223,9 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (!lot) {
-        console.error('Deposit lot not found for WeChat notify:', depositLotId)
+        if (process.env.NODE_ENV === 'development') {
+        console.error('Deposit lot not found for WeChat notify:', depositLotId);
+        }
         return new NextResponse(successXml, {
           headers: { 'Content-Type': 'application/xml' },
         })
@@ -219,7 +267,7 @@ export async function POST(request: NextRequest) {
 
       await supabaseAdmin
         .from('seller_deposit_lots')
-        .update({ status: 'held', held_at: new Date().toISOString() })
+        .update({ status: 'held', held_at: new Date().toISOString(), payment_provider: 'wechat', payment_session_id: transaction_id })
         .eq('id', depositLotId)
         .eq('seller_id', lot.seller_id)
 
@@ -238,7 +286,9 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (orderError || !order) {
-      console.error('Order not found for WeChat Pay callback:', out_trade_no)
+      if (process.env.NODE_ENV === 'development') {
+      console.error('Order not found for WeChat Pay callback:', out_trade_no);
+      }
       return NextResponse.json(
         { error: 'Order not found' },
         { status: 404 }
@@ -246,28 +296,50 @@ export async function POST(request: NextRequest) {
     }
 
     // Check idempotency: Look for existing payment transaction
-    const { data: existingTransaction } = await supabaseAdmin
+    const { data: existingTransaction, error: existingTransactionError } = await supabaseAdmin
       .from('payment_transactions')
       .select('id, status')
       .eq('provider', 'wechat')
       .eq('provider_ref', transaction_id)
-      .single()
+      .maybeSingle()
+
+    if (existingTransactionError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to query existing WeChat payment transaction:', existingTransactionError)
+      }
+      return new NextResponse(failXml, {
+        status: 500,
+        headers: { 'Content-Type': 'application/xml' },
+      })
+    }
 
     if (existingTransaction) {
       if (existingTransaction.status === 'paid') {
-        console.log('WeChat Pay payment already processed:', transaction_id)
+        if (process.env.NODE_ENV === 'development') {
+        console.log('WeChat Pay payment already processed:', transaction_id);
+        }
         return new NextResponse(successXml, {
           headers: { 'Content-Type': 'application/xml' },
         })
       }
       // Update existing transaction
-      await supabaseAdmin
+      const { error: updateTxError } = await supabaseAdmin
         .from('payment_transactions')
         .update({
           status: 'paid',
           paid_at: new Date().toISOString(),
         })
         .eq('id', existingTransaction.id)
+
+      if (updateTxError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to update WeChat payment transaction:', updateTxError)
+        }
+        return new NextResponse(failXml, {
+          status: 500,
+          headers: { 'Content-Type': 'application/xml' },
+        })
+      }
     } else {
       // Verify amount with currency-based precision (total_fee is in fen, convert to CNY)
       const paidAmount = parseFloat(total_fee || '0') / 100
@@ -276,7 +348,9 @@ export async function POST(request: NextRequest) {
       const precision = isZeroDecimalCurrency ? 0 : 0.01
       
       if (Math.abs(paidAmount - order.total_amount) > precision) {
-        console.error('Amount mismatch:', { paidAmount, orderAmount: order.total_amount, currency: orderCurrency })
+        if (process.env.NODE_ENV === 'development') {
+        console.error('Amount mismatch:', { paidAmount, orderAmount: order.total_amount, currency: orderCurrency });
+        }
         return NextResponse.json(
           { error: 'Amount mismatch' },
           { status: 400 }
@@ -284,7 +358,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Create new payment transaction record
-      await supabaseAdmin.from('payment_transactions').insert({
+      const { error: insertTxError } = await supabaseAdmin.from('payment_transactions').insert({
         type: 'order',
         provider: 'wechat',
         provider_ref: transaction_id,
@@ -295,6 +369,16 @@ export async function POST(request: NextRequest) {
         paid_at: new Date().toISOString(),
         metadata: params,
       })
+
+      if (insertTxError && insertTxError.code !== '23505') {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to create WeChat payment transaction:', insertTxError)
+        }
+        return new NextResponse(failXml, {
+          status: 500,
+          headers: { 'Content-Type': 'application/xml' },
+        })
+      }
     }
 
     // Check if order is already paid
@@ -308,32 +392,52 @@ export async function POST(request: NextRequest) {
       })
 
       if (!result.success) {
-        console.error('Failed to process order payment:', result.error)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to process order payment:', result.error)
+        }
+        return new NextResponse(failXml, {
+          status: 500,
+          headers: { 'Content-Type': 'application/xml' },
+        })
       }
 
       // Update order with payment method
-      await supabaseAdmin
+      const { error: updateOrderError } = await supabaseAdmin
         .from('orders')
         .update({
           payment_method: 'wechat',
           payment_intent_id: transaction_id,
         })
         .eq('id', order.id)
+
+      if (updateOrderError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to update WeChat order payment reference:', updateOrderError)
+        }
+        return new NextResponse(failXml, {
+          status: 500,
+          headers: { 'Content-Type': 'application/xml' },
+        })
+      }
     }
 
-    console.log('WeChat Pay payment processed successfully:', {
-      orderId: order.id,
-      transactionId: transaction_id,
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('WeChat Pay payment processed successfully:', {
+        orderId: order.id,
+        transactionId: transaction_id,
+      })
+    }
 
     return new NextResponse(successXml, {
       headers: { 'Content-Type': 'application/xml' },
     })
   } catch (error: any) {
-    console.error('WeChat Pay notify error:', {
-      message: error.message,
-      stack: error.stack,
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.error('WeChat Pay notify error:', {
+        message: error.message,
+        stack: error.stack,
+      })
+    }
 
     return NextResponse.json(
       { error: error.message || 'Failed to process callback' },
@@ -341,3 +445,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

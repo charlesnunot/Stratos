@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { verifyAlipayCallback, type AlipayCallbackParams } from '@/lib/payments/alipay'
 
@@ -24,7 +24,9 @@ export async function POST(request: NextRequest) {
     // Verify callback signature
     const isValid = await verifyAlipayCallback(params)
     if (!isValid) {
-      console.error('Invalid Alipay callback signature')
+      if (process.env.NODE_ENV === 'development') {
+      console.error('Invalid Alipay callback signature');
+      }
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 400 }
@@ -32,27 +34,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { out_trade_no, trade_no, trade_status, total_amount } = params
-
-    // Verify trade status
-    if (trade_status !== 'TRADE_SUCCESS' && trade_status !== 'TRADE_FINISHED') {
-      console.log('Alipay trade not completed:', trade_status)
-      return NextResponse.json({ success: true }) // Acknowledge but don't process
-    }
-
-    // P3：支付回调统一结构化审计日志（不含敏感字段）
-    try {
-      const { logAudit } = await import('@/lib/api/audit')
-      logAudit({
-        action: 'alipay_callback',
-        resourceId: trade_no,
-        resourceType: 'payment_callback',
-        result: 'success',
-        timestamp: new Date().toISOString(),
-        meta: { out_trade_no, trade_status, total_amount },
-      })
-    } catch (_) {
-      // 忽略审计日志失败，不影响主流程
-    }
 
     // Use service role client for admin operations
     const { createClient: createAdminClient } = await import('@supabase/supabase-js')
@@ -66,6 +47,64 @@ export async function POST(request: NextRequest) {
         },
       }
     )
+
+    // Phase 0.1: Webhook event idempotency guard using trade_no as unique event ID
+    if (!trade_no) {
+      if (process.env.NODE_ENV === 'development') {
+      console.error('[alipay/callback] Missing trade_no for idempotency check');
+      }
+      return NextResponse.json(
+        { error: 'Missing trade_no' },
+        { status: 400 }
+      )
+    }
+    const { data: webhookEventId, error: webhookEventError } = await supabaseAdmin.rpc(
+      'process_webhook_event',
+      {
+        p_provider: 'alipay',
+        p_event_id: trade_no,
+        p_event_type: trade_status || 'callback',
+        p_payload: { out_trade_no, trade_no, trade_status, total_amount },
+      }
+    )
+    if (webhookEventError) {
+      if (process.env.NODE_ENV === 'development') {
+      console.error('[alipay/callback] Failed to process webhook event:', webhookEventError);
+      }
+      return NextResponse.json(
+        { error: 'Failed to process webhook event' },
+        { status: 500 }
+      )
+    }
+    if (webhookEventId === null) {
+      if (process.env.NODE_ENV === 'development') {
+      console.log('[alipay/callback] Duplicate event, skipping:', trade_no);
+      }
+      return NextResponse.json({ success: true, duplicate: true })
+    }
+
+    // Verify trade status
+    if (trade_status !== 'TRADE_SUCCESS' && trade_status !== 'TRADE_FINISHED') {
+      if (process.env.NODE_ENV === 'development') {
+      console.log('Alipay trade not completed:', trade_status);
+      }
+      return NextResponse.json({ success: true }) // Acknowledge but don't process
+    }
+
+    // Callback audit log (non-blocking).
+    try {
+      const { logAudit } = await import('@/lib/api/audit')
+      logAudit({
+        action: 'alipay_callback',
+        resourceId: trade_no,
+        resourceType: 'payment_callback',
+        result: 'success',
+        timestamp: new Date().toISOString(),
+        meta: { out_trade_no, trade_status, total_amount },
+      })
+    } catch (_) {
+      // Ignore audit log failures so payment callback can continue.
+    }
 
     // Handle subscription payment (out_trade_no = sub_<subscriptionId>_<timestamp>)
     if (out_trade_no.startsWith('sub_')) {
@@ -190,7 +229,9 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (!lot) {
-        console.error('Deposit lot not found for Alipay callback:', depositLotId)
+        if (process.env.NODE_ENV === 'development') {
+        console.error('Deposit lot not found for Alipay callback:', depositLotId);
+        }
         return NextResponse.json({ success: true })
       }
 
@@ -228,7 +269,7 @@ export async function POST(request: NextRequest) {
 
       await supabaseAdmin
         .from('seller_deposit_lots')
-        .update({ status: 'held', held_at: new Date().toISOString() })
+        .update({ status: 'held', held_at: new Date().toISOString(), payment_provider: 'alipay', payment_session_id: trade_no })
         .eq('id', depositLotId)
         .eq('seller_id', lot.seller_id)
 
@@ -247,7 +288,9 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (orderError || !order) {
-      console.error('Order not found for Alipay callback:', out_trade_no)
+      if (process.env.NODE_ENV === 'development') {
+      console.error('Order not found for Alipay callback:', out_trade_no);
+      }
       return NextResponse.json(
         { error: 'Order not found' },
         { status: 404 }
@@ -255,27 +298,43 @@ export async function POST(request: NextRequest) {
     }
 
     // Check idempotency: Look for existing payment transaction
-    const { data: existingTransaction } = await supabaseAdmin
+    const { data: existingTransaction, error: existingTransactionError } = await supabaseAdmin
       .from('payment_transactions')
       .select('id, status')
       .eq('provider', 'alipay')
       .eq('provider_ref', trade_no)
-      .single()
+      .maybeSingle()
+
+    if (existingTransactionError) {
+      return NextResponse.json(
+        { error: `Failed to query existing payment transaction: ${existingTransactionError.message}` },
+        { status: 500 }
+      )
+    }
 
     if (existingTransaction) {
       if (existingTransaction.status === 'paid') {
         // Already processed, return success (idempotency)
-        console.log('Alipay payment already processed:', trade_no)
+        if (process.env.NODE_ENV === 'development') {
+        console.log('Alipay payment already processed:', trade_no);
+        }
         return NextResponse.json({ success: true })
       }
       // Update existing transaction
-      await supabaseAdmin
+      const { error: updateTxError } = await supabaseAdmin
         .from('payment_transactions')
         .update({
           status: 'paid',
           paid_at: new Date().toISOString(),
         })
         .eq('id', existingTransaction.id)
+
+      if (updateTxError) {
+        return NextResponse.json(
+          { error: `Failed to update payment transaction: ${updateTxError.message}` },
+          { status: 500 }
+        )
+      }
     } else {
       // Verify amount with currency-based precision
       const paidAmount = parseFloat(total_amount)
@@ -284,7 +343,9 @@ export async function POST(request: NextRequest) {
       const precision = isZeroDecimalCurrency ? 0 : 0.01
       
       if (Math.abs(paidAmount - order.total_amount) > precision) {
-        console.error('Amount mismatch:', { paidAmount, orderAmount: order.total_amount, currency: orderCurrency })
+        if (process.env.NODE_ENV === 'development') {
+        console.error('Amount mismatch:', { paidAmount, orderAmount: order.total_amount, currency: orderCurrency });
+        }
         return NextResponse.json(
           { error: 'Amount mismatch' },
           { status: 400 }
@@ -292,7 +353,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Create new payment transaction record
-      await supabaseAdmin.from('payment_transactions').insert({
+      const { error: insertTxError } = await supabaseAdmin.from('payment_transactions').insert({
         type: 'order',
         provider: 'alipay',
         provider_ref: trade_no,
@@ -303,11 +364,20 @@ export async function POST(request: NextRequest) {
         paid_at: new Date().toISOString(),
         metadata: { out_trade_no, trade_no, trade_status },
       })
+
+      if (insertTxError && insertTxError.code !== '23505') {
+        return NextResponse.json(
+          { error: `Failed to create payment transaction: ${insertTxError.message}` },
+          { status: 500 }
+        )
+      }
     }
 
     // Check if order is already paid
     if (order.payment_status === 'paid') {
-      console.log('Order already paid:', order.id)
+      if (process.env.NODE_ENV === 'development') {
+      console.log('Order already paid:', order.id);
+      }
       return NextResponse.json({ success: true })
     }
 
@@ -321,7 +391,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (!result.success) {
-      console.error('Failed to process order payment:', result.error)
+      return NextResponse.json(
+        { error: `Failed to process order payment: ${result.error || 'unknown error'}` },
+        { status: 500 }
+      )
     }
 
     // Update order with payment method and trade_no
@@ -334,20 +407,26 @@ export async function POST(request: NextRequest) {
       .eq('id', order.id)
 
     if (updateError) {
-      console.error('Failed to update order:', updateError)
-      // Don't return error, payment was already processed
+      return NextResponse.json(
+        { error: `Failed to update order payment reference: ${updateError.message}` },
+        { status: 500 }
+      )
     }
 
-    console.log('Alipay payment processed successfully:', {
-      orderId: order.id,
-      tradeNo: trade_no,
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Alipay payment processed successfully:', {
+        orderId: order.id,
+        tradeNo: trade_no,
+      })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Alipay callback error:', {
-      message: error.message,
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Alipay callback error:', {
+        message: error.message,
+      })
+    }
 
     return NextResponse.json(
       { error: error.message || 'Failed to process callback' },
@@ -357,6 +436,9 @@ export async function POST(request: NextRequest) {
 }
 
 // Also handle GET requests (for return URL redirects)
+// IMPORTANT: GET callback only redirects, does NOT process payments
+// Payment processing is handled by POST callback (server-to-server)
+// This prevents duplicate processing and ensures idempotency
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const params: AlipayCallbackParams = {
@@ -366,29 +448,112 @@ export async function GET(request: NextRequest) {
     total_amount: searchParams.get('total_amount') || '',
   }
 
-  // Process similar to POST
+  // Validate required parameters
+  if (!params.out_trade_no || !params.trade_no) {
+    if (process.env.NODE_ENV === 'development') {
+    console.error('[alipay/callback] GET: Missing required parameters');
+    }
+    return NextResponse.redirect(new URL('/orders?error=missing_params', request.url))
+  }
+
   try {
+    // Verify callback signature
     const isValid = await verifyAlipayCallback(params)
     if (!isValid) {
+      if (process.env.NODE_ENV === 'development') {
+      console.error('[alipay/callback] GET: Invalid signature');
+      }
       return NextResponse.redirect(new URL('/orders?error=invalid_signature', request.url))
     }
 
-    if (params.trade_status === 'TRADE_SUCCESS' || params.trade_status === 'TRADE_FINISHED') {
-      const supabase = await createClient()
-      const { data: order } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('order_number', params.out_trade_no)
-        .single()
-
-      if (order) {
-        return NextResponse.redirect(new URL(`/orders/${order.id}`, request.url))
+    // Check if payment was already processed (idempotency check)
+    // Use service role client for checking payment status
+    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
       }
+    )
+
+    // Check if this payment was already processed
+    const { data: existingTransaction } = await supabaseAdmin
+      .from('payment_transactions')
+      .select('id, status, related_id')
+      .eq('provider', 'alipay')
+      .eq('provider_ref', params.trade_no)
+      .maybeSingle()
+
+    // If already processed, redirect to appropriate page
+    if (existingTransaction?.status === 'paid') {
+      if (process.env.NODE_ENV === 'development') {
+      console.log('[alipay/callback] GET: Payment already processed', params.trade_no);
+      }
+      
+      // For orders, redirect to order page
+      if (params.out_trade_no.startsWith('order_') || !params.out_trade_no.includes('_')) {
+        const { data: order } = await supabaseAdmin
+          .from('orders')
+          .select('id')
+          .eq('order_number', params.out_trade_no)
+          .maybeSingle()
+        
+        if (order) {
+          return NextResponse.redirect(new URL(`/orders/${order.id}?status=already_paid`, request.url))
+        }
+      }
+      
+      // For subscriptions, redirect to subscription management
+      if (params.out_trade_no.startsWith('sub_')) {
+        return NextResponse.redirect(new URL('/subscription/manage?status=already_paid', request.url))
+      }
+      
+      // Default redirect
+      return NextResponse.redirect(new URL('/orders?status=already_paid', request.url))
     }
 
-    return NextResponse.redirect(new URL('/orders', request.url))
-  } catch (error) {
-    console.error('Alipay GET callback error:', error)
+    // Verify trade status - only redirect if payment was successful
+    if (params.trade_status !== 'TRADE_SUCCESS' && params.trade_status !== 'TRADE_FINISHED') {
+      if (process.env.NODE_ENV === 'development') {
+      console.log('[alipay/callback] GET: Trade not completed', params.trade_status);
+      }
+      return NextResponse.redirect(new URL('/orders?error=payment_not_completed', request.url))
+    }
+
+    // Find order for redirect (do NOT process payment here)
+    const { data: order } = await supabaseAdmin
+      .from('orders')
+      .select('id, payment_status')
+      .eq('order_number', params.out_trade_no)
+      .maybeSingle()
+
+    if (order) {
+      // Check if order is already paid (additional idempotency check)
+      if (order.payment_status === 'paid') {
+        return NextResponse.redirect(new URL(`/orders/${order.id}?status=success`, request.url))
+      }
+      
+      // Order exists but payment may still be processing
+      // POST callback will handle actual payment processing
+      return NextResponse.redirect(new URL(`/orders/${order.id}?status=processing`, request.url))
+    }
+
+    // For subscriptions, redirect to subscription page
+    if (params.out_trade_no.startsWith('sub_')) {
+      return NextResponse.redirect(new URL('/subscription/manage?status=processing', request.url))
+    }
+
+    // Default redirect
+    return NextResponse.redirect(new URL('/orders?status=processing', request.url))
+  } catch (error: any) {
+    if (process.env.NODE_ENV === 'development') {
+    console.error('[alipay/callback] GET: Error processing callback:', error.message);
+    }
     return NextResponse.redirect(new URL('/orders?error=processing_failed', request.url))
   }
 }
+

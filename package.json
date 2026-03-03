@@ -7,6 +7,8 @@
     "dev:direct": "node node_modules/next/dist/bin/next dev",
     "dev:alt": "set NODE_OPTIONS=--max-old-space-size=4096 && next dev",
     "build": "set NODE_OPTIONS=--max-old-space-size=4096 && next build",
+    "build:threads": "set NEXT_FORCE_WORKER_THREADS=1 && set NODE_OPTIONS=--max-old-space-size=4096 && next build",
+    "build:sandbox": "set NEXT_FORCE_WORKER_THREADS=1 && set NEXT_SKIP_BUILD_VALIDATION=1 && set NODE_OPTIONS=--max-old-space-size=4096 && next build",
     "build:pages": "NODE_ENV=production next build",
     "build:clean": "powershell -ExecutionPolicy Bypass -File ./scripts/clean.ps1 -NextOnly -Force && set NODE_OPTIONS=--max-old-space-size=4096 && next build",
     "killnode": "taskkill /F /IM node.exe 2>nul || exit 0",
@@ -39,6 +41,7 @@
     "test:17-dispute-get-admin-routes": "node scripts/test-17-dispute-get-admin-routes.js",
     "test:18-admin-write-routes": "node scripts/test-18-admin-write-routes.js",
     "test:19-admin-extra-and-identity": "node scripts/test-19-admin-extra-and-identity.js",
+    "test:20-webhook-retry-simulation": "node scripts/test-20-webhook-retry-simulation.js",
     "test:auth:real": "node scripts/test-auth-with-real-user.js"
   },
   "dependencies": {

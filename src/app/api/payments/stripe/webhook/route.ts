@@ -31,7 +31,9 @@ async function getPlatformStripeWebhookSecret(
 
     return null
   } catch (error) {
-    console.error('Error getting platform Stripe webhook secret:', error)
+    if (process.env.NODE_ENV === 'development') {
+    console.error('Error getting platform Stripe webhook secret:', error);
+    }
     return null
   }
 }
@@ -78,6 +80,7 @@ async function getStripeClientForWebhook(
 export async function POST(request: NextRequest) {
   // Get admin client (per-request, not module-level)
   const supabaseAdmin = await getSupabaseAdmin()
+  let webhookEventRowId: string | null = null
   
   const body = await request.text()
   const signature = request.headers.get('stripe-signature')
@@ -117,7 +120,9 @@ export async function POST(request: NextRequest) {
 
   // If no secrets found, reject immediately
   if (secretsToTry.length === 0) {
-    console.error('[stripe/webhook] No webhook secrets configured')
+    if (process.env.NODE_ENV === 'development') {
+    console.error('[stripe/webhook] No webhook secrets configured');
+    }
     return NextResponse.json(
       { error: 'Webhook secret not configured' },
       { status: 500 }
@@ -130,7 +135,9 @@ export async function POST(request: NextRequest) {
       event = Stripe.webhooks.constructEvent(body, signature, secret)
       webhookSecret = secret
       currency = curr
-      console.log(`[stripe/webhook] Signature verified using ${source} secret for currency ${curr}`)
+      if (process.env.NODE_ENV === 'development') {
+      console.log(`[stripe/webhook] Signature verified using ${source} secret for currency ${curr}`);
+      }
       break
     } catch (err: any) {
       // Record error but continue trying other secrets
@@ -141,11 +148,13 @@ export async function POST(request: NextRequest) {
 
   // If all secrets failed, reject the request
   if (!event) {
-    console.error('[stripe/webhook] Signature verification failed for all secrets:', {
-      error: verificationError?.message,
-      triedSecrets: secretsToTry.length,
-      signatureLength: signature?.length || 0,
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[stripe/webhook] Signature verification failed for all secrets:', {
+        error: verificationError?.message,
+        triedSecrets: secretsToTry.length,
+        signatureLength: signature?.length || 0,
+      })
+    }
     return NextResponse.json(
       { error: 'Invalid webhook signature' },
       { status: 401 }
@@ -153,7 +162,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Phase 0.1: Webhook event idempotency using webhook_events table
-  const { data: webhookEventId, error: webhookEventError } = await supabaseAdmin.rpc(
+  const { data: insertedWebhookEventId, error: webhookEventError } = await supabaseAdmin.rpc(
     'process_webhook_event',
     {
       p_provider: 'stripe',
@@ -164,7 +173,9 @@ export async function POST(request: NextRequest) {
   )
 
   if (webhookEventError) {
-    console.error('[stripe/webhook] Failed to process webhook event:', webhookEventError)
+    if (process.env.NODE_ENV === 'development') {
+    console.error('[stripe/webhook] Failed to process webhook event:', webhookEventError);
+    }
     return NextResponse.json(
       { error: 'Failed to process webhook event' },
       { status: 500 }
@@ -172,10 +183,13 @@ export async function POST(request: NextRequest) {
   }
 
   // If webhookEventId is NULL, this event has already been processed
-  if (webhookEventId === null) {
-    console.log('[stripe/webhook] Duplicate event, skipping:', event.id)
+  if (insertedWebhookEventId === null) {
+    if (process.env.NODE_ENV === 'development') {
+    console.log('[stripe/webhook] Duplicate event, skipping:', event.id);
+    }
     return NextResponse.json({ received: true })
   }
+  webhookEventRowId = insertedWebhookEventId
 
   // 支付回调统一审计日志（不记录卡号、密码、secret）
   try {
@@ -209,45 +223,90 @@ export async function POST(request: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session
         const metadata = session.metadata || {}
         const sessionCurrency = (session.currency || 'USD').toUpperCase()
+        const sessionDivisor = ['JPY', 'KRW'].includes(sessionCurrency) ? 1 : 100
 
         // Handle tip payment
         // Handle user direct tip (no post)
         if (metadata.type === 'user_tip' && metadata.userId && metadata.targetUserId) {
-          const tipAmount = session.amount_total != null ? session.amount_total / 100 : 0
+          const tipAmount = session.amount_total != null ? session.amount_total / sessionDivisor : 0
           const sessionId = session.id
 
           // Check idempotency
-          const { data: existingTransaction } = await supabaseAdmin
+          const { data: existingTransaction, error: existingUserTipTxQueryError } = await supabaseAdmin
             .from('payment_transactions')
             .select('id, status')
             .eq('provider', 'stripe')
             .eq('provider_ref', sessionId)
-            .single()
+            .maybeSingle()
+
+          if (existingUserTipTxQueryError) {
+            throw new Error(
+              `Failed to query existing user tip payment transaction: ${existingUserTipTxQueryError.message}`
+            )
+          }
+
+          let paymentTransactionId = existingTransaction?.id
 
           if (existingTransaction) {
             if (existingTransaction.status === 'paid') {
-              console.log('User tip payment already processed:', sessionId)
+              if (process.env.NODE_ENV === 'development') {
+              console.log('User tip payment already processed:', sessionId);
+              }
               break
             }
-            await supabaseAdmin
+            const { error: updateUserTipTxError } = await supabaseAdmin
               .from('payment_transactions')
               .update({
                 status: 'paid',
                 paid_at: new Date().toISOString(),
               })
               .eq('id', existingTransaction.id)
+
+            if (updateUserTipTxError) {
+              throw new Error(
+                `Failed to update user tip payment transaction: ${updateUserTipTxError.message}`
+              )
+            }
           } else {
-            await supabaseAdmin.from('payment_transactions').insert({
-              type: 'user_tip',
-              provider: 'stripe',
-              provider_ref: sessionId,
-              amount: tipAmount,
-              currency: 'CNY',
-              status: 'paid',
-              related_id: metadata.targetUserId,
-              paid_at: new Date().toISOString(),
-              metadata: metadata,
-            })
+            const { data: newTransaction, error: insertError } = await supabaseAdmin
+              .from('payment_transactions')
+              .insert({
+                type: 'user_tip',
+                provider: 'stripe',
+                provider_ref: sessionId,
+                amount: tipAmount,
+                currency: sessionCurrency,
+                status: 'paid',
+                related_id: metadata.targetUserId,
+                paid_at: new Date().toISOString(),
+                metadata: metadata,
+              })
+              .select('id')
+              .single()
+
+            if (insertError && insertError.code !== '23505') {
+              throw new Error(
+                `Failed to insert user tip payment transaction: ${insertError.message}`
+              )
+            }
+
+            if (insertError?.code === '23505') {
+              const { data: duplicateUserTipTx, error: duplicateUserTipTxQueryError } = await supabaseAdmin
+                .from('payment_transactions')
+                .select('id')
+                .eq('provider', 'stripe')
+                .eq('provider_ref', sessionId)
+                .maybeSingle()
+
+              if (duplicateUserTipTxQueryError) {
+                throw new Error(
+                  `Failed to query duplicated user tip transaction: ${duplicateUserTipTxQueryError.message}`
+                )
+              }
+              paymentTransactionId = duplicateUserTipTx?.id
+            } else {
+              paymentTransactionId = newTransaction?.id
+            }
           }
 
           // Use unified service layer to process user tip payment
@@ -256,67 +315,103 @@ export async function POST(request: NextRequest) {
             tipperId: metadata.userId,
             recipientId: metadata.targetUserId,
             amount: tipAmount,
-            currency: 'CNY',
+            currency: sessionCurrency,
             supabaseAdmin,
+            paymentTransactionId,
           })
 
           if (!result.success) {
-            console.error('Failed to process user tip payment:', result.error)
+            throw new Error(`Failed to process user tip payment: ${result.error || 'unknown error'}`)
           }
         }
         // Handle post tip
         else if (metadata.type === 'tip' && metadata.userId && metadata.postId && metadata.postAuthorId) {
-          const tipAmount = session.amount_total ? session.amount_total / 100 : 0
+          const tipAmount = session.amount_total != null ? session.amount_total / sessionDivisor : 0
           const sessionId = session.id
 
           // Check idempotency: Look for existing payment transaction
-          const { data: existingTransaction } = await supabaseAdmin
+          const { data: existingTransaction, error: existingTipTxQueryError } = await supabaseAdmin
             .from('payment_transactions')
             .select('id, status')
             .eq('provider', 'stripe')
             .eq('provider_ref', sessionId)
-            .single()
+            .maybeSingle()
+
+          if (existingTipTxQueryError) {
+            throw new Error(`Failed to query existing tip payment transaction: ${existingTipTxQueryError.message}`)
+          }
+
+          let paymentTransactionId = existingTransaction?.id
 
           if (existingTransaction) {
             if (existingTransaction.status === 'paid') {
               // Already processed, skip
-              console.log('Tip payment already processed:', sessionId)
+              if (process.env.NODE_ENV === 'development') {
+              console.log('Tip payment already processed:', sessionId);
+              }
               break
             }
             // Update existing transaction
-            await supabaseAdmin
+            const { error: updateTipTxError } = await supabaseAdmin
               .from('payment_transactions')
               .update({
                 status: 'paid',
                 paid_at: new Date().toISOString(),
               })
               .eq('id', existingTransaction.id)
+
+            if (updateTipTxError) {
+              throw new Error(`Failed to update tip payment transaction: ${updateTipTxError.message}`)
+            }
           } else {
             // Create new payment transaction record (need to get tip id first or use postId as related_id)
             // For tips, we'll use a generated ID or find existing tip
             const { data: existingTip } = await supabaseAdmin
-              .from('tips')
+              .from('tip_transactions')
               .select('id')
               .eq('post_id', metadata.postId)
               .eq('tipper_id', metadata.userId)
-              .eq('payment_method', 'stripe')
               .order('created_at', { ascending: false })
               .limit(1)
               .single()
 
             const tipId = existingTip?.id || metadata.postId // Use postId as fallback
 
-            await supabaseAdmin.from('payment_transactions').insert({
-              type: 'tip',
-              provider: 'stripe',
-              provider_ref: sessionId,
-              amount: tipAmount,
-              currency: 'CNY',
-              status: 'paid',
-              related_id: tipId,
-              paid_at: new Date().toISOString(),
-              metadata: metadata,
-            })
+            const { data: newTransaction, error: insertError } = await supabaseAdmin
+              .from('payment_transactions')
+              .insert({
+                type: 'tip',
+                provider: 'stripe',
+                provider_ref: sessionId,
+                amount: tipAmount,
+                currency: sessionCurrency,
+                status: 'paid',
+                related_id: tipId,
+                paid_at: new Date().toISOString(),
+                metadata: metadata,
+              })
+              .select('id')
+              .single()
+
+            if (insertError && insertError.code !== '23505') {
+              throw new Error(`Failed to insert tip payment transaction: ${insertError.message}`)
+            }
+
+            if (insertError?.code === '23505') {
+              const { data: duplicateTipTx, error: duplicateTipTxQueryError } = await supabaseAdmin
+                .from('payment_transactions')
+                .select('id')
+                .eq('provider', 'stripe')
+                .eq('provider_ref', sessionId)
+                .maybeSingle()
+
+              if (duplicateTipTxQueryError) {
+                throw new Error(`Failed to query duplicated tip transaction: ${duplicateTipTxQueryError.message}`)
+              }
+              paymentTransactionId = duplicateTipTx?.id
+            } else {
+              paymentTransactionId = newTransaction?.id
+            }
           }
 
           // Use unified service layer to process tip payment
@@ -326,11 +421,13 @@ export async function POST(request: NextRequest) {
             tipperId: metadata.userId,
             recipientId: metadata.postAuthorId,
             amount: tipAmount,
+            currency: sessionCurrency,
             supabaseAdmin,
+            paymentTransactionId,
           })
 
           if (!result.success) {
-            console.error('Failed to process tip payment:', result.error)
+            throw new Error(`Failed to process tip payment: ${result.error || 'unknown error'}`)
           }
         }
         // Handle subscription payment (creator/paid chapters no longer supported)
@@ -345,49 +442,27 @@ export async function POST(request: NextRequest) {
           const subscriptionTier = metadata.subscriptionTier ? parseFloat(metadata.subscriptionTier) : undefined
 
           // Check idempotency: Look for existing payment transaction
-          const { data: existingTransaction } = await supabaseAdmin
+          const { data: existingTransaction, error: existingSubscriptionTxQueryError } = await supabaseAdmin
             .from('payment_transactions')
             .select('id, status')
             .eq('provider', 'stripe')
             .eq('provider_ref', sessionId)
-            .single()
+            .eq('type', 'subscription')
+            .maybeSingle()
+
+          if (existingSubscriptionTxQueryError) {
+            throw new Error(
+              `Failed to query existing subscription payment transaction: ${existingSubscriptionTxQueryError.message}`
+            )
+          }
 
           if (existingTransaction) {
             if (existingTransaction.status === 'paid') {
-              console.log('Subscription payment already processed:', sessionId)
+              if (process.env.NODE_ENV === 'development') {
+              console.log('Subscription payment already processed:', sessionId);
+              }
               break
             }
-            await supabaseAdmin
-              .from('payment_transactions')
-              .update({
-                status: 'paid',
-                paid_at: new Date().toISOString(),
-              })
-              .eq('id', existingTransaction.id)
-          } else {
-            const { data: existingSub } = await supabaseAdmin
-              .from('subscriptions')
-              .select('id')
-              .eq('user_id', userId)
-              .eq('subscription_type', subscriptionType)
-              .eq('status', 'active')
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single()
-
-            const subscriptionId = existingSub?.id || userId
-
-            await supabaseAdmin.from('payment_transactions').insert({
-              type: 'subscription',
-              provider: 'stripe',
-              provider_ref: sessionId,
-              amount,
-              currency,
-              status: 'paid',
-              related_id: subscriptionId,
-              paid_at: new Date().toISOString(),
-              metadata: metadata,
-            })
           }
 
           const { processSubscriptionPayment } = await import('@/lib/payments/process-subscription-payment')
@@ -404,7 +479,45 @@ export async function POST(request: NextRequest) {
           })
 
           if (!result.success) {
-            console.error('Failed to process subscription payment:', result.error)
+            throw new Error(`Failed to process subscription payment: ${result.error || 'unknown error'}`)
+          }
+
+          if (!result.subscriptionId) {
+            throw new Error(`Missing subscriptionId after processing subscription payment: ${sessionId}`)
+          }
+
+          const txPayload = {
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            amount,
+            currency,
+            related_id: result.subscriptionId,
+            metadata,
+          }
+
+          if (existingTransaction) {
+            const { error: updateSubscriptionTxError } = await supabaseAdmin
+              .from('payment_transactions')
+              .update(txPayload)
+              .eq('id', existingTransaction.id)
+            if (updateSubscriptionTxError) {
+              throw new Error(
+                `Failed to update subscription payment transaction: ${updateSubscriptionTxError.message}`
+              )
+            }
+          } else {
+            const { error: insertSubscriptionTxError } = await supabaseAdmin.from('payment_transactions').insert({
+              type: 'subscription',
+              provider: 'stripe',
+              provider_ref: sessionId,
+              ...txPayload,
+            })
+
+            if (insertSubscriptionTxError && insertSubscriptionTxError.code !== '23505') {
+              throw new Error(
+                `Failed to insert subscription payment transaction: ${insertSubscriptionTxError.message}`
+              )
+            }
           }
         }
         // Handle platform fee payment
@@ -426,7 +539,9 @@ export async function POST(request: NextRequest) {
             .eq('id', transactionId)
 
           if (txError) {
-            console.error('Failed to update platform fee transaction:', txError)
+            if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to update platform fee transaction:', txError);
+            }
           } else {
             // Create notification for user (use content_key for i18n)
             await supabaseAdmin.from('notifications').insert({
@@ -461,7 +576,9 @@ export async function POST(request: NextRequest) {
 
           if (existingTransaction) {
             if (existingTransaction.status === 'paid') {
-              console.log('Deposit payment already processed:', sessionId)
+              if (process.env.NODE_ENV === 'development') {
+              console.log('Deposit payment already processed:', sessionId);
+              }
               break
             }
             await supabaseAdmin
@@ -481,7 +598,11 @@ export async function POST(request: NextRequest) {
               status: 'paid',
               related_id: depositLotId,
               paid_at: new Date().toISOString(),
-              metadata: metadata,
+              metadata: {
+                ...metadata,
+                payment_intent_id:
+                  typeof session.payment_intent === 'string' ? session.payment_intent : null,
+              },
             })
           }
 
@@ -491,12 +612,16 @@ export async function POST(request: NextRequest) {
             .update({
               status: 'held',
               held_at: new Date().toISOString(),
+              payment_provider: 'stripe',
+              payment_session_id: sessionId,
             })
             .eq('id', depositLotId)
             .eq('seller_id', userId)
 
           if (lotError) {
-            console.error('Failed to update deposit lot:', lotError)
+            if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to update deposit lot:', lotError);
+            }
           } else {
             // Enable seller payment
             const { enableSellerPayment } = await import('@/lib/deposits/payment-control')
@@ -520,23 +645,31 @@ export async function POST(request: NextRequest) {
         else if (metadata.type === 'order' && metadata.orderId) {
           const orderId = metadata.orderId
           const sessionId = session.id
+          const sessionPaymentIntentId =
+            typeof session.payment_intent === 'string' ? session.payment_intent : null
           // Convert amount based on currency (JPY/KRW don't use decimals)
           const currency = session.currency?.toUpperCase() || 'USD'
           const divisor = ['JPY', 'KRW'].includes(currency) ? 1 : 100
           const amount = session.amount_total ? session.amount_total / divisor : 0
 
           // Check idempotency: Look for existing payment transaction
-          const { data: existingTransaction } = await supabaseAdmin
+          const { data: existingTransaction, error: existingTransactionError } = await supabaseAdmin
             .from('payment_transactions')
             .select('id, status')
             .eq('provider', 'stripe')
             .eq('provider_ref', sessionId)
-            .single()
+            .maybeSingle()
+
+          if (existingTransactionError) {
+            throw new Error(`Failed to query existing order payment transaction: ${existingTransactionError.message}`)
+          }
 
           if (existingTransaction) {
             if (existingTransaction.status === 'paid') {
               // Already processed, skip
-              console.log('Order payment already processed:', sessionId)
+              if (process.env.NODE_ENV === 'development') {
+              console.log('Order payment already processed:', sessionId);
+              }
               break
             }
             // Update existing transaction
@@ -552,7 +685,7 @@ export async function POST(request: NextRequest) {
             const orderCurrency = session.currency?.toUpperCase() || 'USD'
             
             // Create new payment transaction record
-            await supabaseAdmin.from('payment_transactions').insert({
+            const { error: insertOrderTxError } = await supabaseAdmin.from('payment_transactions').insert({
               type: 'order',
               provider: 'stripe',
               provider_ref: sessionId,
@@ -563,6 +696,10 @@ export async function POST(request: NextRequest) {
               paid_at: new Date().toISOString(),
               metadata: metadata,
             })
+
+            if (insertOrderTxError && insertOrderTxError.code !== '23505') {
+              throw new Error(`Failed to create order payment transaction: ${insertOrderTxError.message}`)
+            }
           }
 
           // Use unified service layer to process order payment
@@ -574,15 +711,20 @@ export async function POST(request: NextRequest) {
           })
 
           if (!result.success) {
-            console.error('Failed to process order payment:', result.error)
+            throw new Error(`Failed to process order payment: ${result.error || 'unknown error'}`)
           }
 
-          // Update order with payment method
+          // Update order with payment method and payment intent (for refund traceability)
+          const orderUpdatePayload: Record<string, string> = {
+            payment_method: 'stripe',
+          }
+          if (sessionPaymentIntentId) {
+            orderUpdatePayload.payment_intent_id = sessionPaymentIntentId
+          }
+
           await supabaseAdmin
             .from('orders')
-            .update({
-              payment_method: 'stripe',
-            })
+            .update(orderUpdatePayload)
             .eq('id', orderId)
         }
         break
@@ -590,6 +732,10 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.async_payment_succeeded':
         const asyncSession = event.data.object as Stripe.Checkout.Session
         const asyncMetadata = asyncSession.metadata || {}
+        const asyncSessionCurrency = (asyncSession.currency || 'USD').toUpperCase()
+        const asyncDivisor = ['JPY', 'KRW'].includes(asyncSessionCurrency) ? 1 : 100
+        const asyncSessionPaymentIntentId =
+          typeof asyncSession.payment_intent === 'string' ? asyncSession.payment_intent : null
 
         if (asyncMetadata.type === 'order' && asyncMetadata.orderId) {
           const asyncOrderId = asyncMetadata.orderId
@@ -603,7 +749,9 @@ export async function POST(request: NextRequest) {
 
           if (asyncOrder && asyncOrder.payment_status !== 'paid') {
             // Get payment amount from session
-            const amount = asyncSession.amount_total ? asyncSession.amount_total / 100 : asyncOrder.total_amount
+            const amount = asyncSession.amount_total
+              ? asyncSession.amount_total / asyncDivisor
+              : asyncOrder.total_amount
 
             // Use unified service layer to process order payment
             // This handles order status update, stock update, notifications (buyer + seller), and commissions
@@ -615,15 +763,20 @@ export async function POST(request: NextRequest) {
             })
 
             if (!result.success) {
-              console.error('Failed to process async order payment:', result.error)
+              throw new Error(`Failed to process async order payment: ${result.error || 'unknown error'}`)
             }
 
-            // Update order with payment method
+            // Update order with payment method and payment intent (for refund traceability)
+            const asyncOrderUpdatePayload: Record<string, string> = {
+              payment_method: 'stripe',
+            }
+            if (asyncSessionPaymentIntentId) {
+              asyncOrderUpdatePayload.payment_intent_id = asyncSessionPaymentIntentId
+            }
+
             await supabaseAdmin
               .from('orders')
-              .update({
-                payment_method: 'stripe',
-              })
+              .update(asyncOrderUpdatePayload)
               .eq('id', asyncOrderId)
           }
         }
@@ -631,6 +784,8 @@ export async function POST(request: NextRequest) {
 
       case 'payment_intent.succeeded':
         const paymentIntent = event.data.object as Stripe.PaymentIntent
+        const paymentIntentCurrency = (paymentIntent.currency || 'usd').toUpperCase()
+        const paymentIntentDivisor = ['JPY', 'KRW'].includes(paymentIntentCurrency) ? 1 : 100
         
         // Get order details with total amount
         const { data: orderForIntent } = await supabaseAdmin
@@ -641,7 +796,9 @@ export async function POST(request: NextRequest) {
 
         if (orderForIntent && orderForIntent.payment_status !== 'paid') {
           // Get payment amount from payment intent
-          const amount = paymentIntent.amount ? paymentIntent.amount / 100 : orderForIntent.total_amount
+          const amount = paymentIntent.amount
+            ? paymentIntent.amount / paymentIntentDivisor
+            : orderForIntent.total_amount
 
           // Use unified service layer to process order payment
           // This handles order status update, stock update, notifications (buyer + seller), and commissions
@@ -653,7 +810,7 @@ export async function POST(request: NextRequest) {
           })
 
           if (!result.success) {
-            console.error('Failed to process payment intent order payment:', result.error)
+            throw new Error(`Failed to process payment intent order payment: ${result.error || 'unknown error'}`)
           }
 
           // Update order with payment method
@@ -661,6 +818,7 @@ export async function POST(request: NextRequest) {
             .from('orders')
             .update({
               payment_method: 'stripe',
+              payment_intent_id: paymentIntent.id,
             })
             .eq('id', orderForIntent.id)
         }
@@ -716,16 +874,20 @@ export async function POST(request: NextRequest) {
             sellerId: sellerProfile.id,
             supabaseAdmin,
           }).catch((error) => {
-            console.error('Error updating seller payout eligibility after account.updated:', error)
+            if (process.env.NODE_ENV === 'development') {
+            console.error('Error updating seller payout eligibility after account.updated:', error);
+            }
             // Don't fail webhook, just log error
           })
 
-          console.log('[Webhook] Updated Stripe Connect account status for seller:', sellerProfile.id, {
-            accountId: connectAccountId,
-            chargesEnabled: account.charges_enabled,
-            payoutsEnabled: account.payouts_enabled,
-            status: providerAccountStatus,
-          })
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Webhook] Updated Stripe Connect account status for seller:', sellerProfile.id, {
+              accountId: connectAccountId,
+              chargesEnabled: account.charges_enabled,
+              payoutsEnabled: account.payouts_enabled,
+              status: providerAccountStatus,
+            })
+          }
         }
         break
 
@@ -757,20 +919,39 @@ export async function POST(request: NextRequest) {
             sellerId: deauthorizedSeller.id,
             supabaseAdmin,
           }).catch((error) => {
-            console.error('Error updating seller payout eligibility after account.application.deauthorized:', error)
+            if (process.env.NODE_ENV === 'development') {
+            console.error('Error updating seller payout eligibility after account.application.deauthorized:', error);
+            }
           })
 
-          console.log('[Webhook] Account deauthorized for seller:', deauthorizedSeller.id)
+          if (process.env.NODE_ENV === 'development') {
+          console.log('[Webhook] Account deauthorized for seller:', deauthorizedSeller.id);
+          }
         }
         break
 
       default:
-        console.log(`Unhandled event type ${event.type}`)
+        if (process.env.NODE_ENV === 'development') {
+        console.log(`Unhandled event type ${event.type}`);
+        }
     }
 
     return NextResponse.json({ received: true })
   } catch (error: any) {
-    console.error('Webhook handler error:', error)
+    if (webhookEventRowId) {
+      const { error: cleanupError } = await supabaseAdmin
+        .from('webhook_events')
+        .delete()
+        .eq('id', webhookEventRowId)
+
+      if (cleanupError && process.env.NODE_ENV === 'development') {
+        console.error('[stripe/webhook] Failed to rollback webhook event row:', cleanupError)
+      }
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+    console.error('Webhook handler error:', error);
+    }
     return NextResponse.json(
       { error: error.message },
       { status: 500 }

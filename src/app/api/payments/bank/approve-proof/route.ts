@@ -1,31 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdminOrSupport } from '@/lib/auth/require-admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { processOrderPayment } from '@/lib/payments/process-order-payment'
+import { logAudit } from '@/lib/api/audit'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const authResult = await requireAdminOrSupport(request)
+    if (!authResult.success) {
+      return authResult.response
     }
+    const { user } = authResult.data
+    const actorUserId = user.id
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin' && profile?.role !== 'support') {
-      return NextResponse.json(
-        { error: 'Unauthorized: Admin access required' },
-        { status: 403 }
-      )
+    const audit = (
+      result: 'success' | 'fail' | 'partial',
+      meta?: Record<string, unknown>
+    ) => {
+      logAudit({
+        action: 'bank_proof_review',
+        userId: actorUserId,
+        resourceId: typeof proofId === 'string' ? proofId : undefined,
+        resourceType: 'bank_payment_proof',
+        result,
+        timestamp: new Date().toISOString(),
+        meta,
+      })
     }
 
     const { proofId, approved, reviewNotes } = await request.json()
@@ -37,18 +37,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Use service role client for admin operations
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabaseAdmin = await getSupabaseAdmin()
 
     // Get proof details with payment transaction info
     const { data: proof, error: proofError } = await supabaseAdmin
@@ -58,6 +47,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (proofError || !proof) {
+      audit('fail', { approved, reason: proofError?.message || 'Proof not found' })
       return NextResponse.json(
         { error: 'Proof not found' },
         { status: 404 }
@@ -76,6 +66,7 @@ export async function POST(request: NextRequest) {
       .eq('id', proofId)
 
     if (updateError) {
+      audit('fail', { approved, reason: 'Failed to update proof status' })
       return NextResponse.json(
         { error: 'Failed to update proof status' },
         { status: 500 }
@@ -115,7 +106,14 @@ export async function POST(request: NextRequest) {
           })
 
           if (!result.success) {
-            console.error('Failed to activate subscription:', result.error)
+            if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to activate subscription:', result.error);
+            }
+            audit('partial', {
+              approved,
+              transactionType: transaction.type,
+              reason: result.error || 'Failed to activate subscription',
+            })
             return NextResponse.json(
               { 
                 success: false, 
@@ -150,11 +148,27 @@ export async function POST(request: NextRequest) {
             })
 
             if (!result.success) {
-              console.error('Failed to process order payment:', result.error)
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Failed to process order payment:', result.error)
+              }
+              audit('partial', {
+                approved,
+                transactionType: transaction.type,
+                orderId: order.id,
+                reason: result.error || 'Failed to process order payment',
+              })
+              return NextResponse.json(
+                {
+                  success: false,
+                  error: result.error || 'Failed to process order payment',
+                  message: '凭证审核通过，但订单支付处理失败',
+                },
+                { status: 500 }
+              )
             }
 
             // Update order with payment method
-            await supabaseAdmin
+            const { error: updateOrderError } = await supabaseAdmin
               .from('orders')
               .update({
                 payment_method: 'bank',
@@ -162,19 +176,54 @@ export async function POST(request: NextRequest) {
                 paid_at: new Date().toISOString(),
               })
               .eq('id', order.id)
+
+            if (updateOrderError) {
+              audit('partial', {
+                approved,
+                transactionType: transaction.type,
+                orderId: order.id,
+                reason: updateOrderError.message || 'Failed to update order payment status',
+              })
+              return NextResponse.json(
+                {
+                  success: false,
+                  error: updateOrderError.message || 'Failed to update order payment status',
+                  message: '凭证审核通过，但订单支付状态写入失败',
+                },
+                { status: 500 }
+              )
+            }
           }
         }
       }
     }
 
+    audit('success', {
+      approved,
+      hasTransaction: !!proof.payment_transaction_id,
+      orderId: proof.order_id,
+    })
+
     return NextResponse.json({
       success: true,
       message: approved ? '凭证审核通过，订单已处理' : '凭证已拒绝',
     })
-  } catch (error: any) {
-    console.error('Bank proof approval error:', error)
+  } catch (error: unknown) {
+    logAudit({
+      action: 'bank_proof_review',
+      result: 'fail',
+      resourceType: 'bank_payment_proof',
+      timestamp: new Date().toISOString(),
+      meta: { error: error instanceof Error ? error.message : String(error) },
+    })
+
+    if (process.env.NODE_ENV === 'development') {
+    console.error('Bank proof approval error:', error);
+    }
+
+    const message = error instanceof Error ? error.message : 'Failed to approve proof'
     return NextResponse.json(
-      { error: error.message || 'Failed to approve proof' },
+      { error: message },
       { status: 500 }
     )
   }
