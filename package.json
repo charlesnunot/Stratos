@@ -42,6 +42,8 @@
     "test:18-admin-write-routes": "node scripts/test-18-admin-write-routes.js",
     "test:19-admin-extra-and-identity": "node scripts/test-19-admin-extra-and-identity.js",
     "test:20-webhook-retry-simulation": "node scripts/test-20-webhook-retry-simulation.js",
+    "test:21-order-refund-scenarios": "node scripts/test-21-order-refund-scenarios.js",
+    "test:22-payment-chain-static-check": "node scripts/test-22-payment-chain-static-check.js",
     "test:auth:real": "node scripts/test-auth-with-real-user.js"
   },
   "dependencies": {

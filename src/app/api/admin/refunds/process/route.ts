@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { processRefund } from '@/lib/payments/process-refund'
+import { processRefundWithFallback } from '@/lib/payments/process-refund-with-fallback'
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,16 +53,33 @@ export async function POST(request: NextRequest) {
 
     const order = (refund.order as any)
 
-    // Process refund
-    const refundResult = await processRefund({
-      orderId,
-      refundId,
-      disputeId: refund.dispute_id || undefined,
-      amount: refund.refund_amount,
-      currency: refund.currency || order.currency || 'USD',
-      refundMethod: (refund.refund_method as any) || 'platform_refund',
-      supabaseAdmin,
-    })
+    const requestedRefundMethod = (refund.refund_method as string | null) || 'original_payment'
+    const refundAmount = Number(refund.refund_amount)
+    const refundCurrency = refund.currency || order.currency || 'USD'
+    const refundReason = typeof refund.refund_reason === 'string' ? refund.refund_reason : undefined
+
+    // Keep explicit bank-transfer manual flow; unify other paths with fallback flow.
+    const refundResult =
+      requestedRefundMethod === 'bank_transfer'
+        ? await processRefund({
+            orderId,
+            refundId,
+            disputeId: refund.dispute_id || undefined,
+            amount: refundAmount,
+            currency: refundCurrency,
+            refundMethod: 'bank_transfer',
+            supabaseAdmin,
+            operatorId: adminId,
+          })
+        : await processRefundWithFallback({
+            orderId,
+            refundId,
+            disputeId: refund.dispute_id || undefined,
+            amount: refundAmount,
+            currency: refundCurrency,
+            reason: refundReason,
+            supabaseAdmin,
+          })
 
     if (!refundResult.success) {
       // Update refund status to failed
